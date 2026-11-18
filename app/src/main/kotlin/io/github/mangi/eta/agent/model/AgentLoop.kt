@@ -170,6 +170,9 @@ internal class AgentLoop(
                             thinkingBlockStartMs.putIfAbsent(attemptRound to providerEvent.index, monotonicNowMs())
                             accumulatedReasoning.append(providerEvent.delta)
                         }
+                        // 流式期间也要能暂停：每个 provider 事件到达时先检查，
+                        // 暂停后新的 token 不再被消费，直到恢复或取消。
+                        runController.awaitIfPaused()
                         if (providerEvent !is ProviderEvent.Usage) {
                             providerEvent.toAgentEvent(attemptRound)?.let(onEvent)
                         }
