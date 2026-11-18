@@ -85,6 +85,7 @@ internal fun AgentHomeScreen(
                     onPause = { onAction(AgentHomeAction.PauseRun) },
                     isRunPaused = state.isRunPaused,
                     onResume = { onAction(AgentHomeAction.ResumeRun) },
+                    onInject = { onAction(AgentHomeAction.InjectIntoRun) },
                     onAttachImage = { uri -> onAction(AgentHomeAction.ImageAttached(uri)) },
                     onRemoveImage = { id -> onAction(AgentHomeAction.RemoveImage(id)) },
                     onAttachFiles = { uris -> onAction(AgentHomeAction.FilesAttached(uris)) },
