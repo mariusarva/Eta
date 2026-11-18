@@ -1168,6 +1168,7 @@ private fun AgentChatBottomBar(
                 onCancelMessageEdit = onCancelMessageEdit,
                 glassBackdrop = glassBackdrop,
                 modifier = Modifier.fillMaxWidth(),
+                isRunPaused = isRunPaused,
             )
         }
     }
