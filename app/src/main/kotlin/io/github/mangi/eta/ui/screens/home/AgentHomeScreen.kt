@@ -82,6 +82,8 @@ internal fun AgentHomeScreen(
                     onRecallQueuedMessage = { id, draft -> onAction(AgentHomeAction.RecallQueuedMessage(id, draft)) },
                     onRemoveQueuedMessage = { id -> onAction(AgentHomeAction.RemoveQueuedMessage(id)) },
                     onStop = { onAction(AgentHomeAction.StopRun) },
+                    onPause = { onAction(AgentHomeAction.PauseRun) },
+                    onResume = { onAction(AgentHomeAction.ResumeRun) },
                     onAttachImage = { uri -> onAction(AgentHomeAction.ImageAttached(uri)) },
                     onRemoveImage = { id -> onAction(AgentHomeAction.RemoveImage(id)) },
                     onAttachFiles = { uris -> onAction(AgentHomeAction.FilesAttached(uris)) },
