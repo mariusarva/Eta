@@ -280,6 +280,15 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                     steerRun(msg.data, msg.replyTo)
                 }
 
+                AgentRuntimeWire.MSG_PAUSE -> {
+                    val runId = msg.data?.let(AgentRuntimeWire::runIdFromBundle).orEmpty()
+                    if (runId.isNotBlank()) pauseRun(runId)
+                }
+
+                AgentRuntimeWire.MSG_RESUME -> {
+                    resumeRun()
+                }
+
                 AgentRuntimeWire.MSG_ACK_RESULT -> {
                     val runId = AgentRuntimeWire.runIdFromBundle(msg.data ?: return)
                     dispatchResultIo { AgentRuntimeResultStore.remove(this@AgentRuntimeService, runId) }
@@ -852,6 +861,39 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             updateKeepScreenOn()
             publishExecutionState()
         }
+    }
+
+    /** 暂停指定运行：控制器在检查点挂起，线程不阻塞调用方。 */
+    private fun pauseRun(runId: String) {
+        val run = runs.get(runId) ?: return
+        if (run.session.isTerminal) return
+        if (!guiControl.pauseForUser(runId)) {
+            // 当前没有 GUI 所有者（纯后台运行），直接操作控制器。
+            run.session.controller.pause()
+        }
+        run.overlayState = run.overlayState.copy(status = AgentOverlayStatus.Paused)
+        if (displayedRun === run) state.value = run.overlayState
+        updateKeepScreenOn()
+        publishExecutionState()
+    }
+
+    /** 恢复被暂停的运行。 */
+    private fun resumeRun() {
+        if (!guiControl.resumeForUser()) {
+            runs.all().forEach { run ->
+                if (!run.session.isTerminal && run.session.controller.isPaused) {
+                    run.session.controller.resume()
+                }
+            }
+        }
+        displayedRun?.let { run ->
+            if (!run.session.isTerminal) {
+                run.overlayState = run.overlayState.copy(status = AgentOverlayStatus.Running)
+                state.value = run.overlayState
+            }
+        }
+        updateKeepScreenOn()
+        publishExecutionState()
     }
 
     private fun steerRun(data: Bundle?, replyTo: Messenger?) {
