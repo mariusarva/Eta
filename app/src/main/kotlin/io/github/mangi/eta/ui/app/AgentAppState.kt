@@ -2322,6 +2322,22 @@ internal class AgentAppState(
             AgentFileReferenceGateway.Error.ValidationTimedOut -> appContext.getString(R.string.state_ui_path_verification_timed_out_please_try_again_703687)
         }
 
+    /** 暂停当前运行：工作线程在下一个检查点挂起，可继续。 */
+    fun pauseCurrentRun() {
+        val runId = runStore.activeRunId(selectedConversationId) ?: return
+        scope.launch(Dispatchers.IO) {
+            AgentRuntimeClient(appContext, AndroidAgentLogger).pauseRun(runId)
+        }
+    }
+
+    /** 继续被暂停的运行。 */
+    fun resumeCurrentRun() {
+        val runId = runStore.activeRunId(selectedConversationId) ?: return
+        scope.launch(Dispatchers.IO) {
+            AgentRuntimeClient(appContext, AndroidAgentLogger).resumeRun()
+        }
+    }
+
     fun stopCurrentRun() {
         val runId = runStore.activeRunId(selectedConversationId) ?: return
         stopRun(runId)
