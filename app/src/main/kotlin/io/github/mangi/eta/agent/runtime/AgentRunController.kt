@@ -98,7 +98,7 @@ internal class AgentRunController {
      * 与 [throwIfCancelled] 共享同一把锁和条件变量。
      */
     fun awaitIfPaused() {
-        if (!paused) return
+        // paused 不是 volatile，必须在锁内读取，否则可能读到旧值而直接放行。
         lock.withLock {
             while (paused && !cancelled) {
                 try {
