@@ -2368,7 +2368,12 @@ internal class AgentAppState(
 
     /** 暂停当前运行：工作线程在下一个检查点挂起，可继续。 */
     fun pauseCurrentRun() {
-        val runId = runStore.activeRunId(selectedConversationId) ?: return
+        val runId = runStore.activeRunId(selectedConversationId)
+        AndroidAgentLogger.info(
+            "Agent UI pause clicked: conversationId=$selectedConversationId, runId=$runId, " +
+                "isStreaming=${homeState.isStreaming}, observedRuns=${runStore.observedRunIds.size}"
+        )
+        if (runId == null) return
         scope.launch(Dispatchers.IO) {
             AgentRuntimeClient(appContext, AndroidAgentLogger).pauseRun(runId)
         }
