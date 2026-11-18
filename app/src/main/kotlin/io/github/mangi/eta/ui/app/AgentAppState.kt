@@ -1307,6 +1307,50 @@ internal class AgentAppState(
         submitOrQueueCurrentMessage(submittedText = submittedText, immediateInterrupt = true)
     }
 
+    /** 把当前输入直接注入运行中的任务（steer）：不排队、不打断，Agent 下一步即可看到。 */
+    fun injectIntoRun() {
+        if (!homeState.isConversationLoaded || homeState.isCompacting) return
+        if (!homeState.isStreaming) {
+            // 没有运行中任务时退化为普通发送，避免按钮点了没反应。
+            sendCurrentMessage()
+            return
+        }
+        val prompt = homeState.input.trim()
+        if (prompt.isBlank()) return
+        val fileReferences = homeState.pendingFileReferences.map { it.reference }
+        if (
+            !AgentFileReferencePolicy.canSend(
+                references = fileReferences,
+                terminalToolsEnabled = agentBooleanForUi(Prefs.Keys.AGENT_TERMINAL_TOOLS) &&
+                    (Prefs.isToolEnabled("read_file") || Prefs.isToolEnabled("terminal")),
+            )
+        ) {
+            Toast.makeText(
+                appContext,
+                appContext.getString(R.string.state_ui_file_path_reference_requires_opening_the_termina_deca4c),
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        val item = QueuedMessageUi(
+            id = "inject-${UUID.randomUUID()}",
+            content = prompt,
+            pendingImages = emptyList(),
+            pendingFileReferences = homeState.pendingFileReferences,
+            immediateInterrupt = true,
+        )
+        updateCurrentConversation(
+            state = homeState.copy(
+                input = "",
+                pendingImages = emptyList(),
+                pendingFileReferences = emptyList(),
+                inputSyncVersion = homeState.inputSyncVersion + 1,
+            ),
+            updateTimestamp = false,
+        )
+        steerToActiveRun(selectedConversationId, item)
+    }
+
     fun steerQueuedMessage(id: String) {
         if (!homeState.isConversationLoaded) return
         val target = homeState.queuedMessages.firstOrNull { it.id == id } ?: return
