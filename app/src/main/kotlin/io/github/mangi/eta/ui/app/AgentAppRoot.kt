@@ -422,6 +422,7 @@ fun AgentAppRoot(
                                         AgentHomeAction.StopRun -> agentState.stopCurrentRun()
                                 AgentHomeAction.PauseRun -> agentState.pauseCurrentRun()
                                 AgentHomeAction.ResumeRun -> agentState.resumeCurrentRun()
+                                AgentHomeAction.InjectIntoRun -> agentState.injectIntoRun()
                                         is AgentHomeAction.ImageAttached -> agentState.attachImage(action.uri)
                                         is AgentHomeAction.RemoveImage -> agentState.removePendingImage(action.id)
                                         is AgentHomeAction.FilesAttached -> agentState.attachFiles(action.uris)
