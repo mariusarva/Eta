@@ -865,7 +865,11 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
 
     /** 暂停指定运行：控制器在检查点挂起，线程不阻塞调用方。 */
     private fun pauseRun(runId: String) {
-        val run = runs.get(runId) ?: return
+        val run = runs.get(runId)
+        AndroidAgentLogger.info(
+            "Agent runtime pause requested: runId=$runId, found=${run != null}, terminal=${run?.session?.isTerminal}"
+        )
+        if (run == null) return
         if (run.session.isTerminal) return
         if (!guiControl.pauseForUser(runId)) {
             // 当前没有 GUI 所有者（纯后台运行），直接操作控制器。
