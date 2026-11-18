@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui
 
+import androidx.compose.material.icons.rounded.AccountCircle
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -620,6 +621,17 @@ private fun SettingsPageContent(
                         },
                         onClick = { onNavigate(AppRoute.Skills) },
                     )
+                    CouiPreference(
+                        title = "GitHub 账号",
+                        icon = {
+                            CouiSettingsIcon(
+                                Icons.Rounded.AccountCircle,
+                                SettingsIconColors.Blue,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.GitHubAccount) },
+                    )
+                    CouiIconDivider()
                     CouiPreference(
                         title = "提示词预设",
                         icon = {
