@@ -133,6 +133,23 @@ internal class AgentRuntimeClient(
         }
     }
 
+    /** 暂停指定运行；不等待服务端回执，失败时下次事件流会反映真实状态。 */
+    fun pauseRun(runId: String) {
+        if (runId.isBlank()) return
+        withRuntimeMessenger(Unit) { serviceMessenger ->
+            val msg = Message.obtain(null, AgentRuntimeWire.MSG_PAUSE)
+            msg.data = AgentRuntimeWire.ackBundle(runId)
+            serviceMessenger.send(msg)
+        }
+    }
+
+    /** 恢复被暂停的运行。 */
+    fun resumeRun() {
+        withRuntimeMessenger(Unit) { serviceMessenger ->
+            serviceMessenger.send(Message.obtain(null, AgentRuntimeWire.MSG_RESUME))
+        }
+    }
+
     fun steerRun(runId: String, text: String): SteerOutcome {
         val trimmed = text.trim()
         if (runId.isBlank() || trimmed.isBlank()) return SteerOutcome.Rejected
