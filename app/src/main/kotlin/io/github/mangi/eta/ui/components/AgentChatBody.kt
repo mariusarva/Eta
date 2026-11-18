@@ -171,6 +171,7 @@ internal fun AgentChatBody(
     onStop: () -> Unit,
     onPause: () -> Unit = {},
     isRunPaused: Boolean = false,
+    onInject: () -> Unit = {},
     onResume: () -> Unit = {},
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
@@ -361,6 +362,7 @@ private fun AgentChatScaffold(
     onPause: () -> Unit = {},
     onResume: () -> Unit = {},
     isRunPaused: Boolean = false,
+    onInject: () -> Unit = {},
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
     onAttachFiles: (List<String>) -> Unit,
@@ -424,6 +426,7 @@ private fun AgentChatScaffold(
                 onStop = onStop,
                 onPause = onPause,
                 isRunPaused = isRunPaused,
+                onInject = onInject,
                 onResume = onResume,
                 onAttachImage = onAttachImage,
                 onRemoveImage = onRemoveImage,
@@ -1099,6 +1102,7 @@ private fun AgentChatBottomBar(
     onPause: () -> Unit = {},
     onResume: () -> Unit = {},
     isRunPaused: Boolean = false,
+    onInject: () -> Unit = {},
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
     onAttachFiles: (List<String>) -> Unit,
@@ -1171,6 +1175,7 @@ private fun AgentChatBottomBar(
                 glassBackdrop = glassBackdrop,
                 modifier = Modifier.fillMaxWidth(),
                 isRunPaused = isRunPaused,
+                onInject = onInject,
             )
         }
     }
