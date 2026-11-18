@@ -31,6 +31,9 @@ sealed interface AppRoute : NavKey {
     data object PromptPresets : AppRoute
 
     @Serializable
+    data object GitHubAccount : AppRoute
+
+    @Serializable
     data object ConversationTitleSettings : AppRoute
 
     @Serializable
