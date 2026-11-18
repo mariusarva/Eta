@@ -16,6 +16,8 @@ internal data class AgentChatUiState(
     val journal: List<AgentModelClient.ConversationMessage> = emptyList(),
     val input: String,
     val isStreaming: Boolean,
+    /** 当前运行是否被用户暂停（服务端 GuiControlStatus.UserPaused 投影）。 */
+    val isRunPaused: Boolean = false,
     val isCompacting: Boolean = false,
     val thinkingEnabled: Boolean,
     val reasoningEffort: ReasoningEffort = ReasoningEffort.fromLegacy(thinkingEnabled),
