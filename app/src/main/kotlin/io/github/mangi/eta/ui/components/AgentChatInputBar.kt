@@ -53,6 +53,8 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -161,6 +163,9 @@ internal fun AgentChatInputBar(
     onRecallQueuedMessage: (String, String) -> Unit = { _, _ -> },
     onRemoveQueuedMessage: (String) -> Unit = {},
     onStop: () -> Unit,
+    onPause: () -> Unit = {},
+    onResume: () -> Unit = {},
+    isRunPaused: Boolean = false,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
     onAttachFiles: (List<String>) -> Unit,
@@ -544,6 +549,35 @@ internal fun AgentChatInputBar(
                                     onSubmit(submittedText)
                                 }
                             }
+                        }
+
+                        // 暂停/继续：只在运行中出现，暂停后按钮切成继续。
+                        AnimatedVisibility(
+                            visible = isStreaming && !isCompacting,
+                            enter = fadeIn(tween(140)) + scaleIn(tween(160), initialScale = 0.78f),
+                            exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.78f),
+                        ) {
+                            IconButton(
+                                onClick = { if (isRunPaused) onResume() else onPause() },
+                                minWidth = ChatInputActionSize,
+                                minHeight = ChatInputActionSize,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(SendButtonVisualSize)
+                                        .clip(CircleShape)
+                                        .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = if (isRunPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                                        contentDescription = if (isRunPaused) "继续" else "暂停",
+                                        modifier = Modifier.size(StopIconSize),
+                                        tint = MiuixTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(2.dp))
                         }
 
                         AnimatedVisibility(
