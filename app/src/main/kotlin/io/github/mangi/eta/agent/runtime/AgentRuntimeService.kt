@@ -888,7 +888,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         }
         displayedRun?.let { run ->
             if (!run.session.isTerminal) {
-                run.overlayState = run.overlayState.copy(status = AgentOverlayStatus.Running)
+                run.overlayState = run.overlayState.copy(status = AgentOverlayStatus.Reasoning)
                 state.value = run.overlayState
             }
         }
