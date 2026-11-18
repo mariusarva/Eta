@@ -19,10 +19,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 提示词预设：把 base / persona / append 合成一份系统提示词，写入所有已启用 provider 的 `system_prompt`。
+ * 把预设合成为一份系统提示词。
  *
- * 官方版没有全局人格层，提示词挂在 provider 上，所以这里直接写那一列；
- * 应用后新会话立即生效，旧会话按各自 provider 记录继续。
+ * 官方版没有全局人格层，提示词挂在 provider 的 `system_prompt` 列上，所以这里直接产出该列的值。
+ * 空预设不跳过：它的 base 就是官方内置提示词，写入即等于恢复默认。
  */
 private fun PromptPreset.effectiveSystemPrompt(): String {
     val parts = ArrayList<String>(3)
@@ -30,9 +30,7 @@ private fun PromptPreset.effectiveSystemPrompt(): String {
     if (personaName.isNotBlank() || personaStyle.isNotBlank()) {
         parts += buildString {
             if (personaName.isNotBlank()) append("身份：").append(personaName.trim())
-            if (personaStyle.isNotBlank()) {
-                append("\n风格：").append(personaStyle.trim())
-            }
+            if (personaStyle.isNotBlank()) append("\n风格：").append(personaStyle.trim())
         }
     }
     if (appendInstructions.isNotBlank()) parts += appendInstructions.trim()
@@ -49,34 +47,30 @@ internal fun PromptPresetsScreen(onBack: () -> Unit) {
 
     val applyPreset: (PromptPreset) -> Unit = { preset ->
         val text = preset.effectiveSystemPrompt()
-        if (text.isBlank()) {
-            Toast.makeText(context, "该预设没有内容", Toast.LENGTH_SHORT).show()
-        } else {
-            scope.launch {
-                val count = runCatching {
-                    withContext(Dispatchers.IO) {
-                        val dao = EtaDatabase.get(context.applicationContext).providerDao()
-                        val targets = dao.providers().filter { it.provider.isEnabled }
-                        targets.forEach { item ->
-                            dao.updateProvider(item.provider.copy(systemPrompt = text))
-                        }
-                        targets.size
+        scope.launch {
+            val count = runCatching {
+                withContext(Dispatchers.IO) {
+                    val dao = EtaDatabase.get(context.applicationContext).providerDao()
+                    val targets = dao.providers().filter { it.provider.isEnabled }
+                    targets.forEach { item ->
+                        dao.updateProvider(item.provider.copy(systemPrompt = text))
                     }
-                }.getOrElse { -1 }
-                val message = if (count >= 0) {
-                    "已写入 $count 个提供商的系统提示词"
-                } else {
-                    "写入失败"
+                    targets.size
                 }
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }.getOrElse { -1 }
+            val message = if (count >= 0) {
+                "已写入 $count 个提供商（${text.length} 字）"
+            } else {
+                "写入失败"
             }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
     CouiScaffoldPage(title = "提示词预设", onBack = onBack) {
         CouiPreference(
             title = "应用方式",
-            summary = "点击任意预设会覆盖所有已启用提供商的系统提示词；官方版的提示词挂在 provider 上，没有全局人格层。",
+            summary = "点击任意预设会覆盖所有已启用提供商的系统提示词；官方版的提示词挂在 provider 上，没有全局人格层。选「系统默认」即恢复官方内置提示词。",
         )
         Spacer(Modifier.height(8.dp))
         presets.forEach { preset ->
