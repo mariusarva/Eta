@@ -1179,6 +1179,8 @@ private fun AgentChatBottomBar(
                 glassBackdrop = glassBackdrop,
                 modifier = Modifier.fillMaxWidth(),
                 isRunPaused = isRunPaused,
+                onPause = onPause,
+                onResume = onResume,
                 onInject = onInject,
             )
         }
