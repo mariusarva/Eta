@@ -54,6 +54,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.Reply
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
@@ -163,6 +164,8 @@ internal fun AgentChatInputBar(
     onRecallQueuedMessage: (String, String) -> Unit = { _, _ -> },
     onRemoveQueuedMessage: (String) -> Unit = {},
     onStop: () -> Unit,
+    /** 运行中把当前输入作为补充指令注入当前轮次（steer）。 */
+    onInject: () -> Unit = {},
     onPause: () -> Unit = {},
     onResume: () -> Unit = {},
     isRunPaused: Boolean = false,
@@ -572,6 +575,38 @@ internal fun AgentChatInputBar(
                                     Icon(
                                         imageVector = if (isRunPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
                                         contentDescription = if (isRunPaused) "继续" else "暂停",
+                                        modifier = Modifier.size(StopIconSize),
+                                        tint = MiuixTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(2.dp))
+                        }
+
+                        // 运行中注入：把输入作为补充指令插进当前轮次，不打断、不排队。
+                        AnimatedVisibility(
+                            visible = isStreaming && !isCompacting && canSend,
+                            enter = fadeIn(tween(140)) + scaleIn(tween(160), initialScale = 0.78f),
+                            exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.78f),
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    dictation.cancel()
+                                    onInject()
+                                },
+                                minWidth = ChatInputActionSize,
+                                minHeight = ChatInputActionSize,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(SendButtonVisualSize)
+                                        .clip(CircleShape)
+                                        .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Reply,
+                                        contentDescription = "插入到当前运行",
                                         modifier = Modifier.size(StopIconSize),
                                         tint = MiuixTheme.colorScheme.onSurface,
                                     )
