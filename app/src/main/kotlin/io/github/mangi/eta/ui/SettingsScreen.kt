@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -621,6 +622,12 @@ private fun SettingsPageContent(
                     )
                     CouiPreference(
                         title = "提示词预设",
+                        icon = {
+                            CouiSettingsIcon(
+                                Icons.Rounded.TextFields,
+                                SettingsIconColors.Yellow,
+                            )
+                        },
                         onClick = { onNavigate(AppRoute.PromptPresets) },
                     )
                     CouiIconDivider()
