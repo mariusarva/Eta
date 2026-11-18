@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.app
 
+import io.github.mangi.eta.ui.screens.github.GitHubAccountScreen
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
@@ -497,6 +498,10 @@ fun AgentAppRoot(
                     }
                     entry<AppRoute.Subagents>(swipeDismiss = activeSwipeDismiss) {
                         SubagentSettingsScreen(onBack = ::popRoute)
+                    }
+
+                    entry<AppRoute.GitHubAccount>(swipeDismiss = activeSwipeDismiss) {
+                        GitHubAccountScreen(onBack = ::popRoute)
                     }
                     entry<AppRoute.PromptPresets>(swipeDismiss = activeSwipeDismiss) {
                         PromptPresetsScreen(onBack = ::popRoute)
