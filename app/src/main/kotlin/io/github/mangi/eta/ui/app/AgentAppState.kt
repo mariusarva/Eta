@@ -2412,6 +2412,15 @@ internal class AgentAppState(
         when (event) {
             is AgentEvent.GuiControlChanged -> {
                 runStore.updateGuiStatus(runId, event.status)
+                // 暂停/继续会改变输入栏按钮形态，需要同步到会话状态。
+                conversationIdForRun(runId)?.let { id ->
+                    conversationsById[id]?.let { state ->
+                        val paused = event.status == GuiControlStatus.UserPaused
+                        if (state.isRunPaused != paused) {
+                            updateConversation(id, state.copy(isRunPaused = paused), updateTimestamp = false)
+                        }
+                    }
+                }
                 refreshConversationSummaries()
             }
             is AgentEvent.UserSupplementReceived ->
