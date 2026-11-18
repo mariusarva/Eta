@@ -2369,11 +2369,10 @@ internal class AgentAppState(
     /** 暂停当前运行：工作线程在下一个检查点挂起，可继续。 */
     fun pauseCurrentRun() {
         val runId = runStore.activeRunId(selectedConversationId)
-        AndroidAgentLogger.info(
-            "Agent UI pause clicked: conversationId=$selectedConversationId, runId=$runId, " +
-                "isStreaming=${homeState.isStreaming}, observedRuns=${runStore.observedRunIds.size}"
-        )
         if (runId == null) return
+        // 本地立刻置位：服务端只在没有活跃动作时才回推 GuiControlChanged，
+        // 工具执行期间等不到事件，按钮会一直停在暂停态导致无法再点。
+        setRunPaused(runId, paused = true)
         scope.launch(Dispatchers.IO) {
             AgentRuntimeClient(appContext, AndroidAgentLogger).pauseRun(runId)
         }
@@ -2382,9 +2381,18 @@ internal class AgentAppState(
     /** 继续被暂停的运行。 */
     fun resumeCurrentRun() {
         val runId = runStore.activeRunId(selectedConversationId) ?: return
+        setRunPaused(runId, paused = false)
         scope.launch(Dispatchers.IO) {
             AgentRuntimeClient(appContext, AndroidAgentLogger).resumeRun()
         }
+    }
+
+    /** 把暂停标记写到 run 所属会话的 UI 状态上。 */
+    private fun setRunPaused(runId: String, paused: Boolean) {
+        val conversationId = conversationIdForRun(runId) ?: return
+        val state = conversationsById[conversationId] ?: return
+        if (state.isRunPaused == paused) return
+        updateConversation(conversationId, state.copy(isRunPaused = paused), updateTimestamp = false)
     }
 
     fun stopCurrentRun() {
