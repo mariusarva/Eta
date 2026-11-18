@@ -132,9 +132,9 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val SendButtonVisualSize = ChatInputActionIconSize
 private val SendIconSize = 16.dp
-private val StopIconSize = 16.dp
-/** 暂停/继续/注入按钮的图标尺寸，比停止图标略大以便辨识。 */
-private val ActionIconSize = 18.dp
+private val StopIconSize = 20.dp
+/** 暂停/继续/注入按钮的图标尺寸，与停止图标一致。 */
+private val ActionIconSize = 20.dp
 
 /**
  * Agent 输入器始终保持同一空间结构，聚焦、输入和执行过程只改变状态，不搬动操作入口。
@@ -582,7 +582,8 @@ internal fun AgentChatInputBar(
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.width(2.dp))
+                            // 与停止键拉开距离，避免误触。
+                            Spacer(modifier = Modifier.width(10.dp))
                         }
 
                         // 运行中注入：把输入作为补充指令插进当前轮次，不打断、不排队。
@@ -614,7 +615,7 @@ internal fun AgentChatInputBar(
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.width(2.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
                         }
 
                         AnimatedVisibility(
