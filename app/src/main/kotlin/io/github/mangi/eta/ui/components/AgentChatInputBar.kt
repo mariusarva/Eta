@@ -67,6 +67,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.focus.FocusRequester
@@ -132,6 +133,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val SendButtonVisualSize = ChatInputActionIconSize
 private val SendIconSize = 16.dp
+/** 字形放大倍数：Material 图标留白多，1.35 倍后视觉大小才与按钮圆匹配。 */
+private val StopGlyphScale = 1.35f
 private val StopIconSize = 20.dp
 /** 暂停/继续/注入按钮的图标尺寸，与停止图标一致。 */
 private val ActionIconSize = 20.dp
@@ -577,7 +580,7 @@ internal fun AgentChatInputBar(
                                     Icon(
                                         imageVector = if (isRunPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
                                         contentDescription = if (isRunPaused) "继续" else "暂停",
-                                        modifier = Modifier.size(ActionIconSize),
+                                        modifier = Modifier.size(ActionIconSize).scale(StopGlyphScale),
                                         tint = MiuixTheme.colorScheme.onSurface,
                                     )
                                 }
@@ -610,7 +613,7 @@ internal fun AgentChatInputBar(
                                     Icon(
                                         imageVector = Icons.Rounded.Reply,
                                         contentDescription = "插入到当前运行",
-                                        modifier = Modifier.size(ActionIconSize),
+                                        modifier = Modifier.size(ActionIconSize).scale(StopGlyphScale),
                                         tint = MiuixTheme.colorScheme.onSurface,
                                     )
                                 }
@@ -638,7 +641,8 @@ internal fun AgentChatInputBar(
                                     Icon(
                                         imageVector = Icons.Rounded.Stop,
                                         contentDescription = stringResource(R.string.chat_stop),
-                                        modifier = Modifier.size(StopIconSize),
+                                        // Material 的 Stop 字形只占视口约一半，放大盒子无效，直接放大字形。
+                                        modifier = Modifier.size(StopIconSize).scale(StopGlyphScale),
                                         tint = MiuixTheme.colorScheme.onSurface,
                                     )
                                 }
