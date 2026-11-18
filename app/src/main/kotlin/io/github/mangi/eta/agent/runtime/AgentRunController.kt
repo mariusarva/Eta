@@ -93,6 +93,24 @@ internal class AgentRunController {
      * 检查点：若已取消则抛异常；若已暂停则阻塞挂起直到恢复或取消。
      * 在 agent 循环的每轮/每步调用，实现暂停可恢复、取消即终止。
      */
+    /**
+     * 仅在暂停时阻塞，不抛异常；供流式回调等不能抛异常的位置使用。
+     * 与 [throwIfCancelled] 共享同一把锁和条件变量。
+     */
+    fun awaitIfPaused() {
+        if (!paused) return
+        lock.withLock {
+            while (paused && !cancelled) {
+                try {
+                    pauseCondition.await()
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    cancelled = true
+                }
+            }
+        }
+    }
+
     fun throwIfCancelled() {
         lock.withLock {
             while (paused && !cancelled) {
