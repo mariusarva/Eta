@@ -153,6 +153,8 @@ androidComponents {
 
 dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
+    // 离线语音（Vosk）：官方 AAR，传递依赖带 JNA Android。
+    implementation("com.alphacephei:vosk-android:0.3.75")
     implementation(libs.jsoup)
     implementation(libs.commons.compress)
     implementation(libs.xz)
