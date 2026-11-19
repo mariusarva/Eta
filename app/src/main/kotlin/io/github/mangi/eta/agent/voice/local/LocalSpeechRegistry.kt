@@ -29,7 +29,18 @@ internal object LocalSpeechRegistry {
     private val ids = setOf("qwen3_asr_06b_q4_k_m", "qwen3_asr_06b_q5_k_m",
         "sensevoice_small_f16", DEFAULT_ID, "sensevoice_small_q4_k_m", "sensevoice_small_int8", "vosk_small_cn_022", "vosk_cn_022")
     /** Recommendation changes never migrate an existing valid selection (including INT8). */
-    fun selectionOrDefault(savedId: String?): String = savedId?.takeIf { it in ids } ?: DEFAULT_ID
+    /**
+     * 本版本只内置 Vosk 引擎，DEFAULT_ID（SenseVoice GGUF）在 catalog 里标为不可用。
+     * 已保存的选择只要可用就沿用；否则回退到第一个可用模型（Vosk），最后才用 DEFAULT_ID。
+     */
+    fun selectionOrDefault(savedId: String?, available: Set<String> = emptySet()): String {
+        savedId?.takeIf { it in ids && (available.isEmpty() || it in available) }?.let { return it }
+        VOSK_PREFERENCE.firstOrNull { it in available }?.let { return it }
+        return DEFAULT_ID
+    }
+
+    /** 可用性未知时的 Vosk 优先顺序。 */
+    private val VOSK_PREFERENCE = listOf("vosk_small_cn_022", "vosk_cn_022")
 
     fun catalog(context: Context): List<LocalSpeechModelDescriptor> {
         val bytes = context.assets.open("local_speech/catalog.json").use { input ->
