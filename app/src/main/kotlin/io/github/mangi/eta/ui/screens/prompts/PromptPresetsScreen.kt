@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.Inventory2
@@ -134,6 +135,9 @@ internal fun PromptPresetsScreen(
                 EtaArrowPreference(
                     title = stringResource(R.string.prompt_preset_new),
                     summary = stringResource(R.string.prompt_preset_new_summary),
+                    startAction = {
+                        EtaPreferenceIcon(icon = Icons.Rounded.Add, tint = EtaPreferenceColors.Green)
+                    },
                     onClick = { onEditPreset(null) },
                 )
                 EtaPreferenceDivider(hasLeading = false)
