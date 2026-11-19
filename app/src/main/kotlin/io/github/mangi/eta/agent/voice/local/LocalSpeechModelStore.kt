@@ -134,7 +134,7 @@ object LocalSpeechModelStore {
             val stage = File(root(context), ".stage-$id")
             require(stage.canonicalPath == stage.absolutePath) { "临时目录不能是符号链接" }
             check(stage.isDirectory || stage.mkdir()) { "无法创建临时目录" }
-            var keepStage = false
+            var keepStage = true // 默认保留：断流、取消都不该让用户已经下好的几百 MB 白费
             try {
                 populate(model, stage)
                 writeMetadata(context, model, stage)

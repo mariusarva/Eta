@@ -251,3 +251,37 @@ toolsBinding = runController.register(routingExecutor::close)
 拉上游时冲突会集中在后一组。新增文件不受影响。
 
 **踩过的坑**：不要用旧 tag 的文件覆盖 main 版本。上游在 11-18 的 main 里删掉了 systemizer、厂商助理等一批代码，用 v3.4.4 的 `SettingsScreen.kt` 覆盖会导致大量 `Unresolved reference`。补丁必须以 main 为底稿。
+
+## 离线语音（本 fork 增补，2026-11-19）
+
+上游只提供云端 ASR/TTS。本 fork 引入 Time-IU 的三引擎离线链路，并解决本机网络拿不到模型的问题。
+
+**引擎与依赖**
+
+| 引擎 | 原生库 | 模型来源 |
+| --- | --- | --- |
+| GGUF（Qwen3-ASR / SenseVoice） | `libeta_transcribe_jni.so` | Release 镜像 |
+| SenseVoice ONNX | `libsherpa-onnx-jni.so` + `com.k2fsa.sherpa.onnx` | Release 镜像 |
+| Vosk 流式 | `libvosk.so`（JNA）+ Maven `com.alphacephei:vosk-android` | alphacephei 可直连 |
+
+**三个必须知道的坑**
+
+1. `com.k2fsa.sherpa.onnx` 的 Java 类**不能**用 jadx 反编译产物：Kotlin data class 反编译后会生成与 property getter 同名的重复方法（实测 100 处 `already defined`），javac 直接失败。用 k2-fsa/sherpa-onnx 官方 `sherpa-onnx/kotlin-api/` 源码（`OfflineRecognizer.kt` 内含全部 config 类 + `OfflineStream.kt` / `FeatureConfig.kt` / `HomophoneReplacerConfig.kt` / `QnnConfig.kt`）。已逐类核对字段集合是 .so 的 JNI `GetFieldID` 需要的超集。
+2. JNI 按名访问，release 变体必须 keep：`GgufSpeechNative`、`com.k2fsa.sherpa.onnx.**`、`org.vosk.**`、`com.sun.jna.**`，否则 R8 改名后 `UnsatisfiedLinkError`。
+3. `LocalSpeechModelStore` 要求 `Application.getProcessName() == "$packageName:local_speech"`，native 加载、解码、释放只能发生在独立进程。
+
+**模型下载**
+
+huggingface.co 在本机网络不可达，`hf-mirror.com` 对这批仓库一律 308 回源，等于不可用。做法是 `.github/workflows/model-mirror.yml` 在 runner 上下载 catalog 里 7 个固定版本文件、按 sha256 校验后发布到 Release `local-models-v1`；App 下载优先走
+`https://github.com/mariusarva/Eta/releases/download/local-models-v1/<name>`，失败再回退官方地址。摘要校验仍在安装阶段全量执行，镜像内容不对会被拒。
+
+**断点续传**
+
+- `readTimeout` 5 秒会让百 MB 下载在抖动时反复中断，改为 30 秒。
+- stage 目录从 `.stage-<id>-<uuid>` 改为固定的 `.stage-<id>`：取消、进程被回收后重新点下载会从已落盘字节继续（`Range: bytes=N-`，服务器返回 200 时自动从头重写）。
+- 只在校验失败时清掉 stage；网络中断保留，避免「下次又从 0 开始」。
+
+**卡顿相关的两个事实**
+
+- 帧数据（`dumpsys gfxinfo`）在 release 包上 50th 12–14 ms、99th 34–44 ms、现代 janky < 0.6%；debug 包的 `legacy janky` 高达 20–38%，因为 120 Hz 屏的 8.3 ms 阈值下 debug 构建必超。用户主观的「卡」主要来自 debug 变体，不是业务代码死循环。
+- 非 Vosk 模型原先每次 `inspect` / 冷加载都全量 SHA（单文件最大 590 MB）。现在 8 个模型统一走目录指纹缓存（inode / ctime / mtime / nanos），文件被替换即失效。

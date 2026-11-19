@@ -86,7 +86,8 @@ internal fun LocalSpeechConnectionSection(store: SpeechSettingsStore) {
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { metadataFailure = true }
     }
-    fun operate(id: String, forceFullCheck: Boolean = false, refreshAfter: Boolean = true, action: suspend ((LocalSpeechProgress) -> Unit) -> Unit) {
+    fun operate(id: String, forceFullCheck: Boolean = false, refreshAfter: Boolean = true,
+        background: Boolean = false, action: suspend ((LocalSpeechProgress) -> Unit) -> Unit) {
         if (busy || store.saving || !store.loaded || target != id) return
         val token = ++generation
         busy = true
@@ -94,7 +95,8 @@ internal fun LocalSpeechConnectionSection(store: SpeechSettingsStore) {
         progress = null
         message = null
         operationDetail = null
-        job = scope.launch {
+        // 下载用进程级 scope：离开设置页/切后台不再取消，未下完的部分靠 stage 目录续传。
+        job = (if (background) LocalSpeechDownloads.scope else scope).launch {
             try {
                 coroutineScope {
                     // One bounded consumer; at most one visible update per 100 ms, plus completion.
@@ -269,7 +271,9 @@ internal fun LocalSpeechConnectionSection(store: SpeechSettingsStore) {
             }
         }
         LocalModelAction("下载模型（联网）", enabled && model.available) {
-            operate(model.id) { report -> LocalSpeechModelStore.download(context, model.id, onProgress = report) }
+            operate(model.id, background = true) { report ->
+                LocalSpeechModelStore.download(context.applicationContext, model.id, onProgress = report)
+            }
         }
         LocalModelAction("导入 GGUF / ZIP", enabled && model.available) {
             importTarget = model.id

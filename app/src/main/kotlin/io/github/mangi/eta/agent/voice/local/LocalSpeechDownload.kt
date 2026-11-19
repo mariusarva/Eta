@@ -21,8 +21,8 @@ internal object LocalSpeechDownload {
      */
     private const val MIRROR_BASE = "https://github.com/mariusarva/Eta/releases/download/local-models-v1"
 
-    /** 单个源的最大尝试次数；每次从已落盘的字节继续，不重下整份。 */
-    private const val MAX_ATTEMPTS = 4
+    /** 连续多少次「一点没下到」才放弃当前源；只要有进展就一直续传（该网络会在中途断流）。 */
+    private const val MAX_STALLS = 3
 
     /** 5 秒读超时会让百 MB 下载在抖动时反复中断，改成 30 秒。 */
     private const val READ_TIMEOUT_MS = 30_000
@@ -54,10 +54,15 @@ internal object LocalSpeechDownload {
             var fetched = false
             for (target in candidates) {
                 if (fetched) break
-                for (attempt in 0 until MAX_ATTEMPTS) {
+                var stalls = 0
+                var highWater = -1L
+                while (stalls < MAX_STALLS) {
                     currentCoroutineContext().ensureActive()
                     var start = if (dest.isFile) dest.length() else 0L
                     if (start > file.sizeBytes) { dest.delete(); start = 0L }
+                    // 有前进就重置计数：这条链路会在 100～200 MB 处断流，但每次续传都往前推。
+                    if (start > highWater) { highWater = start; stalls = 0 } else stalls++
+                    if (stalls >= MAX_STALLS) break
                     try {
                         attemptDownload(model, target, dest, file, start) { written ->
                             // copyResume 的 written 已包含续传起点。
@@ -74,7 +79,7 @@ internal object LocalSpeechDownload {
                     } catch (_: java.io.IOException) {
                         failure = SpeechFailure(SpeechErrorCode.NETWORK, "模型下载中断，已保留进度，可重新点下载继续；已有模型不受影响")
                     }
-                    if (attempt < MAX_ATTEMPTS - 1) delay(1_500L * (attempt + 1))
+                    delay(1_000L)
                 }
             }
             if (!fetched) throw failure ?: SpeechFailure(SpeechErrorCode.NETWORK, "模型下载失败，请检查网络后重试")
@@ -130,9 +135,17 @@ internal object LocalSpeechDownload {
                 if (status == 200 && start > 0) dest.delete()
                 val remaining = file.sizeBytes - resumeFrom
                 val length = c.contentLengthLong
-                require(length == -1L || length == remaining) { "下载文件大小与固定版本不匹配" }
+                // 长度声明只用于提前发现明显不对的响应；真正判定在复制之后按已落盘字节数做，
+                // 因为 CDN 可能不回 Content-Length 或给的是压缩前长度。
+                require(length == -1L || length <= remaining) { "下载文件大小与固定版本不匹配" }
                 c.inputStream.use { input -> copyResume(input, dest, file.sizeBytes, resumeFrom, progress) }
-                require(dest.length() == file.sizeBytes) { "下载文件大小与固定版本不匹配" }
+                val written = dest.length()
+                if (written > file.sizeBytes) {
+                    dest.delete()
+                    throw SpeechFailure(SpeechErrorCode.PROTOCOL, "下载内容超出模型大小，已丢弃，请重新下载")
+                }
+                // 连接正常关闭但字节不够属于中断，抛 IOException 交给外层续传，不要当成格式错误。
+                if (written < file.sizeBytes) throw java.io.IOException("模型下载提前结束")
                 return
             }
             throw SpeechFailure(SpeechErrorCode.NETWORK, "模型下载重定向过多")
