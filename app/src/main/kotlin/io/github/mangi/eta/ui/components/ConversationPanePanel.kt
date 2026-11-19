@@ -743,7 +743,6 @@ private fun ConversationHistoryRow(
                 conversation.timeLabel
             }
             if (rowTimeLabel.isNotBlank()) {
-                Spacer(Modifier.weight(1f))
                 Text(
                     text = rowTimeLabel,
                     style = MiuixTheme.textStyles.footnote1.copy(fontSize = 11.sp),
@@ -753,7 +752,7 @@ private fun ConversationHistoryRow(
                     textAlign = TextAlign.End,
                     modifier = Modifier
                         .padding(start = 8.dp)
-                        .widthIn(max = 132.dp),
+                        .widthIn(min = 60.dp, max = 110.dp),
                 )
             }
 
