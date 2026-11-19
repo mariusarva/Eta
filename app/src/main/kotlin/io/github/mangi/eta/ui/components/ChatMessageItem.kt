@@ -105,6 +105,7 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.agent.overlay.toolDisplayName
 import io.github.mangi.eta.data.model.AppearanceUiStyle
+import io.github.mangi.eta.ui.app.ConversationTimeLabels
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.markdown.EditorialLineHeightStyle
 import io.github.mangi.eta.ui.markdown.MarkdownTone
@@ -453,6 +454,16 @@ private fun UserMessageBubble(
                         horizontalArrangement = Arrangement.spacedBy(2.dp),
                     ) { actions() }
                 }
+            }
+            // 轮次对话下方的时间：与该轮在轮次列表里的时间同源，0 表示旧数据没有时间。
+            if (message.createdAtMillis > 0L) {
+                Text(
+                    text = remember(message.createdAtMillis) {
+                        ConversationTimeLabels.rowLabel(message.createdAtMillis)
+                    },
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
             }
         }
     }
