@@ -51,10 +51,16 @@ internal class McpRunSnapshot(
         val EMPTY = McpRunSnapshot(emptyList())
 
         suspend fun load(): McpRunSnapshot {
-            val projected = mutableListOf<McpRunTool>()
             val now = System.currentTimeMillis()
-            McpServerRepository.enabledServers().forEach { configured ->
-                val bearerToken = McpServerRepository.bearerToken(configured.id)
+            // 先收集各服务器已启用的工具，再按轮转分配全局配额：
+            // 原先按服务器顺序填满 64 个名额，排在前面的服务器（MT 有 67 个）会把配额吃干净，
+            // 后面的服务器即使启用了工具也永远注入不进去。
+            // 每个服务器只取一次 token，避免轮转注入阶段反复查库。
+            val tokens = HashMap<String, String?>()
+            fun tokenOf(serverId: String): String? =
+                tokens.getOrPut(serverId) { McpServerRepository.bearerToken(serverId) }
+            val servers = McpServerRepository.enabledServers().mapNotNull { configured ->
+                val bearerToken = tokenOf(configured.id)
                 val needsRefresh = configured.lastProtocolVersion == null ||
                     configured.lastProtocolVersion == McpProtocolMode.LATEST &&
                     (configured.toolsExpireAt == null || configured.toolsExpireAt <= now)
@@ -63,20 +69,35 @@ internal class McpRunSnapshot(
                         McpServerManager.discover(configured, bearerToken).also {
                             McpServerRepository.update(it)
                         }
-                    }.getOrNull()
-                        ?: return@forEach
+                    }.getOrNull() ?: return@mapNotNull null
                 } else {
                     configured
                 }
-                server.activeTools.forEach { tool ->
-                    if (projected.size >= MAX_RUN_TOOLS) return@forEach
+                val tools = server.activeTools
+                if (tools.isEmpty()) null else server to tools
+            }
+            if (servers.isEmpty()) return McpRunSnapshot(emptyList())
+            val cursors = IntArray(servers.size)
+            val projected = ArrayList<McpRunTool>(minOf(MAX_RUN_TOOLS, servers.sumOf { it.second.size }))
+            // 每轮给每个服务器各取一个，直到配额用尽或所有服务器都取空。
+            while (projected.size < MAX_RUN_TOOLS) {
+                var advanced = false
+                for (index in servers.indices) {
+                    if (projected.size >= MAX_RUN_TOOLS) break
+                    val (server, tools) = servers[index]
+                    val cursor = cursors[index]
+                    if (cursor >= tools.size) continue
+                    cursors[index] = cursor + 1
+                    val tool = tools[cursor]
                     projected += McpRunTool(
                         modelName = modelToolName(server.id, tool.name),
                         server = server,
                         definition = tool,
-                        bearerToken = bearerToken,
+                        bearerToken = tokenOf(server.id),
                     )
+                    advanced = true
                 }
+                if (!advanced) break
             }
             return McpRunSnapshot(projected)
         }
