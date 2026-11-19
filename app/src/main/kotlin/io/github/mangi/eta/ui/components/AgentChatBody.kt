@@ -1,5 +1,10 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import io.github.mangi.eta.ui.components.custom.CustomContinueDialogs
+import io.github.mangi.eta.ui.components.custom.rememberCustomContinue
+import io.github.mangi.eta.ui.components.custom.LocalCustomContinue
+import io.github.mangi.eta.ui.components.custom.LocalCustomComposer
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -255,7 +260,14 @@ internal fun AgentChatBody(
 
     SpeechPlaybackHost {
         SpeechAutoReadAloud(messages = messages, isStreaming = isStreaming)
-        AgentChatScaffold(
+        val customComposer = rememberTextFieldState(initialText = input)
+        val customContinue = rememberCustomContinue(customComposer)
+        CompositionLocalProvider(
+            LocalCustomComposer provides customComposer,
+            LocalCustomContinue provides customContinue,
+        ) {
+            CustomContinueDialogs(customContinue)
+                    AgentChatScaffold(
             visibleMessages = visibleMessages,
             hasMessages = visibleMessages.isNotEmpty() || hasEarlierMessages,
             scrollState = scrollState,
@@ -327,6 +339,7 @@ internal fun AgentChatBody(
             topInset = topInset,
             modifier = modifier,
         )
+        }
     }
 }
 
