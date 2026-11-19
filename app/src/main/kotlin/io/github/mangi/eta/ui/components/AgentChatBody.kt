@@ -532,6 +532,7 @@ internal fun AgentConversationMessages(
 ) {
     // 上一版条目只作复用比对，不参与组合观察。
     val timelineCache = remember { TimelineEntriesCache() }
+    val scope = rememberCoroutineScope()
     val timelineEntries = remember(visibleMessages) {
         visibleMessages.toTimelineEntries(previous = timelineCache.entries)
     }
