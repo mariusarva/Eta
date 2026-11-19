@@ -663,7 +663,8 @@ internal fun AgentChatInputBar(
                         }
 
                         val showPrimaryStop = isStreaming && !showStreamingSend
-                        val sendCircleSize = 32.dp
+                        // 与暂停/注入按钮共用一个背景圆尺寸，避免停止键视觉上比其他键粗一圈。
+                        val sendCircleSize = SendButtonVisualSize
                         val ink = MiuixTheme.colorScheme.onSurface.copy(alpha = 1f)
                         val sendButtonColor by animateColorAsState(
                             targetValue = when {
