@@ -141,6 +141,8 @@ private val StopIconSize = 20.dp
 private val ActionIconSize = 20.dp
 /** 运行中暂停/注入按钮：比常规动作键小一档，且不被 Row 压缩。 */
 private val RunActionButtonSize = 36.dp
+/** 运行操作按钮（麦克风/暂停/插入/停止）之间的统一间距，避免分布不均。 */
+private val RunActionGap = 12.dp
 
 /**
  * Agent 输入器始终保持同一空间结构，聚焦、输入和执行过程只改变状态，不搬动操作入口。
@@ -546,7 +548,7 @@ internal fun AgentChatInputBar(
                                 holdCancelling = holdCancelling,
                                 onHoldCancellingChange = { holdCancelling = it },
                             )
-                            Spacer(modifier = Modifier.width(2.dp))
+                            Spacer(modifier = Modifier.width(RunActionGap))
                         }
 
                         val showStreamingSend = isStreaming && !isCompacting && canSend
@@ -591,7 +593,7 @@ internal fun AgentChatInputBar(
                                 }
                             }
                             // 与停止键拉开距离，避免误触。
-                            Spacer(modifier = Modifier.width(20.dp))
+                            Spacer(modifier = Modifier.width(RunActionGap))
                         }
 
                         // 运行中注入：把输入作为补充指令插进当前轮次，不打断、不排队。
@@ -624,7 +626,7 @@ internal fun AgentChatInputBar(
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.width(20.dp))
+                            Spacer(modifier = Modifier.width(RunActionGap))
                         }
 
                         AnimatedVisibility(
