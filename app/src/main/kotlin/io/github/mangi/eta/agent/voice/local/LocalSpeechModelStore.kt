@@ -130,13 +130,23 @@ object LocalSpeechModelStore {
                     throw SpeechFailure(SpeechErrorCode.STORAGE,
                         "Vosk 安装需要同时存放 ZIP 和解压文件，请先释放足够存储空间（不代表运行内存）")
             }
-            val stage = File(root(context), ".stage-$id-${UUID.randomUUID()}")
-            check(stage.mkdir()) { "无法创建临时目录" }
+            // 固定 stage 目录：下载中断/进程被杀后重新点下载可从这里续传，而不是从 0 重来。
+            val stage = File(root(context), ".stage-$id")
+            require(stage.canonicalPath == stage.absolutePath) { "临时目录不能是符号链接" }
+            check(stage.isDirectory || stage.mkdir()) { "无法创建临时目录" }
+            var keepStage = false
             try {
                 populate(model, stage)
                 writeMetadata(context, model, stage)
                 val beforeVerification = if (model.engine == LocalSpeechBackend.VOSK) fingerprint(stage, model) else null
-                verify(context, model, stage, progress)
+                try {
+                    verify(context, model, stage, progress)
+                } catch (e: CancellationException) { throw e
+                } catch (e: Exception) {
+                    // 内容已完整但校验失败：残片不可复用，必须清掉，否则会一直失败。
+                    keepStage = false
+                    throw e
+                }
                 val verifiedStage = beforeVerification?.also { check(it == fingerprint(stage, model)) { "模型在校验时发生变化" } }
                 currentCoroutineContext().ensureActive()
                 progress(LocalSpeechProgress(LocalSpeechStage.INSTALLING, 0, model.sizeBytes))
@@ -151,7 +161,16 @@ object LocalSpeechModelStore {
                 // No suspension between rename and success; cancellation only ever cleans this operation's own stage.
                 progress(LocalSpeechProgress(LocalSpeechStage.COMPLETE, model.sizeBytes, model.sizeBytes))
                 LocalSpeechInstallation(id, true, "模型安装并校验完成")
-            } finally { if (stage.exists()) stage.deleteRecursively() }
+            } catch (e: CancellationException) {
+                // 用户取消或进程被回收：保留已落盘的部分，重新点下载即可续传。
+                keepStage = true
+                throw e
+            } catch (e: SpeechFailure) {
+                keepStage = e.code == SpeechErrorCode.NETWORK || e.code == SpeechErrorCode.TIMEOUT
+                throw e
+            } finally {
+                if (stage.exists() && !keepStage) runCatching { stage.deleteRecursively() }
+            }
         } } catch (e: CancellationException) { throw e }
         catch (e: SpeechFailure) { throw e }
         catch (e: IllegalArgumentException) { throw SpeechFailure(SpeechErrorCode.CONFIGURATION,

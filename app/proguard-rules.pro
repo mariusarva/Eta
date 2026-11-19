@@ -70,3 +70,19 @@
 -keep class io.github.mangi.eta.agent.virtualdisplay.VirtualDisplayCommandMain {
     public static void main(java.lang.String[]);
 }
+
+# ── 离线语音：JNI 与 JNA 身份必须在混淆后保持不变 ───────────────────────────
+# GGUF 原生层按 Java_io_github_mangi_eta_agent_voice_local_GgufSpeechNative_* 解析符号，
+# 类名或方法名被改写即 UnsatisfiedLinkError。
+-keep class io.github.mangi.eta.agent.voice.local.GgufSpeechNative { *; }
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+# sherpa-onnx 的 JNI 用 GetFieldID / GetMethodID 按字段与方法名访问这些 Kotlin data class，
+# 字段被裁剪或改名会导致 newFromFile 直接失败或读错配置。
+-keep class com.k2fsa.sherpa.onnx.** { *; }
+# Vosk 通过 JNA 调用 libvosk.so，结构体字段与回调方法名同样按名解析。
+-keep class org.vosk.** { *; }
+-keep class com.sun.jna.** { *; }
+-keepclassmembers class * extends com.sun.jna.Structure { public *; }
+-dontwarn com.sun.jna.**
