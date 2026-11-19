@@ -1826,4 +1826,10 @@
     <string name="eta_row_collapse">收起</string>
     <string name="eta_row_expand">展开</string>
     <string name="text_action_cut">剪切</string>
+    <string name="speech_system_tts_engine">引擎包名（留空使用系统默认）</string>
+    <string name="speech_system_tts_language">离线音色语言（如 zh-CN；留空使用语音语言）</string>
+    <string name="speech_system_tts_pitch">音调</string>
+    <string name="speech_system_tts_rate">语速</string>
+    <string name="speech_system_tts_settings">打开系统文字转语音设置</string>
+    <string name="speech_system_tts_settings_missing">无法打开文字转语音设置，请在系统设置中搜索“文字转语音”并安装离线语言包</string>
 </resources>
