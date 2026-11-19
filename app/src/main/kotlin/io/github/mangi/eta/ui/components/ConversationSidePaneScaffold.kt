@@ -1,5 +1,22 @@
 package io.github.mangi.eta.ui.components
 
+import com.itos.coui.layout.CouiPageDefaults
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -274,6 +291,11 @@ fun ConversationSidePaneScaffold(
                         ) {
                             content()
                         }
+                        // 底部上拉小横条：面板关闭时显示，向上拖或轻点都能拉起会话列表。
+                        ConversationPanePullHandle(
+                            visible = !isRevealed,
+                            onOpen = onOpen,
+                        )
                         if (isRevealed) {
                             Box(
                                 modifier = Modifier.fillMaxSize().clickable(
@@ -306,5 +328,67 @@ fun ConversationSidePaneScaffold(
             EtaTopLayerHost(fallbackTopLayer)
         }
     }
+    }
+}
+
+/**
+ * 会话列表的上拉入口：底部中央一条小横条。
+ *
+ * 面板关闭时可见，向上拖过阈值或轻点都会触发 [onOpen]。
+ * 不拦截横向手势，也不占用内容区的可点击范围。
+ */
+@Composable
+private fun BoxScope.ConversationPanePullHandle(
+    visible: Boolean,
+    onOpen: () -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val thresholdPx = with(density) { 28.dp.toPx() }
+    val colors = CouiPageDefaults.themeColors()
+    val handleColor = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(160)) + slideInVertically(tween(200)) { it / 2 },
+        exit = fadeOut(tween(120)) + slideOutVertically(tween(160)) { it / 2 },
+        modifier = Modifier.align(Alignment.BottomCenter),
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(bottom = 6.dp)
+                .width(72.dp)
+                .height(22.dp)
+                .semantics { contentDescription = "打开会话列表" }
+                .pointerInput(onOpen) {
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            // 上拉超过阈值即打开；未达阈值回弹，不误触。
+                        },
+                    ) { _, dragAmount ->
+                        if (dragAmount < -thresholdPx / 4) {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onOpen()
+                        }
+                    }
+                }
+                .clickable(
+                    interactionSource = null,
+                    indication = null,
+                    onClickLabel = "打开会话列表",
+                ) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onOpen()
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(36.dp)
+                    .height(4.dp)
+                    .clip(CircleShape)
+                    .background(handleColor),
+            )
+        }
     }
 }
