@@ -1,5 +1,8 @@
 package io.github.mangi.eta.ui.components
 
+import io.github.mangi.eta.ui.components.custom.CustomMessageActionsHost
+import io.github.mangi.eta.ui.components.custom.CustomMessageSelection
+import io.github.mangi.eta.ui.components.custom.LocalCustomMessageActionSlots
 import android.graphics.BitmapFactory
 import android.util.Base64
 import android.util.LruCache
@@ -42,7 +45,6 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
@@ -63,7 +65,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -95,13 +96,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.itos.coui.dialog.CouiDialogDefaults
 import com.itos.coui.effect.couiButtonFeedback
 import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.menu.Menu
-import com.itos.coui.menu.couiMenuAnchor
-import com.itos.coui.menu.rememberCouiMenuAnchor
 import com.itos.coui.shape.CouiCapsuleShape
 import com.itos.coui.shape.CouiShape
 import com.itos.coui.theme.CouiTheme
@@ -130,12 +126,8 @@ import io.github.mangi.eta.ui.voice.SpeechReadAloudButton
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.RichTooltip
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
 import top.yukonga.miuix.kmp.basic.TooltipBox
-import top.yukonga.miuix.kmp.basic.TooltipDefaults
-import top.yukonga.miuix.kmp.basic.rememberTooltipState
 import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -238,31 +230,56 @@ internal fun ChatMessageItem(
     onSelectReplyCandidate: (String, Int) -> Unit = { _, _ -> },
 ) {
     when (message) {
-        is UserMessageUi -> UserMessageBubble(
-            message = message,
-            assistantOverlay = assistantOverlay,
-            actionsEnabled = messageActionsEnabled,
-            isEditing = isEditing,
-            onEdit = { onEditMessage(message.id) },
+        is UserMessageUi -> CustomMessageActionsHost(
+            messageId = message.id,
+            text = AgentFileReferencePromptCodec.parse(message.content).request,
+            enabled = messageActionsEnabled,
             onDelete = { onDeleteMessage(message.id) },
-            modifier = modifier,
-        )
-        is AgentMessageUi -> AgentMessageBlock(
-            message = message,
-            allowSpeech = true,
-            assistantOverlay = assistantOverlay,
-            retainedStreamingState = retainedStreamingState,
-            showCopyAction = showCopyAction,
-            showMessageActions = showMessageActions,
-            showBranchAction = showBranchAction,
-            onBranch = { onBranchMessage(message.id) },
-            messageActionsEnabled = messageActionsEnabled,
-            onDelete = { onDeleteMessage(message.id) },
-            onRegenerate = { onRegenerateMessage(message.id) },
             onEdit = { onEditMessage(message.id) },
-            onSelectCandidate = { onSelectReplyCandidate(message.id, it) },
-            modifier = modifier,
-        )
+            onRegenerate = null,
+            // Official branching only permits complete assistant boundaries, never user rows.
+            onBranch = null,
+        ) { selecting, openMenu, copiedSelection ->
+            UserMessageBubble(
+                message = message,
+                assistantOverlay = assistantOverlay,
+                actionsEnabled = messageActionsEnabled,
+                isEditing = isEditing,
+                selectionMode = selecting,
+                onLongClick = openMenu,
+                onCopiedSelection = copiedSelection,
+                modifier = modifier,
+            )
+        }
+        is AgentMessageUi -> CustomMessageActionsHost(
+            messageId = message.id,
+            text = message.content,
+            enabled = messageActionsEnabled && !message.isStreaming,
+            onDelete = if (showMessageActions) ({ onDeleteMessage(message.id) }) else null,
+            onEdit = if (showMessageActions && message.characterEditable) ({ onEditMessage(message.id) }) else null,
+            onRegenerate = if (showMessageActions) ({ onRegenerateMessage(message.id) }) else null,
+            onBranch = if (showBranchAction) ({ onBranchMessage(message.id) }) else null,
+        ) { selecting, openMenu, copiedSelection ->
+            AgentMessageBlock(
+                message = message,
+                allowSpeech = true,
+                assistantOverlay = assistantOverlay,
+                retainedStreamingState = retainedStreamingState,
+                showCopyAction = showCopyAction,
+                showMessageActions = showMessageActions,
+                showBranchAction = showBranchAction,
+                onBranch = { onBranchMessage(message.id) },
+                messageActionsEnabled = messageActionsEnabled,
+                onDelete = { onDeleteMessage(message.id) },
+                onRegenerate = { onRegenerateMessage(message.id) },
+                onEdit = { onEditMessage(message.id) },
+                onSelectCandidate = { onSelectReplyCandidate(message.id, it) },
+                selectionMode = selecting,
+                onLongClick = openMenu,
+                onCopiedSelection = copiedSelection,
+                modifier = modifier,
+            )
+        }
         is SystemNoticeMessageUi -> if (message.code == SystemNoticeCode.ContextCompaction) {
             ContextCompactionMarker(message = message, modifier = modifier)
         } else {
@@ -327,288 +344,114 @@ private fun UserMessageBubble(
     assistantOverlay: Boolean,
     actionsEnabled: Boolean,
     isEditing: Boolean,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    selectionMode: Boolean,
+    onLongClick: () -> Unit,
+    onCopiedSelection: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    @Suppress("DEPRECATION")
-    val clipboardManager = LocalClipboardManager.current
-    val tooltipState = rememberTooltipState(isPersistent = true)
     val haptic = LocalHapticFeedback.current
-    var showCouiMenu by remember { mutableStateOf(false) }
-    val couiAnchor = rememberCouiMenuAnchor()
-    LaunchedEffect(actionsEnabled) {
-        if (!actionsEnabled) {
-            tooltipState.dismiss()
-            showCouiMenu = false
-        }
-    }
-    LaunchedEffect(tooltipState) {
-        snapshotFlow { tooltipState.isVisible }.collect { visible ->
-            if (visible) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
-    }
-    val visiblePrompt = remember(message.content) {
-        AgentFileReferencePromptCodec.parse(message.content)
-    }
+    val visiblePrompt = remember(message.content) { AgentFileReferencePromptCodec.parse(message.content) }
     val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     val uiStyle = LocalUiStyle.current
-    val overlayBubbleColor = when {
-        uiStyle == AppearanceUiStyle.COUI && isDark -> Color(0xFF21293A)
-        uiStyle == AppearanceUiStyle.COUI -> Color(0xFFEAF0FC)
-        isDark -> Color(0xFF37393D)
-        else -> Color(0xFFE5E7EA)
+    val isCoui = uiStyle == AppearanceUiStyle.COUI && !assistantOverlay
+    val couiDark = if (isCoui) CouiTheme.isDark else isDark
+    val bubbleColor = when {
+        isCoui && couiDark -> Color(0xFF202634)
+        isCoui -> Color(0xFFEEF2FA)
+        assistantOverlay && uiStyle == AppearanceUiStyle.COUI && isDark -> Color(0xFF21293A)
+        assistantOverlay && uiStyle == AppearanceUiStyle.COUI -> Color(0xFFEAF0FC)
+        assistantOverlay && isDark -> Color(0xFF37393D)
+        assistantOverlay -> Color(0xFFE5E7EA)
+        else -> MiuixTheme.colorScheme.surfaceContainerHigh
     }
-    val imagePreviewer = LocalChatImagePreviewer.current
+    val bubbleShape = when {
+        assistantOverlay && uiStyle == AppearanceUiStyle.COUI -> OverlayCouiUserBubbleShape
+        assistantOverlay -> OverlayUserBubbleShape
+        else -> UserBubbleShape
+    }
+    val accent = if (isCoui) CouiPageDefaults.themeColors(couiDark).accent else MiuixTheme.colorScheme.primary
+    val imagePreviewer = LocalChatImagePreviewer.current.takeUnless { assistantOverlay }
     val hasTextBubble = visiblePrompt.references.isNotEmpty() || visiblePrompt.request.isNotBlank()
-    val canCopy = message.content.isNotBlank()
-    val bubbleContent: @Composable () -> Unit = {
-        if (visiblePrompt.references.isNotEmpty()) {
-            SentFileReferenceFlow(
-                references = visiblePrompt.references,
-                modifier = Modifier.padding(
-                    bottom = if (visiblePrompt.request.isNotBlank()) 8.dp else 0.dp,
-                ),
-            )
-        }
-        if (visiblePrompt.request.isNotBlank()) {
-            SelectionContainer {
-                Text(
-                    text = visiblePrompt.request,
-                    style = MiuixTheme.textStyles.body1.copy(
-                        lineHeight = 23.sp,
-                        lineHeightStyle = EditorialLineHeightStyle,
-                    ),
-                    color = MiuixTheme.colorScheme.onSurface,
-                )
-            }
-        }
-        if (message.isEdited) {
-            Text(
-                text = stringResource(R.string.ui_edited_c36776),
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
-    }
-
+    val openMenu: (() -> Unit)? = if (actionsEnabled && !selectionMode) ({
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        onLongClick()
+    }) else null
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(
-                start = if (assistantOverlay) 16.dp else 20.dp,
-                end = if (assistantOverlay) 16.dp else 20.dp,
-                top = if (assistantOverlay) 4.dp else 16.dp,
-                bottom = if (assistantOverlay) 4.dp else 6.dp,
-            ),
+        modifier = modifier.fillMaxWidth().padding(
+            start = if (assistantOverlay) 16.dp else 20.dp,
+            end = if (assistantOverlay) 16.dp else 20.dp,
+            top = if (assistantOverlay) 4.dp else 16.dp,
+            bottom = if (assistantOverlay) 4.dp else 6.dp,
+        ),
         horizontalArrangement = Arrangement.End,
     ) {
-        if (uiStyle == AppearanceUiStyle.COUI && !assistantOverlay) {
-            val couiDark = CouiTheme.isDark
-            val couiBubbleBg = if (couiDark) Color(0xFF202634) else Color(0xFFEEF2FA)
-            val couiColors = CouiPageDefaults.themeColors(couiDark)
-            val destructiveColor = CouiDialogDefaults.themeColors(couiDark).destructive
-            val copyText = stringResource(R.string.ui_copy_4edd1d)
-            val editText = stringResource(R.string.ui_edit_a7f814)
-            val deleteText = stringResource(R.string.ui_delete_3755f5)
-            val menuItems = remember(canCopy, copyText, editText, deleteText, destructiveColor) {
-                buildList {
-                    if (canCopy) {
-                        add(CouiMenuItem(value = 0, text = copyText, icon = Icons.Rounded.ContentCopy))
-                    }
-                    add(CouiMenuItem(value = 1, text = editText, icon = Icons.Rounded.Edit))
-                    add(
-                        CouiMenuItem(
-                            value = 2,
-                            text = deleteText,
-                            icon = Icons.Rounded.Delete,
-                            iconTint = destructiveColor,
-                            dividerBefore = true,
-                        ),
-                    )
-                }
-            }
-            val openCouiMenu: (() -> Unit)? = if (actionsEnabled) {
-                {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    couiAnchor.open { showCouiMenu = true }
-                }
-            } else {
-                null
-            }
-            Box {
-                Column(
-                    modifier = Modifier.couiMenuAnchor(couiAnchor),
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    if (message.images.isNotEmpty()) {
-                        UserMessageImages(
-                            messageId = message.id,
-                            images = message.images,
-                            assistantOverlay = false,
-                            isCoui = true,
-                            couiDark = couiDark,
-                            highlightBorder = isEditing && !hasTextBubble,
-                            highlightColor = couiColors.accent,
-                            previewer = imagePreviewer,
-                            onLongClick = openCouiMenu,
-                        )
-                    }
-                    if (hasTextBubble) {
-                        Column(
-                            modifier = Modifier
-                                .widthIn(max = 316.dp)
-                                .clip(UserBubbleShape)
-                                .background(couiBubbleBg, UserBubbleShape)
-                                .then(
-                                    if (isEditing) {
-                                        Modifier.border(1.dp, couiColors.accent, UserBubbleShape)
-                                    } else {
-                                        Modifier
-                                    },
-                                )
-                                .combinedClickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = {},
-                                    onLongClick = openCouiMenu,
-                                )
-                                .padding(horizontal = 16.dp, vertical = 10.5.dp),
-                        ) {
-                            bubbleContent()
-                        }
-                    } else if (message.isEdited) {
-                        Text(
-                            text = stringResource(R.string.ui_edited_c36776),
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
-                    }
-                }
-                Menu(
-                    expanded = showCouiMenu && actionsEnabled,
-                    onDismissRequest = { showCouiMenu = false },
-                    items = menuItems,
-                    onItemClick = { item ->
-                        showCouiMenu = false
-                        when (item.value) {
-                            0 -> {
-                                @Suppress("DEPRECATION")
-                                clipboardManager.setText(AnnotatedString(message.content))
-                                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                            }
-                            1 -> onEdit()
-                            2 -> onDelete()
-                        }
-                    },
-                    anchor = couiAnchor,
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (message.images.isNotEmpty()) {
+                UserMessageImages(
+                    messageId = message.id,
+                    images = message.images,
+                    assistantOverlay = assistantOverlay,
+                    isCoui = isCoui,
+                    couiDark = couiDark,
+                    highlightBorder = isEditing && !hasTextBubble,
+                    highlightColor = accent,
+                    previewer = imagePreviewer,
+                    onLongClick = openMenu,
                 )
             }
-        } else {
-            TooltipBox(
-                positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
-                    positioning = TooltipAnchorPosition.Below,
-                ),
-                tooltip = {
-                    RichTooltip(insideMargin = PaddingValues(horizontal = 8.dp, vertical = 6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                            if (canCopy) {
-                                MessageTooltipAction(
-                                    icon = Icons.Rounded.ContentCopy,
-                                    label = stringResource(R.string.ui_copy_4edd1d),
-                                    onClick = {
-                                        @Suppress("DEPRECATION")
-                                        clipboardManager.setText(AnnotatedString(message.content))
-                                        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                        tooltipState.dismiss()
-                                    },
+            if (hasTextBubble) {
+                Column(
+                    modifier = Modifier.widthIn(max = 316.dp).clip(bubbleShape)
+                        .background(bubbleColor, bubbleShape)
+                        .then(if (isEditing) Modifier.border(1.dp, accent, bubbleShape) else Modifier)
+                        .combinedClickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {},
+                            onLongClick = openMenu,
+                        ).padding(
+                            horizontal = if (assistantOverlay) 14.dp else 16.dp,
+                            vertical = if (assistantOverlay) 9.dp else 10.5.dp,
+                        ),
+                ) {
+                    if (visiblePrompt.references.isNotEmpty()) {
+                        SentFileReferenceFlow(
+                            references = visiblePrompt.references,
+                            modifier = Modifier.padding(bottom = if (visiblePrompt.request.isNotBlank()) 8.dp else 0.dp),
+                        )
+                    }
+                    if (visiblePrompt.request.isNotBlank()) {
+                        CustomMessageSelection(selectionMode, onCopiedSelection) {
+                            // Column preserves normal body flow; SelectionContainer's Box never overlays rows.
+                            Column {
+                                Text(
+                                    text = visiblePrompt.request,
+                                    style = MiuixTheme.textStyles.body1.copy(lineHeight = 23.sp, lineHeightStyle = EditorialLineHeightStyle),
+                                    color = MiuixTheme.colorScheme.onSurface,
                                 )
                             }
-                            MessageTooltipAction(
-                                icon = Icons.Rounded.Edit,
-                                label = stringResource(R.string.ui_edit_a7f814),
-                                onClick = {
-                                    tooltipState.dismiss()
-                                    onEdit()
-                                },
-                            )
-                            MessageTooltipAction(
-                                icon = Icons.Rounded.Delete,
-                                label = stringResource(R.string.ui_delete_3755f5),
-                                onClick = {
-                                    tooltipState.dismiss()
-                                    onDelete()
-                                },
-                            )
                         }
                     }
-                },
-                state = tooltipState,
-                focusable = true,
-                enableUserInput = actionsEnabled,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    if (message.images.isNotEmpty()) {
-                        UserMessageImages(
-                            messageId = message.id,
-                            images = message.images,
-                            assistantOverlay = assistantOverlay,
-                            isCoui = false,
-                            couiDark = false,
-                            highlightBorder = isEditing && !hasTextBubble,
-                            highlightColor = MiuixTheme.colorScheme.primary,
-                            previewer = imagePreviewer.takeUnless { assistantOverlay },
-                            onLongClick = null,
-                        )
-                    }
-                    if (hasTextBubble) {
-                        val bubbleShape = when {
-                            assistantOverlay && uiStyle == AppearanceUiStyle.COUI -> OverlayCouiUserBubbleShape
-                            assistantOverlay -> OverlayUserBubbleShape
-                            else -> UserBubbleShape
-                        }
-                        Column(
-                            modifier = Modifier
-                                .widthIn(max = 316.dp)
-                                .clip(bubbleShape)
-                                .background(
-                                    color = if (assistantOverlay) {
-                                        overlayBubbleColor
-                                    } else {
-                                        MiuixTheme.colorScheme.surfaceContainerHigh
-                                    },
-                                    shape = bubbleShape,
-                                )
-                                .then(
-                                    if (isEditing) {
-                                        Modifier.border(
-                                            width = 1.dp,
-                                            color = MiuixTheme.colorScheme.primary,
-                                            shape = bubbleShape,
-                                        )
-                                    } else {
-                                        Modifier
-                                    },
-                                )
-                                .padding(
-                                    horizontal = if (assistantOverlay) 14.dp else 16.dp,
-                                    vertical = if (assistantOverlay) 9.dp else 10.5.dp,
-                                ),
-                        ) {
-                            bubbleContent()
-                        }
-                    } else if (message.isEdited) {
+                    if (message.isEdited) {
                         Text(
                             text = stringResource(R.string.ui_edited_c36776),
-                            style = MiuixTheme.textStyles.footnote2,
+                            style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            modifier = Modifier.padding(top = 4.dp),
                         )
                     }
+                }
+            } else if (message.isEdited) {
+                Text(stringResource(R.string.ui_edited_c36776), style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+            }
+            LocalCustomMessageActionSlots.current?.let { actions ->
+                if (hasTextBubble && actionsEnabled) {
+                    Row(
+                        modifier = Modifier.widthIn(max = 316.dp).horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) { actions() }
                 }
             }
         }
@@ -936,6 +779,7 @@ private fun ContextCompactionMarker(
 
 // ── Agent 结果 ───────────────────────────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AgentMessageBlock(
     message: AgentMessageUi,
@@ -951,6 +795,9 @@ private fun AgentMessageBlock(
     onRegenerate: () -> Unit,
     onEdit: () -> Unit = {},
     onSelectCandidate: (Int) -> Unit = {},
+    selectionMode: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    onCopiedSelection: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
@@ -990,6 +837,14 @@ private fun AgentMessageBlock(
     val isGreeting = character != null && message.id.startsWith(GreetingMessagePrefix)
     Column(
         modifier = modifier
+            .then(if (onLongClick != null && !selectionMode && messageActionsEnabled && !message.isStreaming) {
+                Modifier.combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                    onLongClick = onLongClick,
+                )
+            } else Modifier)
             .fillMaxWidth()
             .padding(
                 start = if (assistantOverlay) 16.dp else 20.dp,
@@ -1018,7 +873,7 @@ private fun AgentMessageBlock(
                 )
             }
             message.renderMarkdown -> {
-                SelectionContainer {
+                CustomMessageSelection(selectionMode, onCopiedSelection) {
                     StaticMarkdown(
                         content = message.content,
                         tone = MarkdownTone.Answer,
@@ -1028,7 +883,7 @@ private fun AgentMessageBlock(
                 }
             }
             message.content.isNotBlank() -> {
-                SelectionContainer {
+                CustomMessageSelection(selectionMode, onCopiedSelection) {
                     Text(
                         text = message.content,
                         style = MiuixTheme.textStyles.body1.copy(
@@ -1063,55 +918,64 @@ private fun AgentMessageBlock(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                AnswerActionButton(
-                    icon = if (copied) ChatActionIcons.Check else ChatActionIcons.Copy,
-                    contentDescription = stringResource(
-                        if (copied) R.string.copy_copied else R.string.copy_answer,
-                    ),
-                    onClick = {
-                        @Suppress("DEPRECATION")
-                        clipboardManager.setText(AnnotatedString(message.content))
-                        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                        copied = true
-                    },
-                    tint = if (copied) MiuixTheme.colorScheme.primary else null,
-                )
-                if (allowSpeech) SpeechReadAloudButton(message.id, message.content)
-                if (showMessageActions) {
-                    if (message.characterEditable) {
-                        AnswerActionButton(
-                            icon = ChatActionIcons.Edit,
-                            contentDescription = stringResource(R.string.chat_edit_character_reply),
-                            onClick = onEdit,
-                            enabled = messageActionsEnabled,
-                        )
-                    }
-                    TooltipBox(text = stringResource(R.string.ui_regenerate_2e1905), enabled = messageActionsEnabled) {
-                        AnswerActionButton(
-                            icon = ChatActionIcons.Refresh,
-                            contentDescription = stringResource(R.string.ui_regenerate_reply_84a7d9),
-                            onClick = onRegenerate,
-                            enabled = messageActionsEnabled,
-                        )
-                    }
-                    TooltipBox(text = stringResource(R.string.ui_delete_3755f5), enabled = messageActionsEnabled) {
-                        AnswerActionButton(
-                            icon = ChatActionIcons.Trash,
-                            contentDescription = stringResource(R.string.ui_delete_this_conversation_3f351b),
-                            onClick = onDelete,
-                            enabled = messageActionsEnabled,
-                        )
-                    }
-                    if (showBranchAction) {
-                        TooltipBox(text = stringResource(R.string.conversation_branch)) {
+                Row(
+                    modifier = Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    AnswerActionButton(
+                        icon = if (copied) ChatActionIcons.Check else ChatActionIcons.Copy,
+                        contentDescription = stringResource(
+                            if (copied) R.string.copy_copied else R.string.copy_answer,
+                        ),
+                        onClick = {
+                            @Suppress("DEPRECATION")
+                            clipboardManager.setText(AnnotatedString(message.content))
+                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                            copied = true
+                        },
+                        tint = if (copied) MiuixTheme.colorScheme.primary else null,
+                    )
+                    if (allowSpeech) SpeechReadAloudButton(message.id, message.content)
+                    if (showMessageActions) {
+                        if (message.characterEditable) {
                             AnswerActionButton(
-                                icon = ChatActionIcons.Branch,
-                                contentDescription = stringResource(R.string.conversation_branch),
-                                onClick = onBranch,
+                                icon = ChatActionIcons.Edit,
+                                contentDescription = stringResource(R.string.chat_edit_character_reply),
+                                onClick = onEdit,
                                 enabled = messageActionsEnabled,
                             )
                         }
+                        TooltipBox(text = stringResource(R.string.ui_regenerate_2e1905), enabled = messageActionsEnabled) {
+                            AnswerActionButton(
+                                icon = ChatActionIcons.Refresh,
+                                contentDescription = stringResource(R.string.ui_regenerate_reply_84a7d9),
+                                onClick = onRegenerate,
+                                enabled = messageActionsEnabled,
+                            )
+                        }
+                        TooltipBox(text = stringResource(R.string.ui_delete_3755f5), enabled = messageActionsEnabled) {
+                            AnswerActionButton(
+                                icon = ChatActionIcons.Trash,
+                                contentDescription = stringResource(R.string.ui_delete_this_conversation_3f351b),
+                                onClick = onDelete,
+                                enabled = messageActionsEnabled,
+                            )
+                        }
+                        if (showBranchAction && LocalCustomMessageActionSlots.current == null) {
+                            TooltipBox(text = stringResource(R.string.conversation_branch)) {
+                                AnswerActionButton(
+                                    icon = ChatActionIcons.Branch,
+                                    contentDescription = stringResource(R.string.conversation_branch),
+                                    onClick = onBranch,
+                                    enabled = messageActionsEnabled,
+                                )
+                            }
+                        }
                     }
+                    LocalCustomMessageActionSlots.current?.invoke()
+                }
+                if (showMessageActions) {
                     if (!assistantOverlay && message.usage != null && message.usage.hasPerformanceStats) {
                         TurnStatsPill(
                             usage = message.usage,
