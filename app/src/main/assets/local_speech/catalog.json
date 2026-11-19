@@ -4,7 +4,7 @@
   "installedModelId": null,
   "noInstalledModelPolicy": "REQUIRE_EXPLICIT_INSTALL",
   "allowSilentFallback": false,
-  "recommendationRationale": "本版本仅内置 Vosk 引擎，可用模型为 vosk_small_cn_022（44 MB）与 vosk_cn_022（1.4 GB）。",
+  "recommendationRationale": "默认推荐 sensevoice_small_q8_0（253 MB GGUF）：SenseVoice 全段解码、中文准确率实测最好；GGUF 走 libeta_transcribe_jni，ONNX 走 sherpa-onnx，Vosk 为流式低占用备选。",
   "models": [
     {
       "id": "qwen3_asr_06b_q4_k_m",
@@ -47,8 +47,8 @@
         "accuracyMeasured": false,
         "supersedesHistoricalTimeout": true
       },
-      "available": false,
-      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "available": true,
+      "availabilityReason": null,
       "deviceValidationHistory": [
         {
           "status": "failed",
@@ -103,8 +103,8 @@
         "accuracyMeasured": false,
         "supersedesHistoricalTimeout": true
       },
-      "available": false,
-      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "available": true,
+      "availabilityReason": null,
       "deviceValidationHistory": [
         {
           "status": "failed",
@@ -159,8 +159,8 @@
         "accuracyMeasured": false,
         "supersedesHistoricalTimeout": false
       },
-      "available": false,
-      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "available": true,
+      "availabilityReason": null,
       "deviceValidationHistory": [
         {
           "status": "passed_two_public_wavs",
@@ -215,8 +215,8 @@
         "accuracyMeasured": false,
         "supersedesHistoricalTimeout": true
       },
-      "available": false,
-      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "available": true,
+      "availabilityReason": null,
       "deviceValidationHistory": [
         {
           "status": "failed",
@@ -271,8 +271,8 @@
         "accuracyMeasured": false,
         "supersedesHistoricalTimeout": true
       },
-      "available": false,
-      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "available": true,
+      "availabilityReason": null,
       "deviceValidationHistory": [
         {
           "status": "failed",
@@ -340,8 +340,8 @@
         ],
         "accuracyMeasured": false
       },
-      "available": false,
-      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "available": true,
+      "availabilityReason": null,
       "deviceValidationHistory": [
         {
           "status": "passed_two_public_wavs",

@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -138,6 +139,8 @@ private val StopGlyphScale = 1.35f
 private val StopIconSize = 20.dp
 /** 暂停/继续/注入按钮的图标尺寸，与停止图标一致。 */
 private val ActionIconSize = 20.dp
+/** 运行中暂停/注入按钮：比常规动作键小一档，且不被 Row 压缩。 */
+private val RunActionButtonSize = 36.dp
 
 /**
  * Agent 输入器始终保持同一空间结构，聚焦、输入和执行过程只改变状态，不搬动操作入口。
@@ -526,7 +529,8 @@ internal fun AgentChatInputBar(
 
                         Spacer(modifier = Modifier.weight(1f))
 
-                        if (showContextUsage && contextUsage.contextTokens != null) {
+                        // 运行中隐藏上下文用量，把宽度留给暂停/注入，避免挤压发送键。
+                        if (showContextUsage && !isStreaming && contextUsage.contextTokens != null) {
                             AgentContextUsageButton(
                                 usage = contextUsage,
                                 onCompact = onCompactContext,
@@ -567,8 +571,9 @@ internal fun AgentChatInputBar(
                         ) {
                             IconButton(
                                 onClick = { if (isRunPaused) onResume() else onPause() },
-                                minWidth = ChatInputActionSize,
-                                minHeight = ChatInputActionSize,
+                                modifier = Modifier.requiredSize(RunActionButtonSize),
+                                minWidth = RunActionButtonSize,
+                                minHeight = RunActionButtonSize,
                             ) {
                                 Box(
                                     modifier = Modifier
@@ -586,7 +591,7 @@ internal fun AgentChatInputBar(
                                 }
                             }
                             // 与停止键拉开距离，避免误触。
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                         }
 
                         // 运行中注入：把输入作为补充指令插进当前轮次，不打断、不排队。
@@ -600,8 +605,9 @@ internal fun AgentChatInputBar(
                                     dictation.cancel()
                                     onInject()
                                 },
-                                minWidth = ChatInputActionSize,
-                                minHeight = ChatInputActionSize,
+                                modifier = Modifier.requiredSize(RunActionButtonSize),
+                                minWidth = RunActionButtonSize,
+                                minHeight = RunActionButtonSize,
                             ) {
                                 Box(
                                     modifier = Modifier
@@ -618,7 +624,7 @@ internal fun AgentChatInputBar(
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                         }
 
                         AnimatedVisibility(
@@ -663,7 +669,8 @@ internal fun AgentChatInputBar(
                         )
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                // requiredSize：运行中暂停/注入按钮出现时不被 Row 压缩。
+                                .requiredSize(36.dp)
                                 .clip(CircleShape)
                                 .combinedClickable(
                                     enabled = isStreaming || canSend,

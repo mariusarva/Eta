@@ -23,8 +23,10 @@ internal suspend fun recognizeSpeechFile(
 ): String = withContext(Dispatchers.IO) {
     withTimeout(300_000) {
         when (settings.asr) {
-            AsrProvider.LOCAL, AsrProvider.SHERPA_NCNN, AsrProvider.QWEN3_LOCAL ->
-                throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "本地模型不支持文件转写，请改用实时识别")
+            AsrProvider.LOCAL, AsrProvider.SHERPA_NCNN, AsrProvider.QWEN3_LOCAL -> {
+                onProgress("正在本地识别，音频不会上传")
+                LocalSpeechFileTranscription.transcribe(context, wav, onProgress)
+            }
             AsrProvider.MIMO -> {
                 onProgress("正在识别")
                 recognizeMimoSpeech(settings.mimoAsr, credentials.mimoAsr, wav)
