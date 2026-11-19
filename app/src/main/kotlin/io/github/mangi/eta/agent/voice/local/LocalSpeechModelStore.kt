@@ -28,7 +28,8 @@ object LocalSpeechModelStore {
         mainProcess(context)
         val savedId = context.getSharedPreferences("local_speech_selection", Context.MODE_PRIVATE)
             .getString("model_id", null)
-        return LocalSpeechRegistry.selectionOrDefault(savedId)
+        val available = availableModels(context).filter { it.available }.map { it.id }.toSet()
+        return LocalSpeechRegistry.selectionOrDefault(savedId, available)
     }
     fun selectModel(context: Context, modelId: String) {
         mainProcess(context)
