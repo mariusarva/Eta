@@ -29,6 +29,39 @@ sealed interface AppRoute : NavKey {
 
     @Serializable
     data object PromptPresets : AppRoute
+    @Serializable
+    data object PromptStudio : AppRoute
+
+    @Serializable
+    data object PromptEditor : AppRoute
+
+    @Serializable
+    data object PromptVersions : AppRoute
+
+    @Serializable
+    data object PromptTools : AppRoute
+
+    @Serializable
+    data object PromptSnapshots : AppRoute
+
+    @Serializable
+    data class PromptSnapshotDetail(val fileName: String) : AppRoute
+
+    @Serializable
+    data class PromptPresetEditor(val name: String? = null) : AppRoute
+
+    @Serializable
+    data object PromptIntegrity : AppRoute
+
+    @Serializable
+    data object PromptEffective : AppRoute
+
+    @Serializable
+    data class PromptEffectiveItem(val segment: Int) : AppRoute
+
+    @Serializable
+    data object PromptToolGroups : AppRoute
+
 
     @Serializable
     data object GitHubAccount : AppRoute
