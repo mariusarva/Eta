@@ -1,0 +1,51 @@
+[
+  {
+    "model": "qwen3_asr_06b_q4_k_m",
+    "name": "Qwen3-ASR-0.6B-Q4_K_M.gguf",
+    "sizeBytes": 589560480,
+    "sha256": "5b58f32a58ffa2c8783e0b0963485623e286e6272d953dfc9e28bc3447dee0c0",
+    "url": "https://huggingface.co/handy-computer/Qwen3-ASR-0.6B-gguf/resolve/7e7c69a577fa2725dfedbe34b5e999336e30a19b/Qwen3-ASR-0.6B-Q4_K_M.gguf"
+  },
+  {
+    "model": "qwen3_asr_06b_q5_k_m",
+    "name": "Qwen3-ASR-0.6B-Q5_K_M.gguf",
+    "sizeBytes": 645356192,
+    "sha256": "062a7bcb18675c2fe5ffd0e8b354eac6a1ceada9b2af9ef7168746ae16b54358",
+    "url": "https://huggingface.co/handy-computer/Qwen3-ASR-0.6B-gguf/resolve/7e7c69a577fa2725dfedbe34b5e999336e30a19b/Qwen3-ASR-0.6B-Q5_K_M.gguf"
+  },
+  {
+    "model": "sensevoice_small_f16",
+    "name": "SenseVoiceSmall-F16.gguf",
+    "sizeBytes": 470412128,
+    "sha256": "dc172fd5ffaff0a396393cd4edd82e18403c53f8f5873bcc544ba012b70598f6",
+    "url": "https://huggingface.co/handy-computer/SenseVoiceSmall-gguf/resolve/ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b/SenseVoiceSmall-F16.gguf"
+  },
+  {
+    "model": "sensevoice_small_q8_0",
+    "name": "SenseVoiceSmall-Q8_0.gguf",
+    "sizeBytes": 252684608,
+    "sha256": "6c759ee4c9748c9b3f7a5a60ca74f0f7e685fb9d45d1378fce7cfd62f59adf29",
+    "url": "https://huggingface.co/handy-computer/SenseVoiceSmall-gguf/resolve/ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b/SenseVoiceSmall-Q8_0.gguf"
+  },
+  {
+    "model": "sensevoice_small_q4_k_m",
+    "name": "SenseVoiceSmall-Q4_K_M.gguf",
+    "sizeBytes": 145738304,
+    "sha256": "9d775303e6b4e793d049ef226214c400b2b1746c734ed017146a1a085b13d02b",
+    "url": "https://huggingface.co/handy-computer/SenseVoiceSmall-gguf/resolve/ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b/SenseVoiceSmall-Q4_K_M.gguf"
+  },
+  {
+    "model": "sensevoice_small_int8",
+    "name": "model.int8.onnx",
+    "sizeBytes": 239233841,
+    "sha256": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51",
+    "url": "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/2365baeacb507f821a0c8120fcee3d484dba7a07/model.int8.onnx"
+  },
+  {
+    "model": "sensevoice_small_int8",
+    "name": "tokens.txt",
+    "sizeBytes": 315894,
+    "sha256": "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc",
+    "url": "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/2365baeacb507f821a0c8120fcee3d484dba7a07/tokens.txt"
+  }
+]

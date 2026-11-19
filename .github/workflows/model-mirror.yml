@@ -1,0 +1,69 @@
+name: Local Model Mirror
+
+# 本机网络无法访问 huggingface.co，离线语音模型（GGUF / SenseVoice-ONNX）因此无法下载。
+# 这里用 runner 的网络把 catalog 里固定版本的模型文件下载下来、按 sha256 校验后
+# 作为 Release 资产发布；App 下载时优先走 GitHub，失败再回退 huggingface.co。
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/model-mirror.yml'
+      - '.github/local-models.json'
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 下载并校验模型
+        run: |
+          set -euo pipefail
+          mkdir -p staging
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess, sys
+          items = json.load(open('.github/local-models.json', encoding='utf-8'))
+          failed = []
+          for it in items:
+              out = os.path.join('staging', it['name'])
+              if os.path.exists(out) and os.path.getsize(out) == it['sizeBytes']:
+                  print(f"skip {it['name']}")
+                  continue
+              print(f"download {it['name']} ({it['sizeBytes']} bytes)", flush=True)
+              for attempt in range(1, 4):
+                  if subprocess.run(['curl', '-fL', '--retry', '3', '--retry-delay', '5',
+                                     '--connect-timeout', '30', '-o', out, it['url']]).returncode == 0:
+                      break
+                  print(f"  attempt {attempt} failed", flush=True)
+              if not os.path.exists(out):
+                  failed.append(it['name']); continue
+              size = os.path.getsize(out)
+              if size != it['sizeBytes']:
+                  print(f"  size mismatch {size} != {it['sizeBytes']}"); failed.append(it['name']); continue
+              h = hashlib.sha256()
+              with open(out, 'rb') as f:
+                  for chunk in iter(lambda: f.read(1 << 20), b''):
+                      h.update(chunk)
+              if h.hexdigest() != it['sha256']:
+                  print(f"  sha256 mismatch {h.hexdigest()}"); failed.append(it['name']); continue
+              print(f"  ok {it['name']}")
+          if failed:
+              print('FAILED: ' + ', '.join(failed)); sys.exit(1)
+          PY
+          ls -la staging
+
+      - name: 发布 Release 资产
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: local-models-v1
+          name: Local speech models (mirror)
+          body: |
+            离线语音模型固定版本镜像。文件来自 huggingface.co，sha256 与 App 内
+            `assets/local_speech/catalog.json` 一致；App 按同样的摘要校验后才会安装。
+          files: staging/*
+          fail_on_unmatched_files: true
