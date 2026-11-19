@@ -14,7 +14,7 @@ import org.json.JSONObject
 
 internal fun supportsSpeechSession(provider: TtsProvider): Boolean = when (provider) {
     TtsProvider.QWEN, TtsProvider.DOUBAO, TtsProvider.DEEPSEEK -> true
-    TtsProvider.NONE, TtsProvider.GEMINI, TtsProvider.MINIMAX, TtsProvider.MIMO -> false
+    TtsProvider.NONE, TtsProvider.GEMINI, TtsProvider.MINIMAX, TtsProvider.MIMO, TtsProvider.SYSTEM -> false
 }
 
 /**
