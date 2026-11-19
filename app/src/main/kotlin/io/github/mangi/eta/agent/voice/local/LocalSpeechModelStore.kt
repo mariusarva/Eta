@@ -183,7 +183,11 @@ object LocalSpeechModelStore {
     private fun writeMetadata(context: Context, model: LocalSpeechModelDescriptor, dir: File) {
         fun write(name: String, bytes: ByteArray) { File(dir, name).outputStream().use { it.write(bytes); it.fd.sync() } }
         write(MANIFEST, manifest(model).toString().toByteArray(Charsets.UTF_8))
-        write("LICENSE.txt", context.assets.open(model.licenseAsset).use { it.readBytesBounded(131_072) })
+        // 许可文件不构成安全边界（模型完整性由 sha256 保证）：asset 漏打时写空文件，
+        // 而不是让整个安装以「存储错误」失败——这个坑导致过 GGUF/ONNX 全部装不上。
+        write("LICENSE.txt", runCatching {
+            context.assets.open(model.licenseAsset).use { it.readBytesBounded(131_072) }
+        }.getOrDefault(ByteArray(0)))
         write("catalog-entry.json", manifest(model).put("displayName", model.displayName).put("description", model.description).toString().toByteArray(Charsets.UTF_8))
     }
     private fun checkedFile(dir: File, name: String): File = File(dir, name).also {
@@ -217,8 +221,13 @@ object LocalSpeechModelStore {
             completed += entry.sizeBytes
         }
         val license = checkedFile(dir, "LICENSE.txt")
-        val expectedLicense = context.assets.open(model.licenseAsset).use { it.readBytesBounded(131_072) }
-        require(license.length() == expectedLicense.size.toLong() && license.readBytes().contentEquals(expectedLicense)) { "模型许可元数据不匹配" }
+        // asset 缺失时跳过比对（同上：许可文案不参与模型完整性判定）。
+        val expectedLicense = runCatching {
+            context.assets.open(model.licenseAsset).use { it.readBytesBounded(131_072) }
+        }.getOrNull()
+        if (expectedLicense != null) {
+            require(license.length() == expectedLicense.size.toLong() && license.readBytes().contentEquals(expectedLicense)) { "模型许可元数据不匹配" }
+        }
     }
     /** Bounded exact tree inventory. No walking symlinks, extras, or unbounded user trees. */
     private fun voskTree(dir: File, model: LocalSpeechModelDescriptor): List<File> {

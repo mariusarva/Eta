@@ -285,3 +285,16 @@ huggingface.co 在本机网络不可达，`hf-mirror.com` 对这批仓库一律 
 
 - 帧数据（`dumpsys gfxinfo`）在 release 包上 50th 12–14 ms、99th 34–44 ms、现代 janky < 0.6%；debug 包的 `legacy janky` 高达 20–38%，因为 120 Hz 屏的 8.3 ms 阈值下 debug 构建必超。用户主观的「卡」主要来自 debug 变体，不是业务代码死循环。
 - 非 Vosk 模型原先每次 `inspect` / 冷加载都全量 SHA（单文件最大 590 MB）。现在 8 个模型统一走目录指纹缓存（inode / ctime / mtime / nanos），文件被替换即失效。
+
+**原生库清单与依赖（踩过的坑）**
+
+`jniLibs/arm64-v8a/` 必须同时包含 `libc++_shared.so`（1.4 MB）：`libeta_transcribe_jni.so` 的
+`DT_NEEDED` 里有它，缺了会在 `System.loadLibrary` 阶段报
+`dlopen failed: library "libc++_shared.so" not found`，服务端把 `LinkageError` 翻成
+「本机离线原生库不兼容」。其它 so 的依赖都已就位：`libsherpa-onnx-jni.so` → `libonnxruntime.so`，
+`libsherpa-ncnn-jni.so` → `libncnn.so`，其余只依赖系统库。
+
+另一个同类坑：catalog 引用的许可文件必须真的在 `assets/local_speech/licenses/` 里。
+`writeMetadata()` 原先直接 `assets.open()`，缺文件时整个 install 落到 STORAGE 失败分支，
+表现为「GGUF/ONNX 一直待检测、Vosk 能装」——因为只有 Vosk 那份许可存在。现已补齐，
+并且缺许可时降级为空文件而不是让安装失败。
