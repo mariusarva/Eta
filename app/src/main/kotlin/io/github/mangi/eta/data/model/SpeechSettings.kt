@@ -6,10 +6,19 @@ private const val MIMO_SPEECH_BASE_URL = "https://api.xiaomimimo.com/v1"
 private const val DEEPSEEK_SPEECH_BASE_URL = "https://api.deepseek.com"
 
 @Serializable
-enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, MIMO, DEEPSEEK }
+enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, MIMO, SHERPA_NCNN, QWEN3_LOCAL, LOCAL, DEEPSEEK;
+
+    /** Keep legacy enum names/ordinals readable; only LOCAL is offered in new UI. */
+    val canonical: AsrProvider get() = when (this) {
+        SHERPA_NCNN, QWEN3_LOCAL -> LOCAL
+        else -> this
+    }
+    val isLocal: Boolean get() = canonical == LOCAL
+    companion object { val selectable: List<AsrProvider> = entries.filter { it == it.canonical } }
+}
 
 @Serializable
-enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO, DEEPSEEK }
+enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO, SYSTEM, DEEPSEEK }
 
 @Serializable
 enum class SpeechRegion { BEIJING, SINGAPORE }
@@ -101,9 +110,21 @@ data class SpeechOssConfig(
     val prefix: String = "eta-speech/",
 )
 
+/** Offline-only Android TTS. Empty engine uses the system default; no cloud fallback. */
+@Serializable
+data class SystemTtsConfig(
+    val engine: String = "",
+    val language: String = "zh-CN",
+    val rate: Float = 1f,
+    val pitch: Float = 1f,
+    /** Explicit opt-in; false preserves strict offline metadata checks for old settings. */
+    val useSystemDefault: Boolean = false,
+)
+
 @Serializable
 data class SpeechSettings(
     val asr: AsrProvider = AsrProvider.QWEN_REALTIME,
+    val systemTts: SystemTtsConfig = SystemTtsConfig(),
     val tts: TtsProvider = TtsProvider.NONE,
     val autoSpeak: Boolean = false,
     /** 聊天页回答完成后自动朗读最终回答；与助手浮窗的自动播报分开保存。 */
