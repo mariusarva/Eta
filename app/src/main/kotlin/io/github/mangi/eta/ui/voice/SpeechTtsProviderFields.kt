@@ -213,6 +213,7 @@ internal fun SpeechDeliveryFields(store: SpeechSettingsStore) {
                 }
             }
         }
+        TtsProvider.SYSTEM -> Unit // 离线系统 TTS 无云端字段
         TtsProvider.NONE, TtsProvider.QWEN, TtsProvider.DOUBAO -> Unit
     }
 }
