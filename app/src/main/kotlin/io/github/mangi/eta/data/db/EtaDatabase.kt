@@ -26,7 +26,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 27,
+    version = 28,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -70,6 +70,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_24_25,
                         MIGRATION_25_26,
                         MIGRATION_26_27,
+                        MIGRATION_27_28,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -139,6 +140,15 @@ internal abstract class EtaDatabase : RoomDatabase() {
         internal val MIGRATION_25_26 = Migration(25, 26) { database ->
             database.execSQL("ALTER TABLE conversation_messages ADD COLUMN cache_write_tokens INTEGER")
             database.execSQL("ALTER TABLE conversation_messages ADD COLUMN compaction_archive_id TEXT")
+        }
+
+        /**
+         * 补消息落库时间，供会话轮次列表显示。旧数据统一为 0，界面上不显示时间。
+         */
+        internal val MIGRATION_27_28 = Migration(27, 28) { database ->
+            database.execSQL(
+                "ALTER TABLE conversation_messages ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0"
+            )
         }
 
         internal val MIGRATION_26_27 = Migration(26, 27) { database ->
