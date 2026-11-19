@@ -1,6 +1,7 @@
 package io.github.mangi.eta.agent.voice
 
 import android.content.Context
+import io.github.mangi.eta.agent.voice.local.LocalSpeechFileTranscription
 import io.github.mangi.eta.data.model.AsrProvider
 import io.github.mangi.eta.data.model.SpeechCredentials
 import io.github.mangi.eta.data.model.SpeechSettings
