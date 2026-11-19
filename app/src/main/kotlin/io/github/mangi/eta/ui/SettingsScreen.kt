@@ -621,6 +621,7 @@ private fun SettingsPageContent(
                         },
                         onClick = { onNavigate(AppRoute.Skills) },
                     )
+                    CouiIconDivider()
                     CouiPreference(
                         title = "GitHub 账号",
                         icon = {
