@@ -62,6 +62,7 @@ internal fun AsrProvider.label(): String = stringResource(
         AsrProvider.DOUBAO -> R.string.speech_asr_doubao
         AsrProvider.MIMO -> R.string.speech_asr_mimo
         AsrProvider.DEEPSEEK -> R.string.speech_asr_deepseek
+        AsrProvider.LOCAL, AsrProvider.SHERPA_NCNN, AsrProvider.QWEN3_LOCAL -> R.string.speech_asr_local
     },
 )
 
