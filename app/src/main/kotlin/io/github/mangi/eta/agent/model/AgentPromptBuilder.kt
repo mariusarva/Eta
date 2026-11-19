@@ -21,14 +21,13 @@ internal object AgentPromptBuilder {
         rootAvailable: Boolean = false,
         roleplayContext: RoleplayRunContext? = null,
         executionContext: TerminalExecutionContext? = null,
+        customization: PromptCustomization = PromptCustomization(),
     ): JSONArray {
-        val messages = buildSystemMessages(config, skillContext, memoryContext, rootAvailable, roleplayContext, executionContext)
+        val messages = buildSystemMessages(config, skillContext, memoryContext, rootAvailable, roleplayContext, executionContext, customization)
         history.forEach { item ->
             runCatching { AgentConversationCodec.toJsonObject(item) }.getOrNull()?.let(messages::put)
         }
         messages.put(AgentConversationCodec.userMessage(prompt, images))
-        custom?.let { value -> customPersonaMessage(value) }?.let(messages::put)
-        custom?.let { value -> customInstructionsMessage(value) }?.let(messages::put)
         return messages
     }
 
@@ -183,6 +182,8 @@ internal object AgentPromptBuilder {
         roleplayContext?.personaMessage()?.let(messages::put)
         buildMemorySystemMessage(memoryContext, writable = roleplayContext == null)?.let(messages::put)
         buildSkillSystemMessage(skillContext)?.let(messages::put)
+        custom?.let { value -> customPersonaMessage(value) }?.let(messages::put)
+        custom?.let { value -> customInstructionsMessage(value) }?.let(messages::put)
         return messages
     }
 
