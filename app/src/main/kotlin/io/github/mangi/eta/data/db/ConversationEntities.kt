@@ -117,6 +117,8 @@ internal data class ConversationMessageEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "conversation_id") val conversationId: String,
     @ColumnInfo(name = "sort_index") val sortIndex: Int,
+    /** 消息落库时间；0 表示旧数据升级前写入、没有时间信息。 */
+    @ColumnInfo(name = "created_at", defaultValue = "0") val createdAt: Long = 0L,
     val type: String,
     val content: String,
     @ColumnInfo(name = "images_json") val imagesJson: String = "[]",
