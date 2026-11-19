@@ -42,11 +42,23 @@ internal object LocalSpeechRegistry {
     /** 可用性未知时的 Vosk 优先顺序。 */
     private val VOSK_PREFERENCE = listOf("vosk_small_cn_022", "vosk_cn_022")
 
+    /**
+     * catalog 是 32 KB 的只读资产，parse() 含数十项校验（sha256 正则、URL 结构、路径安全）。
+     * 每次调用都全量解析会让设置页重建明显卡顿，因此进程内缓存一次结果。
+     * assets 内容随 APK 固定，不存在运行期失效问题。
+     */
+    @Volatile
+    private var cached: List<LocalSpeechModelDescriptor>? = null
+
     fun catalog(context: Context): List<LocalSpeechModelDescriptor> {
-        val bytes = context.assets.open("local_speech/catalog.json").use { input ->
-            val data = input.readBytesBounded(131_072); data.toString(Charsets.UTF_8)
+        cached?.let { return it }
+        synchronized(this) {
+            cached?.let { return it }
+            val bytes = context.assets.open("local_speech/catalog.json").use { input ->
+                val data = input.readBytesBounded(131_072); data.toString(Charsets.UTF_8)
+            }
+            return parse(bytes).also { cached = it }
         }
-        return parse(bytes)
     }
     internal fun parse(bytes: String): List<LocalSpeechModelDescriptor> {
         require(bytes.length <= 131_072)
