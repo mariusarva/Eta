@@ -972,7 +972,7 @@ internal fun AgentConversationMessages(
                 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomInset),
+                    .padding(bottom = bottomInset - 6.dp),
             )
 
         }
