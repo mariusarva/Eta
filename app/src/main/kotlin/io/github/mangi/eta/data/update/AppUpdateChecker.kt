@@ -42,10 +42,23 @@ internal object AppUpdateChecker {
         }
     }
 
+    /**
+     * 只保留版本号前三段纯数字，去掉一切非数字后缀再比较。
+     *
+     * 本 fork 的 tag 带 `-fork.N` 序号（如 `v3.4.4-fork.4`），而 versionName 是 `3.4.4+提交号`。
+     * 若把后缀带进比较，`4-fork` 会被当成大于 `4`，导致每次检查都误报有新版本。
+     * 发版序号不属于上游版本语义，因此统一剥离，只用 `x.y.z` 判断是否需要更新。
+     */
+    private fun versionCore(version: String): List<String> =
+        version.removePrefix("v")
+            .substringBefore('+')
+            .substringBefore('-')
+            .split('.')
+            .map { part -> part.takeWhile(Char::isDigit).ifBlank { part } }
+
     fun isNewer(latest: String, current: String): Boolean {
-        val latestParts = latest.removePrefix("v").split('.')
-        val currentParts =
-            current.removePrefix("v").substringBefore('+').substringBefore('-').split('.')
+        val latestParts = versionCore(latest)
+        val currentParts = versionCore(current)
         for (index in 0 until maxOf(latestParts.size, currentParts.size)) {
             val latestPart = latestParts.getOrNull(index) ?: "0"
             val currentPart = currentParts.getOrNull(index) ?: "0"
