@@ -20,8 +20,7 @@ import top.yukonga.miuix.kmp.basic.DropdownItem
 internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
     val settings = store.settings
     val voice = when (settings.tts) {
-        TtsProvider.SYSTEM -> null
-        TtsProvider.NONE -> return
+        TtsProvider.SYSTEM, TtsProvider.NONE -> return
         TtsProvider.QWEN -> settings.qwenVoice
         TtsProvider.DOUBAO -> settings.doubaoVoice
         TtsProvider.GEMINI -> settings.geminiTts.voice
@@ -36,8 +35,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
     val change: (String) -> Unit = {
         store.edit(
             when (settings.tts) {
-                TtsProvider.SYSTEM -> null
-                TtsProvider.NONE -> settings
+                TtsProvider.SYSTEM, TtsProvider.NONE -> settings
                 TtsProvider.QWEN -> settings.copy(qwenVoice = it)
                 TtsProvider.DOUBAO -> settings.copy(doubaoVoice = it)
                 TtsProvider.GEMINI -> settings.copy(geminiTts = settings.geminiTts.copy(voice = it))
@@ -101,7 +99,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
         SpeechNote(
             stringResource(
                 when (settings.tts) {
-                    TtsProvider.SYSTEM -> null
+                    TtsProvider.SYSTEM -> ""
                     TtsProvider.QWEN -> R.string.speech_qwen_voice_note
                     TtsProvider.DOUBAO -> R.string.speech_doubao_voice_note
                     TtsProvider.GEMINI -> R.string.speech_gemini_voice_note
