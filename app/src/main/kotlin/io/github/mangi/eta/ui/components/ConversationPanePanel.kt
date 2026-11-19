@@ -697,7 +697,8 @@ private fun ConversationHistoryRow(
                 Spacer(Modifier.width(11.dp))
             }
 
-            Column(modifier = Modifier.weight(1f)) {
+            // fill = false：标题按内容宽度，给右侧时间戳留出空间，否则会被压成 0 宽。
+            Column(modifier = Modifier.weight(1f, fill = false)) {
                 val title = conversation.title.ifBlank { conversation.preview }
                 Text(
                     text = title,
@@ -742,6 +743,7 @@ private fun ConversationHistoryRow(
                 conversation.timeLabel
             }
             if (rowTimeLabel.isNotBlank()) {
+                Spacer(Modifier.weight(1f))
                 Text(
                     text = rowTimeLabel,
                     style = MiuixTheme.textStyles.footnote1.copy(fontSize = 11.sp),
