@@ -1070,6 +1070,54 @@ internal class AgentAppState(
         }
     }
 
+    /**
+     * 从消息选择创建「引用续写」：先保存当前草稿，再新建会话并把引用写进输入框。
+     *
+     * 全程在 Main.immediate 且无挂起点地完成会话切换，避免新会话以旧引用组合。
+     */
+    suspend fun continueFromQuote(
+        sourceId: String,
+        selectedText: String,
+        draft: String,
+        expectedConversationId: String,
+        sourceStillCurrent: () -> Boolean = { true },
+    ): Boolean = withContext(Dispatchers.Main.immediate) {
+        fun available(): Boolean = selectedConversationId == expectedConversationId &&
+            !persistencePaused && !isLoadingConversation && homeState.isConversationLoaded &&
+            !homeState.isStreaming && !homeState.isCompacting && homeState.messageEdit == null &&
+            homeState.roleplayMessages.pendingRewrites.isEmpty() &&
+            runStore.activeRunId(expectedConversationId) == null &&
+            expectedConversationId !in pendingConversationDeletes
+        if (selectedText.isBlank() || branchingConversationId != null || !available() ||
+            !sourceStillCurrent()) return@withContext false
+        val source = homeState.messages.singleOrNull { it.id == sourceId }
+        if (source !is UserMessageUi && source !is AgentMessageUi) return@withContext false
+        // SelectionContainer 暴露的是渲染后纯文本（可能跨 Markdown 标记），
+        // 所以不能用原始源码子串匹配来校验选区。
+        val selectionVersion = conversationSelectionVersion
+        branchingConversationId = expectedConversationId
+        try {
+            updateCurrentConversation(homeState.copy(input = draft), updateTimestamp = false)
+            val savedSource = homeState
+            if (!persistConversations().await()) return@withContext false
+            // await 期间可能发生导航、编辑、启动运行或更新草稿，任一情况都中止且不重置。
+            if (!available() || conversationSelectionVersion != selectionVersion ||
+                homeState !== savedSource || !sourceStillCurrent()) return@withContext false
+            val quote = io.github.mangi.eta.ui.components.custom.quoteWithDraft(selectedText, "")
+            // 这一段 Main 块内没有挂起点：重建后的输入框一出生就带引用，
+            // inputSyncVersion 覆盖同一组合内的消费者，不依赖定时器。
+            createConversation()
+            homeState = homeState.copy(
+                input = quote,
+                inputSyncVersion = savedSource.inputSyncVersion + 1,
+                focusInputOnSync = true,
+            )
+            true
+        } finally {
+            branchingConversationId = null
+        }
+    }
+
     fun createConversation() {
         conversationSelectionVersion += 1
         cancelHistoryPageLoad()
