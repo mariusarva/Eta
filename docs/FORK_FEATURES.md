@@ -29,7 +29,10 @@
 
 产物是 debug 签名，与官方包不同。本机装了 CorePatch（无视签名校验），可直接 `pm install -r -d` 覆盖安装，数据保留。无 CorePatch 的设备必须卸载重装并重新灌数据。
 
-## 功能一：提示词预设
+## 功能一：提示词系统
+
+> 完整移植记录（逻辑层 / 组件层 / UI 层 / 接入点 / 踩坑）见 [PROMPT_SYSTEM.md](PROMPT_SYSTEM.md)。
+> 下面只保留摘要。
 
 上游把系统提示词挂在 `model_providers.system_prompt`（per-provider），没有全局人格层。
 
