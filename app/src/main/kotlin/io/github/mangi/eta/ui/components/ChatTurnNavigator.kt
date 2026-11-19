@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -41,6 +42,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.ui.model.AgentMessageUi
+import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import top.yukonga.miuix.kmp.basic.Text
@@ -81,7 +84,11 @@ internal fun List<AgentChatMessageUi>.toChatTurns(): List<ChatTurnEntry> {
             currentUser = message
         } else if (currentUser != null) {
             if (preview.length < 60) {
-                val body = message.content.trim()
+                val body = when (message) {
+                    is AgentMessageUi -> message.content
+                    is SystemNoticeMessageUi -> message.detail.orEmpty()
+                    else -> ""
+                }.trim()
                 if (body.isNotEmpty()) {
                     if (preview.isNotEmpty()) preview.append(' ')
                     preview.append(body.take(60))
