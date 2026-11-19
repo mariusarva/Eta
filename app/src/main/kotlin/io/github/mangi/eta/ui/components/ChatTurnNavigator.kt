@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.ui.app.ConversationTimeLabels
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
@@ -59,6 +60,8 @@ internal data class ChatTurnEntry(
     val index: Int,
     val firstMessageId: String,
     val preview: String,
+    /** 该轮用户消息的落库时间；0 表示旧数据没有时间。 */
+    val timestampMillis: Long = 0L,
 )
 
 /** 把消息列表切成轮次：每条用户消息开启新一轮，之前的消息归属上一轮。 */
@@ -74,6 +77,7 @@ internal fun List<AgentChatMessageUi>.toChatTurns(): List<ChatTurnEntry> {
             index = turns.size + 1,
             firstMessageId = user.id,
             preview = text.ifBlank { user.content.trim() },
+            timestampMillis = user.createdAtMillis,
         )
         preview = StringBuilder()
     }
@@ -201,6 +205,17 @@ internal fun ChatTurnNavigator(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
+                            if (turn.timestampMillis > 0L) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = remember(turn.timestampMillis) {
+                                        ConversationTimeLabels.rowLabel(turn.timestampMillis)
+                                    },
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                    maxLines = 1,
+                                )
+                            }
                         }
                     }
                 }
