@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -729,7 +731,16 @@ private fun ConversationHistoryRow(
             }
 
             // 行内时间戳：日期 + 时间，窄屏下最多占 40% 宽度，超长省略。
-            val rowTimeLabel = ConversationTimeLabels.rowLabel(conversation.updatedAtMillis)
+            val rowTimeLabel = if (conversation.updatedAtMillis > 0L) {
+                ConversationTimeLabels.rowLabel(
+                    timestampMillis = conversation.updatedAtMillis,
+                    locale = LocalConfiguration.current.locales[0],
+                    use24HourClock = android.text.format.DateFormat.is24HourFormat(LocalContext.current),
+                )
+            } else {
+                // 时间戳缺失时退回分组用的标签，至少不空着。
+                conversation.timeLabel
+            }
             if (rowTimeLabel.isNotBlank()) {
                 Text(
                     text = rowTimeLabel,
