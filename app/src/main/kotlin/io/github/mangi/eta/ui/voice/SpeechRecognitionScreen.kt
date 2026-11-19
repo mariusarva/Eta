@@ -45,7 +45,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
     SpeechLifecycle { store.stop() }
     val settings = store.settings
     val asrLabels = AsrProvider.entries.map { it.label() }
-    val asrNoteRes = when (settings.asr) {
+    val asrNoteRes: Int? = when (settings.asr) {
         AsrProvider.LOCAL, AsrProvider.SHERPA_NCNN, AsrProvider.QWEN3_LOCAL -> null
         AsrProvider.QWEN_REALTIME, AsrProvider.DOUBAO -> R.string.speech_asr_note_streaming
         AsrProvider.QWEN_FLASH -> R.string.speech_asr_note_flash
