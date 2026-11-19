@@ -99,7 +99,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
         SpeechNote(
             stringResource(
                 when (settings.tts) {
-                    TtsProvider.SYSTEM -> ""
+                    TtsProvider.SYSTEM -> error("System TTS returns early; no voice note")
                     TtsProvider.QWEN -> R.string.speech_qwen_voice_note
                     TtsProvider.DOUBAO -> R.string.speech_doubao_voice_note
                     TtsProvider.GEMINI -> R.string.speech_gemini_voice_note
