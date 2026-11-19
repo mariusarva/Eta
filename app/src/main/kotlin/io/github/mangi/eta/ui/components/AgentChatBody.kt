@@ -953,6 +953,27 @@ internal fun AgentConversationMessages(
                     }
                 }
             }
+            // 底部上拉小横条：展开当前会话的轮次列表，点击跳转。
+            ChatTurnNavigator(
+                messages = visibleMessages,
+                onJumpToMessage = { messageId ->
+                    val entryIndex = timelineEntries.indexOfFirst { entry ->
+                        when (entry) {
+                            is AgentTimelineEntry.Message -> entry.message.id == messageId
+                            is AgentTimelineEntry.WorkProcess ->
+                                entry.messages.any { it.id == messageId }
+                        }
+                    }
+                    if (entryIndex >= 0) {
+                        val offset = if (hasEarlierMessages) entryIndex + 1 else entryIndex
+                        scope.launch { scrollState.animateScrollToItem(offset) }
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = bottomInset),
+            )
+
         }
     }
 }
