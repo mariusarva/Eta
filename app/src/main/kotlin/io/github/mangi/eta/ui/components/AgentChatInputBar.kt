@@ -137,8 +137,13 @@ private val SendIconSize = 16.dp
 /** 字形放大倍数：Material 图标留白多，1.35 倍后视觉大小才与按钮圆匹配。 */
 private val StopGlyphScale = 1.35f
 private val StopIconSize = 20.dp
-/** 暂停/继续/注入按钮的图标尺寸，与停止图标一致。 */
-private val ActionIconSize = 20.dp
+/**
+ * 暂停/继续/注入按钮的图标尺寸，与停止图标一致。
+ *
+ * 必须与 [StopIconSize] 相等：图标经 [StopGlyphScale] 放大后，
+ * 20dp 会超出 24dp 的背景圆，导致暂停键视觉上比停止键肿一圈。
+ */
+private val ActionIconSize = 16.dp
 /** 运行中暂停/注入按钮：比常规动作键小一档，且不被 Row 压缩。 */
 private val RunActionButtonSize = 36.dp
 /** 运行操作按钮（麦克风/暂停/插入/停止）之间的统一间距，避免分布不均。 */
