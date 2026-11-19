@@ -1,0 +1,10 @@
+Vosk Android 0.3.75: com.alphacephei:vosk-android:0.3.75
+Official API source: https://github.com/alphacep/vosk-api
+License declaration: https://repo.maven.apache.org/maven2/com/alphacephei/vosk-android/0.3.75/vosk-android-0.3.75.pom
+Apache-2.0; original pretrained model licenses are recorded separately in assets/local_speech/.
+
+JNA Android 5.18.1: net.java.dev.jna:jna:5.18.1 (aar)
+https://github.com/java-native-access/jna/tree/5.18.1
+JNA-LICENSE.txt, JNA-AL2.0.txt, JNA-LGPL2.1.txt preserve upstream dual-license texts; this integration uses the Apache-2.0 option.
+libffi-LICENSE.txt is copied from the same 5.18.1 source tree native/libffi/LICENSE.
+This index does not assert a complete audit of every statically linked dependency.
