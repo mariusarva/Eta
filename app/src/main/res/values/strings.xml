@@ -1851,4 +1851,6 @@
     <string name="speech_system_tts_rate">语速</string>
     <string name="speech_system_tts_settings">打开系统文字转语音设置</string>
     <string name="speech_system_tts_settings_missing">无法打开文字转语音设置，请在系统设置中搜索“文字转语音”并安装离线语言包</string>
+    <string name="speech_asr_local_engine">本机离线</string>
+    <string name="speech_tts_system">系统朗读（离线）</string>
 </resources>
