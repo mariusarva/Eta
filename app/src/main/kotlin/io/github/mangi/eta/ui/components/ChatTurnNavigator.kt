@@ -211,7 +211,6 @@ internal fun ChatTurnNavigator(
         // 底部小横条：向上拖或轻点展开/收起
         Box(
             modifier = Modifier
-                .padding(bottom = 4.dp)
                 .width(72.dp)
                 .heightIn(min = 20.dp)
                 .semantics { contentDescription = if (expanded) "收起对话轮次" else "展开对话轮次" }
