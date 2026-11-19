@@ -298,3 +298,20 @@ huggingface.co 在本机网络不可达，`hf-mirror.com` 对这批仓库一律 
 `writeMetadata()` 原先直接 `assets.open()`，缺文件时整个 install 落到 STORAGE 失败分支，
 表现为「GGUF/ONNX 一直待检测、Vosk 能装」——因为只有 Vosk 那份许可存在。现已补齐，
 并且缺许可时降级为空文件而不是让安装失败。
+
+## 外观：渐进模糊开关（同步上游 606301ed，2026-11-19）
+
+上游 `Mangi-11/Eta` 在 `606301ed` 给外观设置加了「渐进模糊」总开关，本 fork 已 cherry-pick
+（11 文件、+52/−7，`git apply` 全部干净应用）。
+
+- 新增 `AppearanceSettings.progressiveBlurEnabled`（默认 `true`）与 DataStore 键
+  `appearance_progressive_blur_enabled`；
+- 外观设置页在 `isRuntimeShaderSupported()` 为真时显示「渐进模糊」开关；
+- `AdaptiveTopAppBar`、`HomeMiuixTopBar`、`ConversationPaneTopBar`、`ConversationPaneBottomDock`
+  联动：关闭后不再创建 progressive backdrop，顶部回退 `GlassTopAppBarDefaults.bandBrush`，
+  底部 dock 回退 containerColor → 透明的竖向渐变。作用是把离屏模糊的 GPU 负载降下来。
+
+**界面样式本身没有新增。** 截至 2026-11-19，上游 main 与全部 20 个 fork 的
+`AppearanceUiStyle` 都只有 `COUI` / `MIUIX` 两种，`AppearancePaletteStyle` 都是 10 种
+（tonal_spot / neutral / vibrant / expressive / rainbow / fruit_salad / monochrome /
+fidelity / content / cmf），没有第三种界面风格可以移植。

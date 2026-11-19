@@ -1,10 +1,9 @@
 name: Eta Fork Build
 
 on:
+  # 日常只出 release 包（Eta Fork Release）。debug 变体不开 R8、Compose 拿不到发布级优化，
+  # 实测帧长尾明显更差，装机验证也用不上；保留手动触发，需要排查时再跑。
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 permissions:
   contents: read
