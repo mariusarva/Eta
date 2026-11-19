@@ -150,6 +150,40 @@ private val RunActionButtonSize = 36.dp
 private val RunActionGap = 12.dp
 
 /**
+ * 运行中操作键（暂停/继续、注入、停止）的统一外形。
+ *
+ * 命中区固定 [RunActionButtonSize]，视觉圆固定 [SendButtonVisualSize]。
+ * 关键点：视觉圆直接画在固定的 Box 里，不经 IconButton 的内部内边距二次压缩，
+ * 这样三个键的圆直径与相互间距才完全一致。
+ */
+@Composable
+private fun RunActionButton(
+    onClick: () -> Unit,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .requiredSize(RunActionButtonSize)
+            .clip(CircleShape)
+            .clickable(role = Role.Button, onClickLabel = contentDescription, onClick = onClick)
+            .semantics { this.contentDescription = contentDescription },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(SendButtonVisualSize)
+                .clip(CircleShape)
+                .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
+    }
+}
+
+/**
  * Agent 输入器始终保持同一空间结构，聚焦、输入和执行过程只改变状态，不搬动操作入口。
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -547,12 +581,17 @@ internal fun AgentChatInputBar(
                         }
 
                         if (recognitionEnabled) {
-                            SpeechDictationButton(
-                                controller = dictation,
-                                enabled = !isCompacting,
-                                holdCancelling = holdCancelling,
-                                onHoldCancellingChange = { holdCancelling = it },
-                            )
+                            Box(
+                                modifier = Modifier.requiredSize(RunActionButtonSize),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                SpeechDictationButton(
+                                    controller = dictation,
+                                    enabled = !isCompacting,
+                                    holdCancelling = holdCancelling,
+                                    onHoldCancellingChange = { holdCancelling = it },
+                                )
+                            }
                             Spacer(modifier = Modifier.width(RunActionGap))
                         }
 
@@ -576,26 +615,16 @@ internal fun AgentChatInputBar(
                             enter = fadeIn(tween(140)) + scaleIn(tween(160), initialScale = 0.78f),
                             exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.78f),
                         ) {
-                            IconButton(
+                            RunActionButton(
                                 onClick = { if (isRunPaused) onResume() else onPause() },
-                                modifier = Modifier.requiredSize(RunActionButtonSize),
-                                minWidth = RunActionButtonSize,
-                                minHeight = RunActionButtonSize,
+                                contentDescription = if (isRunPaused) "继续" else "暂停",
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(SendButtonVisualSize)
-                                        .clip(CircleShape)
-                                        .background(MiuixTheme.colorScheme.surfaceContainerHigh),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector = if (isRunPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
-                                        contentDescription = if (isRunPaused) "继续" else "暂停",
-                                        modifier = Modifier.size(ActionIconSize).scale(StopGlyphScale),
-                                        tint = MiuixTheme.colorScheme.onSurface,
-                                    )
-                                }
+                                Icon(
+                                    imageVector = if (isRunPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(ActionIconSize).scale(StopGlyphScale),
+                                    tint = MiuixTheme.colorScheme.onSurface,
+                                )
                             }
                             // 与停止键拉开距离，避免误触。
                             Spacer(modifier = Modifier.width(RunActionGap))
@@ -607,29 +636,19 @@ internal fun AgentChatInputBar(
                             enter = fadeIn(tween(140)) + scaleIn(tween(160), initialScale = 0.78f),
                             exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.78f),
                         ) {
-                            IconButton(
+                            RunActionButton(
                                 onClick = {
                                     dictation.cancel()
                                     onInject()
                                 },
-                                modifier = Modifier.requiredSize(RunActionButtonSize),
-                                minWidth = RunActionButtonSize,
-                                minHeight = RunActionButtonSize,
+                                contentDescription = "插入到当前运行",
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(SendButtonVisualSize)
-                                        .clip(CircleShape)
-                                        .background(MiuixTheme.colorScheme.surfaceContainerHigh),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Reply,
-                                        contentDescription = "插入到当前运行",
-                                        modifier = Modifier.size(ActionIconSize).scale(StopGlyphScale),
-                                        tint = MiuixTheme.colorScheme.onSurface,
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Rounded.Reply,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(ActionIconSize).scale(StopGlyphScale),
+                                    tint = MiuixTheme.colorScheme.onSurface,
+                                )
                             }
                             Spacer(modifier = Modifier.width(RunActionGap))
                         }
@@ -639,26 +658,17 @@ internal fun AgentChatInputBar(
                             enter = fadeIn(tween(140)) + scaleIn(tween(160), initialScale = 0.78f) + expandHorizontally(tween(160)),
                             exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.78f) + shrinkHorizontally(tween(140)),
                         ) {
-                            IconButton(
+                            RunActionButton(
                                 onClick = onStop,
-                                minWidth = ChatInputActionSize,
-                                minHeight = ChatInputActionSize,
+                                contentDescription = stringResource(R.string.chat_stop),
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(SendButtonVisualSize)
-                                        .clip(CircleShape)
-                                        .background(MiuixTheme.colorScheme.surfaceContainerHigh),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Stop,
-                                        contentDescription = stringResource(R.string.chat_stop),
-                                        // Material 的 Stop 字形只占视口约一半，放大盒子无效，直接放大字形。
-                                        modifier = Modifier.size(StopIconSize).scale(StopGlyphScale),
-                                        tint = MiuixTheme.colorScheme.onSurface,
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Rounded.Stop,
+                                    contentDescription = null,
+                                    // Material 的 Stop 字形只占视口约一半，放大盒子无效，直接放大字形。
+                                    modifier = Modifier.size(ActionIconSize).scale(StopGlyphScale),
+                                    tint = MiuixTheme.colorScheme.onSurface,
+                                )
                             }
                         }
 
@@ -668,7 +678,8 @@ internal fun AgentChatInputBar(
                         val ink = MiuixTheme.colorScheme.onSurface.copy(alpha = 1f)
                         val sendButtonColor by animateColorAsState(
                             targetValue = when {
-                                showPrimaryStop -> MiuixTheme.colorScheme.onSurface
+                                // 运行时用与暂停/注入相同的底色，三个键视觉重量一致。
+                                showPrimaryStop -> MiuixTheme.colorScheme.surfaceContainerHigh
                                 canSend -> MiuixTheme.colorScheme.primary
                                 else -> ink.copy(alpha = if (isDark) 0.08f else 0.06f)
                             },
@@ -729,9 +740,13 @@ internal fun AgentChatInputBar(
                                             isEditingMessage && preserveFollowingMessages -> stringResource(R.string.chat_save_message)
                                             else -> stringResource(R.string.chat_send)
                                         },
-                                        modifier = Modifier.size(if (stopIcon) 12.dp else 17.dp),
+                                        modifier = if (stopIcon) {
+                                            Modifier.size(ActionIconSize).scale(StopGlyphScale)
+                                        } else {
+                                            Modifier.size(17.dp)
+                                        },
                                         tint = when {
-                                            stopIcon -> MiuixTheme.colorScheme.surface
+                                            stopIcon -> MiuixTheme.colorScheme.onSurface
                                             canSend -> MiuixTheme.colorScheme.onPrimary
                                             else -> ink.copy(alpha = if (isDark) 0.28f else 0.24f)
                                         },

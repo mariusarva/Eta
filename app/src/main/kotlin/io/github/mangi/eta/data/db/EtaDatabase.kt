@@ -26,7 +26,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 28,
+    version = 29,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -71,6 +71,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_25_26,
                         MIGRATION_26_27,
                         MIGRATION_27_28,
+                        MIGRATION_28_29,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -148,6 +149,34 @@ internal abstract class EtaDatabase : RoomDatabase() {
         internal val MIGRATION_27_28 = Migration(27, 28) { database ->
             database.execSQL(
                 "ALTER TABLE conversation_messages ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+
+        /**
+         * 回填升级前落库的消息时间，让历史轮次也能显示时间戳。
+         *
+         * 升级前没有逐条时间戳，可用的锚点只有会话自身的 created_at / updated_at，
+         * 所以按 sort_index 在该区间内线性插值：属于估算值，不是原始写入时刻。
+         */
+        internal val MIGRATION_28_29 = Migration(28, 29) { database ->
+            database.execSQL(
+                """
+                WITH ranked AS (
+                    SELECT m.id AS id,
+                           ROW_NUMBER() OVER (PARTITION BY m.conversation_id ORDER BY m.sort_index) AS rn,
+                           COUNT(*) OVER (PARTITION BY m.conversation_id) AS cnt
+                    FROM conversation_messages m
+                    WHERE m.created_at = 0
+                )
+                UPDATE conversation_messages
+                SET created_at = (
+                    SELECT c.created_at + (c.updated_at - c.created_at) * ranked.rn / (ranked.cnt + 1)
+                    FROM ranked
+                    JOIN conversations c ON c.id = conversation_messages.conversation_id
+                    WHERE ranked.id = conversation_messages.id
+                )
+                WHERE created_at = 0
+                """.trimIndent()
             )
         }
 

@@ -133,7 +133,11 @@ internal object AgentPendingResultRecovery {
         supplements.sortedBy { it.index }.forEach { supplement ->
             val id = supplementMessageId(runId, supplement.index)
             if (updated.any { it.id == id }) return@forEach
-            val userMessage = UserMessageUi(id = id, content = supplement.text)
+            val userMessage = UserMessageUi(
+                id = id,
+                content = supplement.text,
+                createdAtMillis = System.currentTimeMillis(),
+            )
             val assistantIndex = updated.indexOfLast {
                 it is AgentMessageUi &&
                     it.isAssistantForRun(runId) &&
