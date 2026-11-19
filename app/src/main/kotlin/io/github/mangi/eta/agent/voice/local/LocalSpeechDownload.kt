@@ -13,61 +13,100 @@ import java.net.URI
 
 /** User-initiated model fetch only. No runtime discovery, unpinned branches, or recognition uploads. */
 internal object LocalSpeechDownload {
+    /**
+     * 镜像仓库：本机网络访问不到 huggingface.co，同一批固定版本文件已由 CI 下载、
+     * 按 catalog 的 sha256 校验后发布到本项目 Release。先走镜像，失败再回退官方地址。
+     */
+    private const val MIRROR_BASE = "https://github.com/mariusarva/Eta/releases/download/local-models-v1"
+
+    internal fun mirrorUrl(file: LocalSpeechModelFile): String? {
+        if (!file.name.matches(Regex("[A-Za-z0-9_.-]{1,128}"))) return null
+        return "$MIRROR_BASE/${file.name}"
+    }
+
     suspend fun fetch(model: LocalSpeechModelDescriptor, stage: File, progress: (LocalSpeechProgress) -> Unit) {
         var completed = 0L
         progress(LocalSpeechProgress(LocalSpeechStage.DOWNLOADING, 0, model.sizeBytes))
         for (file in model.archive?.let { listOf(it) } ?: model.files) {
             currentCoroutineContext().ensureActive()
-            var url = URI(file.pinnedUrl)
-            var connection: HttpURLConnection? = null
-            try {
-                for (redirect in 0..8) {
-                    currentCoroutineContext().ensureActive()
-                    require(allowedUrl(model, url)) { "模型下载重定向不安全" }
-                    val c = (url.toURL().openConnection() as HttpURLConnection).apply {
-                        instanceFollowRedirects = false; connectTimeout = 15_000; readTimeout = 5_000
-                        setRequestProperty("Accept-Encoding", "identity")
+            val candidates = buildList {
+                // Vosk 走 alphacephei（可直连），其余优先 GitHub 镜像，最后回退 huggingface。
+                if (model.engine != LocalSpeechBackend.VOSK) mirrorUrl(file)?.let { add(URI(it)) }
+                add(URI(file.pinnedUrl))
+            }
+            var failure: Exception? = null
+            var fetched = false
+            for ((index, target) in candidates.withIndex()) {
+                if (fetched) break
+                currentCoroutineContext().ensureActive()
+                var url = target
+                var connection: HttpURLConnection? = null
+                try {
+                    for (redirect in 0..8) {
+                        currentCoroutineContext().ensureActive()
+                        require(allowedUrl(model, url)) { "模型下载重定向不安全" }
+                        val c = (url.toURL().openConnection() as HttpURLConnection).apply {
+                            instanceFollowRedirects = false; connectTimeout = 15_000; readTimeout = 5_000
+                            setRequestProperty("Accept-Encoding", "identity")
+                        }
+                        connection = c
+                        val status = c.responseCode
+                        if (status in setOf(301, 302, 303, 307, 308)) {
+                            require(redirect < 8) { "模型下载重定向过多" }
+                            val location = c.getHeaderField("Location") ?: error("模型下载缺少地址")
+                            url = url.resolve(location); c.disconnect(); connection = null
+                            continue
+                        }
+                        if (status != 200) throw SpeechFailure(SpeechErrorCode.NETWORK, "模型下载失败（HTTP $status），请检查网络后重试")
+                        val length = c.contentLengthLong
+                        require(length == -1L || length == file.sizeBytes) { "下载文件大小与固定版本不匹配" }
+                        val base = completed
+                        c.inputStream.use { input -> copyExact(input, File(stage, file.name), file.sizeBytes) { n ->
+                            progress(LocalSpeechProgress(LocalSpeechStage.DOWNLOADING, base + n, model.sizeBytes))
+                        } }
+                        completed += file.sizeBytes
+                        if (model.engine == LocalSpeechBackend.VOSK) {
+                            val archive = File(stage, file.name)
+                            try { LocalSpeechVoskArchive.unpack(model, stage, archive, progress) }
+                            finally { check(archive.delete()) { "无法清理临时模型压缩包" } }
+                        }
+                        fetched = true
+                        break
                     }
-                    connection = c
-                    val status = c.responseCode
-                    if (status in setOf(301, 302, 303, 307, 308)) {
-                        require(redirect < 8) { "模型下载重定向过多" }
-                        val location = c.getHeaderField("Location") ?: error("模型下载缺少地址")
-                        url = url.resolve(location); c.disconnect(); connection = null
-                        continue
-                    }
-                    if (status != 200) throw SpeechFailure(SpeechErrorCode.NETWORK, "模型下载失败（HTTP $status），请检查网络后重试")
-                    val length = c.contentLengthLong
-                    require(length == -1L || length == file.sizeBytes) { "下载文件大小与固定版本不匹配" }
-                    val base = completed
-                    c.inputStream.use { input -> copyExact(input, File(stage, file.name), file.sizeBytes) { n ->
-                        progress(LocalSpeechProgress(LocalSpeechStage.DOWNLOADING, base + n, model.sizeBytes))
-                    } }
-                    completed += file.sizeBytes
-                    if (model.engine == LocalSpeechBackend.VOSK) {
-                        val archive = File(stage, file.name)
-                        try { LocalSpeechVoskArchive.unpack(model, stage, archive, progress) }
-                        finally { check(archive.delete()) { "无法清理临时模型压缩包" } }
-                    }
-                    break
-                }
-            } catch (e: CancellationException) { throw e }
-            catch (e: SpeechFailure) { throw e }
-            catch (e: IllegalArgumentException) { throw e }
-            catch (_: java.net.SocketTimeoutException) { throw SpeechFailure(SpeechErrorCode.TIMEOUT, "模型下载超时，请检查网络后重试；已有模型保留") }
-            catch (_: java.io.IOException) { throw SpeechFailure(SpeechErrorCode.NETWORK, "模型下载中断，请检查网络和存储空间后重试；已有模型保留") }
-            finally { connection?.disconnect() }
+                } catch (e: CancellationException) { throw e
+                } catch (e: SpeechFailure) {
+                    // 已有临时文件会让下一次尝试因「临时文件重复」失败，先清掉再换源。
+                    File(stage, file.name).takeIf { it.exists() && index < candidates.lastIndex }?.delete()
+                    failure = e
+                } catch (e: IllegalArgumentException) { throw e
+                } catch (_: java.net.SocketTimeoutException) {
+                    File(stage, file.name).takeIf { it.exists() && index < candidates.lastIndex }?.delete()
+                    failure = SpeechFailure(SpeechErrorCode.TIMEOUT, "模型下载超时，请检查网络后重试；已有模型保留")
+                } catch (_: java.io.IOException) {
+                    File(stage, file.name).takeIf { it.exists() && index < candidates.lastIndex }?.delete()
+                    failure = SpeechFailure(SpeechErrorCode.NETWORK, "模型下载中断，请检查网络和存储空间后重试；已有模型保留")
+                } finally { connection?.disconnect() }
+            }
+            if (!fetched) throw failure ?: SpeechFailure(SpeechErrorCode.NETWORK, "模型下载失败，请检查网络后重试")
         }
     }
+
     internal fun allowedUrl(model: LocalSpeechModelDescriptor, url: URI): Boolean {
         if (model.engine == LocalSpeechBackend.VOSK) {
             // No arbitrary official-host files, query strings, credentials, alternate ports, or CDN redirects.
             return url.toASCIIString() == LocalSpeechRegistry.voskUrl(model.id)
         }
         val host = url.host.orEmpty()
-        return url.scheme == "https" && url.userInfo == null && (url.port == -1 || url.port == 443) &&
-            (host == "huggingface.co" || host.endsWith(".huggingface.co") || host.endsWith(".hf.co"))
+        val https = url.scheme == "https" && url.userInfo == null && (url.port == -1 || url.port == 443)
+        if (!https) return false
+        // 镜像与 GitHub Release 资产重定向目标。
+        if (host == githubHost && url.toASCIIString().startsWith(MIRROR_BASE + "/")) return true
+        if (host == "objects.githubusercontent.com" || host == "release-assets.githubusercontent.com") return true
+        return host == "huggingface.co" || host.endsWith(".huggingface.co") || host.endsWith(".hf.co")
     }
+
+    private const val githubHost = "github.com"
+
     internal suspend fun copyExact(input: InputStream, output: File, expected: Long, expectedSha256: String? = null, progress: (Long) -> Unit) {
         require(!output.exists()) { "临时文件重复" }
         val coroutine = currentCoroutineContext(); val buffer = ByteArray(64 * 1024); var bytes = 0L

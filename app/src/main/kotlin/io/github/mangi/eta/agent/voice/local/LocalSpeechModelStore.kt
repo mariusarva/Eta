@@ -257,7 +257,8 @@ object LocalSpeechModelStore {
     private suspend fun verifyCached(context: Context, model: LocalSpeechModelDescriptor, forceFull: Boolean,
         progress: (LocalSpeechProgress) -> Unit) {
         val dir = directory(context, model.id)
-        if (model.engine != LocalSpeechBackend.VOSK) { verify(context, model, dir, progress); return }
+        // GGUF / ONNX 单文件可达 590 MB，每次冷加载或进设置页都全量 SHA 会明显卡顿。
+        // 缓存键是目录指纹（inode / ctime / mtime / nanos），文件被替换即失效，安全性不变。
         verifiedVosk.verify(model.id, forceFull, { fingerprint(dir, model) }) {
             verify(context, model, dir, progress)
         }
