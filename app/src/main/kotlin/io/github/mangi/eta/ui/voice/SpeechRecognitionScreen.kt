@@ -87,7 +87,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                             },
                         )
                     }
-                    SpeechNote(stringResource(asrNoteRes))
+                    asrNoteRes?.let { SpeechNote(stringResource(it)) }
                     SpeechConnectionSection(store, synthesis = false)
                     if (showQwenLanguage) {
                         SpeechGroupCard {
@@ -158,7 +158,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                                     },
                                 )
                             }
-                            SpeechNote(stringResource(asrNoteRes))
+                            asrNoteRes?.let { SpeechNote(stringResource(it)) }
                         }
                     }
                     item(key = "connection") {
