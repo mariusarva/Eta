@@ -26,6 +26,8 @@ import kotlinx.coroutines.withTimeout
 internal class SystemSpeechPlayback(private val context: Context) : Closeable {
     private val main = Handler(Looper.getMainLooper())
     private var engine: TextToSpeech? = null
+    /** 已初始化的引擎标识（null 表示系统默认）。相同配置下复用实例。 */
+    private var engineKey: String? = null
     private var closed = false
     private var currentId: String? = null
     private var pending: CompletableDeferred<Unit>? = null
@@ -36,13 +38,8 @@ internal class SystemSpeechPlayback(private val context: Context) : Closeable {
             if (config.rate !in 0.5f..2f || config.pitch !in 0.5f..2f) {
                 throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "系统朗读语速和音调须在 0.5～2 倍之间")
             }
-            val ready = CompletableDeferred<Int>()
-            val tts = TextToSpeech(context.applicationContext, { ready.complete(it) }, config.engine.trim().ifEmpty { null })
-            engine = tts
+            val tts = engineFor(config)
             try {
-                if (withTimeout(15_000) { ready.await() } != TextToSpeech.SUCCESS) {
-                    throw localFailure("系统语音引擎初始化失败，请在系统文字转语音设置中检查引擎")
-                }
                 if (config.engine.isNotBlank() && tts.engines.none { it.name == config.engine.trim() }) {
                     throw localFailure("所选系统语音引擎未安装，请在系统文字转语音设置中选择已安装引擎")
                 }
@@ -90,13 +87,17 @@ internal class SystemSpeechPlayback(private val context: Context) : Closeable {
                     }
                 })
                 // Short sequential chunks avoid Android's per-utterance limit, including surrogate pairs.
+                var firstChunk = true
                 for (chunk in SpeechText.chunks(text, minOf(500, TextToSpeech.getMaxSpeechInputLength()))) {
                     check(!closed)
                     val done = CompletableDeferred<Unit>()
                     pending = done
                     val id = UUID.randomUUID().toString()
                     currentId = id
-                    if (tts.speak(chunk, TextToSpeech.QUEUE_FLUSH, Bundle(), id) != TextToSpeech.SUCCESS) {
+                    // 只有第一段清空队列；后续用 QUEUE_ADD，避免 FLUSH 把上一段尾部截掉。
+                    val mode = if (firstChunk) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                    firstChunk = false
+                    if (tts.speak(chunk, mode, Bundle(), id) != TextToSpeech.SUCCESS) {
                         throw localFailure("系统朗读启动失败")
                     }
                     withTimeout(180_000) { done.await() }
@@ -106,11 +107,38 @@ internal class SystemSpeechPlayback(private val context: Context) : Closeable {
             } finally {
                 currentId = null
                 pending?.cancel(); pending = null
-                if (engine === tts) engine = null
+                // 不 shutdown：实例留给下一次播报复用。MIUI 等引擎初始化要几百毫秒，
+                // 自动播报连续分段时每段重建实例会让声音明显落后于文本。
                 runCatching { tts.stop() }
-                runCatching { tts.shutdown() }
             }
         }
+
+    /** 只停止当前这一条播报，保留引擎实例供下次复用。 */
+    fun stopCurrent() {
+        main.post {
+            currentId = null
+            pending?.cancel(); pending = null
+            runCatching { engine?.stop() }
+        }
+    }
+
+    /** 同一引擎配置复用实例；首次调用或引擎名变化时重建并等待就绪。 */
+    private suspend fun engineFor(config: SystemTtsConfig): TextToSpeech {
+        val wanted = config.engine.trim().ifEmpty { null }
+        engine?.let { if (engineKey == wanted) return it }
+        engine?.let { runCatching { it.stop() }; runCatching { it.shutdown() } }
+        engine = null; engineKey = null
+        val ready = CompletableDeferred<Int>()
+        val created = TextToSpeech(context.applicationContext, { ready.complete(it) }, wanted)
+        engine = created
+        if (withTimeout(15_000) { ready.await() } != TextToSpeech.SUCCESS) {
+            runCatching { created.shutdown() }
+            engine = null; engineKey = null
+            throw localFailure("系统语音引擎初始化失败，请在系统文字转语音设置中检查引擎")
+        }
+        engineKey = wanted
+        return created
+    }
 
     override fun close() {
         if (closed) return
@@ -119,6 +147,7 @@ internal class SystemSpeechPlayback(private val context: Context) : Closeable {
         pending?.cancel(); pending = null
         val tts = engine
         engine = null
+        engineKey = null
         // Cleanup must not prevent the owner from releasing its lease and canceling its job.
         runCatching { tts?.stop() }
         runCatching { tts?.shutdown() }
@@ -168,8 +197,11 @@ internal fun normalizedSystemVoiceLocale(locale: Locale, engine: String?): Local
 }
 
 internal fun isInstalledOfflineSystemVoice(voice: Voice): Boolean =
+    // isNetworkConnectionRequired() 才是「必须联网才能合成」的权威标志。
+    // KEY_FEATURE_NETWORK_SYNTHESIS 的常量值是 "networkTimeoutMs"，只是网络合成的超时参数：
+    // 引擎「支持」联网合成时会带上它，并不表示必须联网。拿它当判据会把 MIUI 小爱等
+    // 引擎的中文音色全部判成不可离线，播报直接失败（表现为完全没声音）。
     !voice.isNetworkConnectionRequired &&
-        TextToSpeech.Engine.KEY_FEATURE_NETWORK_SYNTHESIS !in voice.features.orEmpty() &&
         TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED !in voice.features.orEmpty()
 
 internal fun chooseOfflineSystemVoice(

@@ -259,3 +259,40 @@ legacy 口径在 120 Hz 屏上阈值是 8.3 ms，debug 构建必然超。另有�
 - Qwen3-ASR 0.6B（562 MB / 615 MB）只在目录里可选，未在设备上跑过推理耗时；
 - 1.4 GB 的 `vosk_cn_022` 未实测下载与内存占用；
 - `libsherpa-ncnn-jni.so` 对应的 sherpa-ncnn 引擎尚无 UI 入口。
+
+---
+
+## 13. 语音播报（TTS）三处问题
+
+**现象**：设置页「试听音色」红字提示「系统朗读须通过本地播放控制器调用」；自动播报没有声音。
+
+### 13.1 SYSTEM 引擎根本没接线
+
+`SystemSpeechPlayback` 写好了但**没有任何调用点**。`SpeechPlaybackController.speak()` 一律走
+「云端合成 PCM → AudioTrack 播放」的管线，而 `synthesizeSpeech()` 对 `TtsProvider.SYSTEM`
+直接抛错。所以选「系统朗读（离线）」永远播不出声，试听也只是报那句红字。
+
+**改动**：`SpeechPlaybackController` 在拿到音频租约后先判断 `config.tts == SYSTEM`，
+直接交给 `SystemSpeechPlayback.play(readable, config.systemTts, config.language)`；
+`stop()` 调用 `SystemSpeechPlayback.stopCurrent()`（只停当前播报，保留引擎实例）。
+
+### 13.2 离线音色判定把「支持联网」当成「必须联网」
+
+```kotlin
+// 修改前
+!voice.isNetworkConnectionRequired &&
+    TextToSpeech.Engine.KEY_FEATURE_NETWORK_SYNTHESIS !in voice.features.orEmpty() && ...
+```
+
+`KEY_FEATURE_NETWORK_SYNTHESIS` 的常量值是 `"networkTimeoutMs"`，语义是网络合成的**超时参数**：
+引擎支持联网合成就会带上它，不代表必须联网。拿它当判据会把 MIUI 小爱（`com.xiaomi.mibrain.speech`，
+本机唯一引擎）的中文音色全部判成「不可离线」→ 「仅离线音色」默认开启 → 播报直接失败。
+
+**改动**：只保留权威判据 `!voice.isNetworkConnectionRequired` 与 `KEY_FEATURE_NOT_INSTALLED`。
+
+### 13.3 每段播报都重建引擎 / 用 QUEUE_FLUSH 截尾
+
+- `play()` 每段结束 `tts.shutdown()`，下一次播报重新初始化（几百毫秒）。自动播报连续分段时
+  声音会明显落后于文本。改为按引擎名缓存实例（`engineFor`），只在引擎名变化或首次调用时重建，
+  `close()` 时统一 shutdown。
+- 分段循环里每段都用 `QUEUE_FLUSH`，会把上一段尾部截掉。改为首段 `QUEUE_FLUSH`、后续 `QUEUE_ADD`。
