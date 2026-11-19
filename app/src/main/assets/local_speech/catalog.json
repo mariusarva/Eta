@@ -1,11 +1,372 @@
 {
   "schemaVersion": 1,
-  "recommendedModelId": "vosk_small_cn_022",
+  "recommendedModelId": "sensevoice_small_q8_0",
   "installedModelId": null,
   "noInstalledModelPolicy": "REQUIRE_EXPLICIT_INSTALL",
   "allowSilentFallback": false,
-  "recommendationRationale": "本版本只内置 Vosk 离线引擎；推荐 44 MB 的 vosk-model-small-cn-0.22，体积小、中文识别够用，下载后即可完全离线运行。",
+  "recommendationRationale": "本版本仅内置 Vosk 引擎，可用模型为 vosk_small_cn_022（44 MB）与 vosk_cn_022（1.4 GB）。",
   "models": [
+    {
+      "id": "qwen3_asr_06b_q4_k_m",
+      "displayName": "Qwen3-ASR 0.6B Q4_K_M（混合量化）",
+      "engine": "GGUF",
+      "architecture": "qwen3_asr",
+      "quantization": "Q4_K_M",
+      "container": "GGUF",
+      "description": "多语言离线ASR；混合K量化不等于exact Q4_K。 实际文件为 Q4_K_M（M混合量化）；M后缀不可省略，不宣称纯Q4_K/Q5_K。 质量候选，未测CER，不承诺优于SenseVoice。",
+      "licenseName": "Apache-2.0",
+      "licenseAsset": "local_speech/licenses/Qwen-Apache-2.0.txt",
+      "files": [
+        {
+          "name": "Qwen3-ASR-0.6B-Q4_K_M.gguf",
+          "sha256": "5b58f32a58ffa2c8783e0b0963485623e286e6272d953dfc9e28bc3447dee0c0",
+          "sizeBytes": 589560480,
+          "pinnedUrl": "https://huggingface.co/handy-computer/Qwen3-ASR-0.6B-gguf/resolve/7e7c69a577fa2725dfedbe34b5e999336e30a19b/Qwen3-ASR-0.6B-Q4_K_M.gguf",
+          "revision": "7e7c69a577fa2725dfedbe34b5e999336e30a19b",
+          "role": "model"
+        }
+      ],
+      "sizeBytes": 589560480,
+      "sha256": "5b58f32a58ffa2c8783e0b0963485623e286e6272d953dfc9e28bc3447dee0c0",
+      "name": "Qwen3-ASR-0.6B-Q4_K_M.gguf",
+      "pinnedUrl": "https://huggingface.co/handy-computer/Qwen3-ASR-0.6B-gguf/resolve/7e7c69a577fa2725dfedbe34b5e999336e30a19b/Qwen3-ASR-0.6B-Q4_K_M.gguf",
+      "downloadVerified": true,
+      "deviceValidation": {
+        "status": "passed_two_public_wavs",
+        "exitCode": 0,
+        "stage": "finished",
+        "evidence": "six-model-research/native-quant-fix/all-gguf-results.json",
+        "evidenceModelFile": "Qwen3-ASR-0.6B-Q4_K_M.gguf",
+        "nativeSha256": "cac5794d68efaf0f95efc2b2d5ccd4aecd071aabb0462890a458309e27ab2dfc",
+        "traceRecordedAt": "2026-11-14T23:25:26.228304+08:00",
+        "loadMs": 470,
+        "decodeMs": [
+          6105,
+          6229
+        ],
+        "accuracyMeasured": false,
+        "supersedesHistoricalTimeout": true
+      },
+      "available": false,
+      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "deviceValidationHistory": [
+        {
+          "status": "failed",
+          "exitCode": 124,
+          "evidence": "six-model-research/device-tests/Qwen3-ASR-0.6B-Q4_K_M.gguf.result.json",
+          "stage": "decode:public-0.wav",
+          "error": null,
+          "timeoutStage": "decode:public-0.wav"
+        }
+      ],
+      "costBasis": "Model payload bytes on disk, including required tokens; NOT runtime RSS",
+      "accuracyMeasured": false
+    },
+    {
+      "id": "qwen3_asr_06b_q5_k_m",
+      "displayName": "Qwen3-ASR 0.6B Q5_K_M（混合量化）",
+      "engine": "GGUF",
+      "architecture": "qwen3_asr",
+      "quantization": "Q5_K_M",
+      "container": "GGUF",
+      "description": "多语言离线ASR；模型格式与量化信息不构成准确率证明。 实际文件为 Q5_K_M（M混合量化）；M后缀不可省略，不宣称纯Q4_K/Q5_K。 质量候选，未测CER，不承诺优于SenseVoice。",
+      "licenseName": "Apache-2.0",
+      "licenseAsset": "local_speech/licenses/Qwen-Apache-2.0.txt",
+      "files": [
+        {
+          "name": "Qwen3-ASR-0.6B-Q5_K_M.gguf",
+          "sha256": "062a7bcb18675c2fe5ffd0e8b354eac6a1ceada9b2af9ef7168746ae16b54358",
+          "sizeBytes": 645356192,
+          "pinnedUrl": "https://huggingface.co/handy-computer/Qwen3-ASR-0.6B-gguf/resolve/7e7c69a577fa2725dfedbe34b5e999336e30a19b/Qwen3-ASR-0.6B-Q5_K_M.gguf",
+          "revision": "7e7c69a577fa2725dfedbe34b5e999336e30a19b",
+          "role": "model"
+        }
+      ],
+      "sizeBytes": 645356192,
+      "sha256": "062a7bcb18675c2fe5ffd0e8b354eac6a1ceada9b2af9ef7168746ae16b54358",
+      "name": "Qwen3-ASR-0.6B-Q5_K_M.gguf",
+      "pinnedUrl": "https://huggingface.co/handy-computer/Qwen3-ASR-0.6B-gguf/resolve/7e7c69a577fa2725dfedbe34b5e999336e30a19b/Qwen3-ASR-0.6B-Q5_K_M.gguf",
+      "downloadVerified": true,
+      "deviceValidation": {
+        "status": "passed_two_public_wavs",
+        "exitCode": 0,
+        "stage": "finished",
+        "evidence": "six-model-research/native-quant-fix/all-gguf-results.json",
+        "evidenceModelFile": "Qwen3-ASR-0.6B-Q5_K_M.gguf",
+        "nativeSha256": "cac5794d68efaf0f95efc2b2d5ccd4aecd071aabb0462890a458309e27ab2dfc",
+        "traceRecordedAt": "2026-11-14T23:25:26.228304+08:00",
+        "loadMs": 330,
+        "decodeMs": [
+          7252,
+          7462
+        ],
+        "accuracyMeasured": false,
+        "supersedesHistoricalTimeout": true
+      },
+      "available": false,
+      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "deviceValidationHistory": [
+        {
+          "status": "failed",
+          "exitCode": 124,
+          "evidence": "six-model-research/device-tests/Qwen3-ASR-0.6B-Q5_K_M.gguf.result.json",
+          "stage": "decode:public-0.wav",
+          "error": null,
+          "timeoutStage": "decode:public-0.wav"
+        }
+      ],
+      "costBasis": "Model payload bytes on disk, including required tokens; NOT runtime RSS",
+      "accuracyMeasured": false
+    },
+    {
+      "id": "sensevoice_small_f16",
+      "displayName": "SenseVoice Small FP16（F16 GGUF）",
+      "engine": "GGUF",
+      "architecture": "sensevoice",
+      "quantization": "F16",
+      "container": "GGUF",
+      "description": "多语言离线ASR；模型格式与量化信息不构成准确率证明。F16表示主要权重半精度，GGUF是文件容器；词表内置，无需独立tokens。 此profile为F16 GGUF，非FP16 ONNX；GGUF内置词表。",
+      "licenseName": "FunASR Model Open Source License Agreement v1.1 (SenseVoice Model License)",
+      "licenseAsset": "local_speech/licenses/SenseVoice-Model-License-1.1.txt",
+      "files": [
+        {
+          "name": "SenseVoiceSmall-F16.gguf",
+          "sha256": "dc172fd5ffaff0a396393cd4edd82e18403c53f8f5873bcc544ba012b70598f6",
+          "sizeBytes": 470412128,
+          "pinnedUrl": "https://huggingface.co/handy-computer/SenseVoiceSmall-gguf/resolve/ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b/SenseVoiceSmall-F16.gguf",
+          "revision": "ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b",
+          "role": "model"
+        }
+      ],
+      "sizeBytes": 470412128,
+      "sha256": "dc172fd5ffaff0a396393cd4edd82e18403c53f8f5873bcc544ba012b70598f6",
+      "name": "SenseVoiceSmall-F16.gguf",
+      "pinnedUrl": "https://huggingface.co/handy-computer/SenseVoiceSmall-gguf/resolve/ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b/SenseVoiceSmall-F16.gguf",
+      "downloadVerified": true,
+      "deviceValidation": {
+        "status": "passed_two_public_wavs",
+        "exitCode": 0,
+        "stage": "finished",
+        "evidence": "six-model-research/native-quant-fix/all-gguf-results.json",
+        "evidenceModelFile": "SenseVoiceSmall-F16.gguf",
+        "nativeSha256": "cac5794d68efaf0f95efc2b2d5ccd4aecd071aabb0462890a458309e27ab2dfc",
+        "traceRecordedAt": "2026-11-14T23:25:26.228304+08:00",
+        "loadMs": 54,
+        "decodeMs": [
+          2360,
+          2108
+        ],
+        "accuracyMeasured": false,
+        "supersedesHistoricalTimeout": false
+      },
+      "available": false,
+      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "deviceValidationHistory": [
+        {
+          "status": "passed_two_public_wavs",
+          "exitCode": 0,
+          "evidence": "six-model-research/device-tests/SenseVoiceSmall-F16.gguf.result.json",
+          "stage": "finished",
+          "error": null,
+          "timeoutStage": null
+        }
+      ],
+      "costBasis": "Model payload bytes on disk, including required tokens; NOT runtime RSS",
+      "accuracyMeasured": false
+    },
+    {
+      "id": "sensevoice_small_q8_0",
+      "displayName": "SenseVoice Small Q8_0",
+      "engine": "GGUF",
+      "architecture": "sensevoice",
+      "quantization": "Q8_0",
+      "container": "GGUF",
+      "description": "多语言离线ASR；模型格式与量化信息不构成准确率证明。",
+      "licenseName": "FunASR Model Open Source License Agreement v1.1 (SenseVoice Model License)",
+      "licenseAsset": "local_speech/licenses/SenseVoice-Model-License-1.1.txt",
+      "files": [
+        {
+          "name": "SenseVoiceSmall-Q8_0.gguf",
+          "sha256": "6c759ee4c9748c9b3f7a5a60ca74f0f7e685fb9d45d1378fce7cfd62f59adf29",
+          "sizeBytes": 252684608,
+          "pinnedUrl": "https://huggingface.co/handy-computer/SenseVoiceSmall-gguf/resolve/ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b/SenseVoiceSmall-Q8_0.gguf",
+          "revision": "ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b",
+          "role": "model"
+        }
+      ],
+      "sizeBytes": 252684608,
+      "sha256": "6c759ee4c9748c9b3f7a5a60ca74f0f7e685fb9d45d1378fce7cfd62f59adf29",
+      "name": "SenseVoiceSmall-Q8_0.gguf",
+      "pinnedUrl": "https://huggingface.co/handy-computer/SenseVoiceSmall-gguf/resolve/ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b/SenseVoiceSmall-Q8_0.gguf",
+      "downloadVerified": true,
+      "deviceValidation": {
+        "status": "passed_two_public_wavs",
+        "exitCode": 0,
+        "stage": "finished",
+        "evidence": "six-model-research/native-quant-fix/all-gguf-results.json",
+        "evidenceModelFile": "SenseVoiceSmall-Q8_0.gguf",
+        "nativeSha256": "cac5794d68efaf0f95efc2b2d5ccd4aecd071aabb0462890a458309e27ab2dfc",
+        "traceRecordedAt": "2026-11-14T23:25:26.228304+08:00",
+        "loadMs": 60,
+        "decodeMs": [
+          2244,
+          2174
+        ],
+        "accuracyMeasured": false,
+        "supersedesHistoricalTimeout": true
+      },
+      "available": false,
+      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "deviceValidationHistory": [
+        {
+          "status": "failed",
+          "exitCode": 124,
+          "evidence": "six-model-research/device-tests/SenseVoiceSmall-Q8_0.gguf.result.json",
+          "stage": "decode:public-0.wav",
+          "error": null,
+          "timeoutStage": "decode:public-0.wav"
+        }
+      ],
+      "costBasis": "Model payload bytes on disk, including required tokens; NOT runtime RSS",
+      "accuracyMeasured": false
+    },
+    {
+      "id": "sensevoice_small_q4_k_m",
+      "displayName": "SenseVoice Small Q4_K_M（混合量化）",
+      "engine": "GGUF",
+      "architecture": "sensevoice",
+      "quantization": "Q4_K_M",
+      "container": "GGUF",
+      "description": "多语言离线ASR；混合K量化不等于exact Q4_K。 实际文件为 Q4_K_M（M混合量化）；M后缀不可省略，不宣称纯Q4_K/Q5_K。 用户所称Q4_K对应的此候选实际是Q4_K_M，不是exact Q4_K。",
+      "licenseName": "FunASR Model Open Source License Agreement v1.1 (SenseVoice Model License)",
+      "licenseAsset": "local_speech/licenses/SenseVoice-Model-License-1.1.txt",
+      "files": [
+        {
+          "name": "SenseVoiceSmall-Q4_K_M.gguf",
+          "sha256": "9d775303e6b4e793d049ef226214c400b2b1746c734ed017146a1a085b13d02b",
+          "sizeBytes": 145738304,
+          "pinnedUrl": "https://huggingface.co/handy-computer/SenseVoiceSmall-gguf/resolve/ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b/SenseVoiceSmall-Q4_K_M.gguf",
+          "revision": "ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b",
+          "role": "model"
+        }
+      ],
+      "sizeBytes": 145738304,
+      "sha256": "9d775303e6b4e793d049ef226214c400b2b1746c734ed017146a1a085b13d02b",
+      "name": "SenseVoiceSmall-Q4_K_M.gguf",
+      "pinnedUrl": "https://huggingface.co/handy-computer/SenseVoiceSmall-gguf/resolve/ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b/SenseVoiceSmall-Q4_K_M.gguf",
+      "downloadVerified": true,
+      "deviceValidation": {
+        "status": "passed_two_public_wavs",
+        "exitCode": 0,
+        "stage": "finished",
+        "evidence": "six-model-research/native-quant-fix/all-gguf-results.json",
+        "evidenceModelFile": "SenseVoiceSmall-Q4_K_M.gguf",
+        "nativeSha256": "cac5794d68efaf0f95efc2b2d5ccd4aecd071aabb0462890a458309e27ab2dfc",
+        "traceRecordedAt": "2026-11-14T23:25:26.228304+08:00",
+        "loadMs": 27,
+        "decodeMs": [
+          2958,
+          2211
+        ],
+        "accuracyMeasured": false,
+        "supersedesHistoricalTimeout": true
+      },
+      "available": false,
+      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "deviceValidationHistory": [
+        {
+          "status": "failed",
+          "exitCode": 124,
+          "evidence": "six-model-research/device-tests/SenseVoiceSmall-Q4_K_M.gguf.result.json",
+          "stage": "decode:public-0.wav",
+          "error": null,
+          "timeoutStage": "decode:public-0.wav"
+        }
+      ],
+      "costBasis": "Model payload bytes on disk, including required tokens; NOT runtime RSS",
+      "accuracyMeasured": false,
+      "requestedVariantAlias": "Q4_K"
+    },
+    {
+      "id": "sensevoice_small_int8",
+      "displayName": "SenseVoice Small INT8（ONNX）",
+      "engine": "SENSEVOICE_ONNX",
+      "architecture": "sensevoice",
+      "quantization": "INT8",
+      "container": "ONNX",
+      "description": "多语言离线ASR；模型格式与量化信息不构成准确率证明。",
+      "licenseName": "FunASR Model Open Source License Agreement v1.1 (SenseVoice Model License)",
+      "licenseAsset": "local_speech/licenses/SenseVoice-Model-License-1.1.txt",
+      "files": [
+        {
+          "name": "model.int8.onnx",
+          "sha256": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51",
+          "sizeBytes": 239233841,
+          "pinnedUrl": "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/2365baeacb507f821a0c8120fcee3d484dba7a07/model.int8.onnx",
+          "revision": "2365baeacb507f821a0c8120fcee3d484dba7a07",
+          "role": "model"
+        },
+        {
+          "name": "tokens.txt",
+          "sha256": "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc",
+          "sizeBytes": 315894,
+          "pinnedUrl": "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/2365baeacb507f821a0c8120fcee3d484dba7a07/tokens.txt",
+          "revision": "2365baeacb507f821a0c8120fcee3d484dba7a07",
+          "role": "tokens"
+        }
+      ],
+      "sizeBytes": 239549735,
+      "sha256": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51",
+      "name": "model.int8.onnx",
+      "pinnedUrl": "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/2365baeacb507f821a0c8120fcee3d484dba7a07/model.int8.onnx",
+      "downloadVerified": true,
+      "deviceValidation": {
+        "status": "passed_two_public_wavs",
+        "exitCode": 0,
+        "evidence": "six-model-research/device-tests/model.int8.onnx.result.json",
+        "stage": "finished",
+        "error": null,
+        "timeoutStage": null,
+        "traceRecordedAt": "2026-11-14T23:25:26.228304+08:00",
+        "nativeSha256ByPath": {
+          "/workspace/eta343-upgrade/Eta-3.4.3/app/src/main/jniLibs/arm64-v8a/libsherpa-onnx-jni.so": "5db8f89f12b2c900a98c9e01e00c475c59db35e9437a62e36e27839ec48b5575",
+          "/workspace/eta343-upgrade/Eta-3.4.3/app/src/main/jniLibs/arm64-v8a/libonnxruntime.so": "33847ad43bffe204699fd4a27f7f3603452a8cdaf2f9a44983a0bc31ffcf2da1"
+        },
+        "validationBasis": "Original successful INT8 probe; native-only GGUF rebuild did not change ONNX artifacts",
+        "loadMs": 2498,
+        "decodeMs": [
+          790,
+          1041
+        ],
+        "accuracyMeasured": false
+      },
+      "available": false,
+      "availabilityReason": "本版本未内置该引擎的原生库（GGUF 需 libeta_transcribe_jni，SenseVoice 需 sherpa-onnx）",
+      "deviceValidationHistory": [
+        {
+          "status": "passed_two_public_wavs",
+          "exitCode": 0,
+          "evidence": "six-model-research/device-tests/model.int8.onnx.result.json",
+          "stage": "finished",
+          "error": null,
+          "timeoutStage": null,
+          "traceRecordedAt": "2026-11-14T23:25:26.228304+08:00",
+          "nativeSha256ByPath": {
+            "/workspace/eta343-upgrade/Eta-3.4.3/app/src/main/jniLibs/arm64-v8a/libsherpa-onnx-jni.so": "5db8f89f12b2c900a98c9e01e00c475c59db35e9437a62e36e27839ec48b5575",
+            "/workspace/eta343-upgrade/Eta-3.4.3/app/src/main/jniLibs/arm64-v8a/libonnxruntime.so": "33847ad43bffe204699fd4a27f7f3603452a8cdaf2f9a44983a0bc31ffcf2da1"
+          },
+          "validationBasis": "Original successful INT8 probe; native-only GGUF rebuild did not change ONNX artifacts",
+          "loadMs": 2498,
+          "decodeMs": [
+            790,
+            1041
+          ],
+          "accuracyMeasured": false
+        }
+      ],
+      "costBasis": "Model payload bytes on disk, including required tokens; NOT runtime RSS",
+      "accuracyMeasured": false
+    },
     {
       "id": "vosk_small_cn_022",
       "displayName": "vosk-model-small-cn-0.22",
