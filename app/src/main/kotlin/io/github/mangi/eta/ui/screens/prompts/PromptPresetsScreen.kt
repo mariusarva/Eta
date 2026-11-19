@@ -1,155 +1,296 @@
 package io.github.mangi.eta.ui.screens.prompts
 
-import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.FileOpen
+import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.itos.coui.layout.Divider
-import com.itos.coui.layout.Group
+import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.prompt.AgentToolPolicyStore
+import io.github.mangi.eta.agent.prompt.PromptCustomization
+import io.github.mangi.eta.agent.prompt.PromptCustomizationStore
 import io.github.mangi.eta.agent.prompt.PromptPreset
+import io.github.mangi.eta.agent.prompt.PromptPresetCodec
 import io.github.mangi.eta.agent.prompt.PromptPresetRepository
-import io.github.mangi.eta.data.db.EtaDatabase
-import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
-import io.github.mangi.eta.ui.components.coui.CouiPreference
-import io.github.mangi.eta.ui.components.coui.CouiScaffoldPage
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import io.github.mangi.eta.ui.components.EtaArrowPreference
+import io.github.mangi.eta.ui.components.EtaActionPreference
+import io.github.mangi.eta.ui.components.EtaActionTone
+import io.github.mangi.eta.ui.components.EtaExpandPreference
+import io.github.mangi.eta.ui.components.EtaPreferenceDivider
+import io.github.mangi.eta.ui.components.EtaPreferenceGroup
+import io.github.mangi.eta.ui.components.EtaPreferenceColors
+import io.github.mangi.eta.ui.components.EtaPreferenceGroupTitle
+import io.github.mangi.eta.ui.components.EtaPreferenceIcon
+import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
- * 提示词预设：把 base / persona / append 合成一份系统提示词，写入所有已启用 provider 的 `system_prompt`。
+ * 预设页：内置预设一键套用、导入 zip/JSON 包、导出当前或某一份预设、一键恢复系统默认。
  *
- * 官方版没有全局人格层，提示词挂在 provider 上，所以这里直接写那一列。
- * 空预设不跳过：它的 base 就是官方内置提示词，写入即等于恢复默认。
+ * 导入不做"半份套用"：解析失败直接报错；成功则应用并留档，随时可删。
  */
-private fun PromptPreset.effectiveSystemPrompt(): String {
-    val parts = ArrayList<String>(3)
-    if (baseSystemPrompt.isNotBlank()) parts += baseSystemPrompt.trim()
-    if (personaName.isNotBlank() || personaStyle.isNotBlank()) {
-        parts += buildString {
-            if (personaName.isNotBlank()) append("身份：").append(personaName.trim())
-            if (personaStyle.isNotBlank()) append("\n风格：").append(personaStyle.trim())
-        }
-    }
-    if (appendInstructions.isNotBlank()) parts += appendInstructions.trim()
-    return parts.joinToString("\n\n")
-}
-
-/** 生效提示词的摘要：首行 + 字数，用于「当前生效」那一行。 */
-private fun summarize(text: String?): String {
-    val body = text?.trim().orEmpty()
-    if (body.isEmpty()) return "未设置"
-    val firstLine = body.lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty()
-    val head = if (firstLine.length > 28) firstLine.take(28) + "…" else firstLine
-    return "$head · ${body.length} 字"
-}
-
 @Composable
-internal fun PromptPresetsScreen(onBack: () -> Unit) {
+internal fun PromptPresetsScreen(
+    onBack: () -> Unit,
+    onEditPreset: (String?) -> Unit,
+) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val scrollState = rememberScrollState()
+    var profile by remember { mutableStateOf(PromptCustomizationStore.load()) }
+    var imported by remember { mutableStateOf(PromptPresetRepository.imported()) }
+    val builtins = remember { PromptPresetRepository.builtins(context) }
+    var expanded by remember { mutableStateOf<String?>(null) }
+    var confirmReset by remember { mutableStateOf(false) }
+    var pendingExport by remember { mutableStateOf<PromptPreset?>(null) }
+    var policy by remember { mutableStateOf(AgentToolPolicyStore.load()) }
 
-    val presets = remember(context) {
-        PromptPresetRepository.builtins(context) + PromptPresetRepository.imported()
-    }
-    var current by remember { mutableStateOf<String?>(null) }
-    var appliedName by remember { mutableStateOf<String?>(null) }
-
-    suspend fun readCurrent(): String? = withContext(Dispatchers.IO) {
-        val dao = EtaDatabase.get(context.applicationContext).providerDao()
-        dao.providers().firstOrNull { it.provider.isEnabled }?.provider?.systemPrompt
-    }
-
-    LaunchedEffect(Unit) {
-        current = runCatching { readCurrent() }.getOrNull()
-    }
-
-    val applyPreset: (PromptPreset) -> Unit = { preset ->
-        val text = preset.effectiveSystemPrompt()
-        scope.launch {
-            val count = runCatching {
-                withContext(Dispatchers.IO) {
-                    val dao = EtaDatabase.get(context.applicationContext).providerDao()
-                    val targets = dao.providers().filter { it.provider.isEnabled }
-                    targets.forEach { item ->
-                        dao.updateProvider(item.provider.copy(systemPrompt = text))
-                    }
-                    targets.size
-                }
-            }.getOrElse { -1 }
-            if (count >= 0) {
-                current = text
-                appliedName = preset.name
-                Toast.makeText(context, "已应用到 $count 个提供商", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "写入失败", Toast.LENGTH_SHORT).show()
-            }
+    fun persist(next: PromptCustomization, message: String) {
+        if (PromptCustomizationStore.save(next)) {
+            profile = next
+            toast(context, message)
+        } else {
+            toast(context, context.getString(R.string.prompt_studio_save_failed))
         }
     }
 
-    val builtin = presets.filter { it.builtin }
-    val imported = presets.filterNot { it.builtin }
+    fun applyPreset(preset: PromptPreset) {
+        val next = PromptPresetRepository.applyPreset(profile, preset)
+        // 提示词与工具范围一起换，这才是"模式"的完整语义。
+        val nextPolicy = PromptPresetRepository.policyFor(preset)
+        val policySaved = AgentToolPolicyStore.save(nextPolicy)
+        if (policySaved) policy = nextPolicy
+        persist(next, context.getString(R.string.prompt_preset_applied, preset.name, next.version))
+    }
 
-    CouiScaffoldPage(title = "提示词预设", onBack = onBack, scrollState = scrollState) {
-        Group(title = "当前生效") {
-            CouiPreference(
-                title = appliedName ?: "系统提示词",
-                summary = summarize(current),
-            )
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        val preset = pendingExport
+        pendingExport = null
+        if (uri == null || preset == null) return@rememberLauncherForActivityResult
+        when (val result = PromptPresetCodec.write(context, uri, preset)) {
+            is PromptPresetCodec.Result.Ok -> toast(context, context.getString(R.string.prompt_preset_exported))
+            is PromptPresetCodec.Result.Failure -> toast(context, result.reason)
         }
+    }
 
-        if (builtin.isNotEmpty()) {
-            Group(title = "内置预设") {
-                builtin.forEachIndexed { index, preset ->
-                    if (index > 0) Divider()
-                    PresetRow(preset, onClick = { applyPreset(preset) })
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        when (val result = PromptPresetCodec.read(context, uri)) {
+            is PromptPresetCodec.Result.Ok -> {
+                val preset = result.value
+                val next = PromptPresetRepository.applyPreset(profile, preset)
+                if (PromptCustomizationStore.save(next)) {
+                    profile = next
+                    imported = PromptPresetRepository.addImported(preset)
+                    toast(context, context.getString(R.string.prompt_preset_applied, preset.name, next.version))
+                } else {
+                    toast(context, context.getString(R.string.prompt_studio_save_failed))
                 }
             }
+            is PromptPresetCodec.Result.Failure -> toast(context, result.reason)
+        }
+    }
+
+    fun export(preset: PromptPreset) {
+        pendingExport = preset
+        exportLauncher.launch(exportFileName(preset.name))
+    }
+
+    MiuixScaffoldPage(
+        title = stringResource(R.string.prompt_preset_title),
+        onBack = onBack,
+    ) {
+        item(key = "actions") {
+            EtaPreferenceGroup(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                EtaActionPreference(
+                    title = stringResource(R.string.prompt_preset_import),
+                    summary = stringResource(R.string.prompt_preset_import_hint),
+                    startAction = {
+                        EtaPreferenceIcon(icon = Icons.Rounded.FileOpen, tint = EtaPreferenceColors.Blue)
+                    },
+                    onClick = { importLauncher.launch(arrayOf("application/zip", "application/json", "*/*")) },
+                )
+                EtaPreferenceDivider(hasLeading = false)
+                EtaArrowPreference(
+                    title = stringResource(R.string.prompt_preset_new),
+                    summary = stringResource(R.string.prompt_preset_new_summary),
+                    onClick = { onEditPreset(null) },
+                )
+                EtaPreferenceDivider(hasLeading = false)
+                EtaActionPreference(
+                    title = stringResource(R.string.prompt_preset_export_current),
+                    summary = stringResource(
+                        R.string.prompt_preset_chars,
+                        profile.baseSystemPrompt.length + profile.personaName.length +
+                            profile.personaStyle.length + profile.appendInstructions.length,
+                        stringResource(R.string.prompt_studio_version_current, profile.version, profile.revision),
+                    ),
+                    startAction = {
+                        EtaPreferenceIcon(icon = Icons.Rounded.IosShare, tint = EtaPreferenceColors.Green)
+                    },
+                    onClick = {
+                        export(
+                            PromptPreset.fromCustomization(
+                                profile,
+                                policy,
+                                name = context.getString(R.string.prompt_preset_current_name),
+                            ),
+                        )
+                    },
+                )
+                EtaPreferenceDivider(hasLeading = false)
+                EtaActionPreference(
+                    title = stringResource(
+                        if (confirmReset) R.string.prompt_preset_reset_confirm
+                        else R.string.prompt_preset_reset,
+                    ),
+                    startAction = {
+                        EtaPreferenceIcon(icon = Icons.Rounded.RestartAlt, tint = EtaPreferenceColors.Orange)
+                    },
+                    onClick = {
+                        if (!confirmReset) {
+                            confirmReset = true
+                        } else {
+                            confirmReset = false
+                            persist(
+                                profile.resetToDefault(),
+                                context.getString(R.string.prompt_preset_reset_done, profile.version + 1),
+                            )
+                        }
+                    },
+                )
+            }
         }
 
-        if (imported.isNotEmpty()) {
-            Group(title = "导入的预设") {
+        item(key = "builtin_title") {
+            EtaPreferenceGroupTitle(stringResource(R.string.prompt_preset_group_builtin))
+        }
+        item(key = "builtin") {
+            EtaPreferenceGroup(modifier = Modifier.padding(horizontal = 16.dp)) {
+                builtins.forEachIndexed { index, preset ->
+                    if (index > 0) EtaPreferenceDivider(hasLeading = false)
+                    PresetRow(
+                        preset = preset,
+                        expanded = expanded == preset.name,
+                        onToggle = { expanded = if (expanded == preset.name) null else preset.name },
+                        onApply = { applyPreset(preset) },
+                        onExport = { export(preset) },
+                        onDelete = null,
+                        onEdit = { onEditPreset(preset.name) },
+                    )
+                }
+            }
+        }
+
+        item(key = "imported_title") {
+            EtaPreferenceGroupTitle(stringResource(R.string.prompt_preset_group_imported, imported.size))
+        }
+        item(key = "imported") {
+            EtaPreferenceGroup(modifier = Modifier.padding(horizontal = 16.dp)) {
+                if (imported.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.prompt_preset_imported_empty),
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
                 imported.forEachIndexed { index, preset ->
-                    if (index > 0) Divider()
-                    PresetRow(preset, onClick = { applyPreset(preset) })
+                    if (index > 0) EtaPreferenceDivider(hasLeading = false)
+                    PresetRow(
+                        preset = preset,
+                        expanded = expanded == preset.name,
+                        onToggle = { expanded = if (expanded == preset.name) null else preset.name },
+                        onApply = { applyPreset(preset) },
+                        onExport = { export(preset) },
+                        onDelete = {
+                            imported = PromptPresetRepository.removeImported(preset.name)
+                            expanded = null
+                            toast(context, context.getString(R.string.prompt_preset_deleted, preset.name))
+                        },
+                        onEdit = { onEditPreset(preset.name) },
+                    )
                 }
             }
         }
-
-        Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
-            Spacer(Modifier.height(8.dp))
-            CouiPreference(
-                title = "应用规则",
-                summary = "点击预设会覆盖所有已启用提供商的系统提示词。官方版把提示词挂在提供商上，没有全局人格层；" +
-                    "「系统默认」即恢复官方内置提示词。",
-            )
-        }
-
-        CouiPageBottomSpacer()
     }
 }
 
 @Composable
-private fun PresetRow(preset: PromptPreset, onClick: () -> Unit) {
-    CouiPreference(
+private fun PresetRow(
+    preset: PromptPreset,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onApply: () -> Unit,
+    onExport: () -> Unit,
+    onDelete: (() -> Unit)?,
+    onEdit: () -> Unit,
+) {
+    EtaExpandPreference(
+expanded = expanded,
         title = preset.name,
-        summary = preset.description.ifBlank {
-            if (preset.hasContent) "${preset.contentLength} 字" else "空预设"
+        summary = buildString {
+            append(
+                preset.description.ifBlank {
+                    stringResource(R.string.prompt_preset_chars_only, preset.contentLength)
+                },
+            )
+            append(" · ")
+            append(
+                if (preset.toolMode == io.github.mangi.eta.agent.prompt.ToolPolicyMode.ALLOW_ALL) {
+                    stringResource(R.string.prompt_preset_tools_all)
+                } else {
+                    stringResource(R.string.prompt_preset_tools_count, preset.allowedTools.size)
+                },
+            )
         },
-        onClick = onClick,
+        startAction = {
+            EtaPreferenceIcon(
+                icon = if (preset.builtin) Icons.Rounded.Inventory2 else Icons.Rounded.Bookmark,
+                tint = if (preset.builtin) EtaPreferenceColors.Blue else EtaPreferenceColors.Yellow,
+            )
+        },
+        onClick = onToggle,
     )
+    if (!expanded) return
+    Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp)) {
+        Text(
+            text = stringResource(R.string.prompt_preset_detail, preset.mode.name, preset.contentLength),
+            style = MiuixTheme.textStyles.footnote2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        )
+    }
+    EtaActionPreference(title = stringResource(R.string.prompt_preset_edit), onClick = onEdit)
+    EtaActionPreference(title = stringResource(R.string.prompt_preset_apply), onClick = onApply)
+    EtaActionPreference(title = stringResource(R.string.prompt_preset_export), onClick = onExport)
+    if (onDelete != null) {
+        EtaActionPreference(
+tone = EtaActionTone.Danger,title = stringResource(R.string.prompt_preset_delete), onClick = onDelete)
+    }
+}
+
+private fun exportFileName(name: String): String {
+    val safe = name.replace(Regex("[\\\\/:*?\"<>|\\s]+"), "-").take(40).ifBlank { "preset" }
+    val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault()).format(Date())
+    return "Eta提示词-" + safe + "-" + stamp + ".zip"
 }
