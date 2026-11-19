@@ -197,24 +197,26 @@ internal fun ChatTurnNavigator(
                                 )
                             }
                             Spacer(Modifier.width(10.dp))
-                            Text(
-                                text = turn.preview.ifBlank { "（无内容）" },
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                            )
-                            if (turn.timestampMillis > 0L) {
-                                Spacer(Modifier.width(8.dp))
+                            // 时间放标题下面一行：同行会挤压标题宽度，长标题直接被截断。
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = remember(turn.timestampMillis) {
-                                        ConversationTimeLabels.rowLabel(turn.timestampMillis)
-                                    },
-                                    style = MiuixTheme.textStyles.footnote1,
-                                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-                                    maxLines = 1,
+                                    text = turn.preview.ifBlank { "（无内容）" },
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurface,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
+                                if (turn.timestampMillis > 0L) {
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = remember(turn.timestampMillis) {
+                                            ConversationTimeLabels.rowLabel(turn.timestampMillis)
+                                        },
+                                        style = MiuixTheme.textStyles.footnote1,
+                                        color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                        maxLines = 1,
+                                    )
+                                }
                             }
                         }
                     }
