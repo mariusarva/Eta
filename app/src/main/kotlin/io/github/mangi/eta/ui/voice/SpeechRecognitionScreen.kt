@@ -2,12 +2,16 @@ package io.github.mangi.eta.ui.voice
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -23,6 +27,7 @@ import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.StatusError
 import io.github.mangi.eta.ui.components.coui.CouiButton
+import io.github.mangi.eta.ui.components.coui.CouiButtonRole
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
 import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
 import io.github.mangi.eta.ui.components.coui.CouiPreference
@@ -44,7 +49,10 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
     val store = remember { SpeechSettingsStore(context, scope) }
     SpeechLifecycle { store.stop() }
     val settings = store.settings
-    val asrLabels = AsrProvider.entries.map { it.label() }
+    // SHERPA_NCNN / QWEN3_LOCAL 是历史枚举值，仍可反序列化旧设置，但不再单独作为可选项展示
+    // —— 否则下拉里会出现三个同名的「本机离线」。
+    val asrOptions = AsrProvider.entries.filter { it != AsrProvider.SHERPA_NCNN && it != AsrProvider.QWEN3_LOCAL }
+    val asrLabels = asrOptions.map { it.label() }
     val asrNoteRes: Int? = when (settings.asr) {
         AsrProvider.LOCAL, AsrProvider.SHERPA_NCNN, AsrProvider.QWEN3_LOCAL -> null
         AsrProvider.QWEN_REALTIME, AsrProvider.DOUBAO -> R.string.speech_asr_note_streaming
@@ -81,9 +89,9 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                         CouiDropdownPreference(
                             title = stringResource(R.string.speech_service_and_model),
                             items = asrLabels,
-                            selectedIndex = settings.asr.ordinal,
+                            selectedIndex = asrOptions.indexOf(settings.asr).coerceAtLeast(0),
                             onSelectedIndexChange = { index ->
-                                AsrProvider.entries.getOrNull(index)?.let { store.edit(settings.copy(asr = it)) }
+                                asrOptions.getOrNull(index)?.let { store.edit(settings.copy(asr = it)) }
                             },
                         )
                     }
@@ -151,10 +159,10 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                                 GlassDropdownPreference(
                                     title = stringResource(R.string.speech_service_and_model),
                                     items = asrLabels,
-                                    selectedIndex = settings.asr.ordinal,
+                                    selectedIndex = asrOptions.indexOf(settings.asr).coerceAtLeast(0),
                                     backdrop = currentGlassOverlayBackdrop(),
                                     onSelectedIndexChange = { index ->
-                                        AsrProvider.entries.getOrNull(index)?.let { store.edit(settings.copy(asr = it)) }
+                                        asrOptions.getOrNull(index)?.let { store.edit(settings.copy(asr = it)) }
                                     },
                                 )
                             }
@@ -291,12 +299,23 @@ private fun SpeechRecognitionTestSection(store: SpeechSettingsStore) {
                         showChevron = false,
                         trailing = if (state.active) {
                             {
-                                CouiButton(
-                                    text = stringResource(R.string.action_cancel),
-                                    onClick = { store.recognition.cancel() },
-                                    minHeight = 32.dp,
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                )
+                                // 录音中必须有显式的完成入口：只靠点整行结束并不直观。
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CouiButton(
+                                        text = stringResource(R.string.action_done),
+                                        onClick = { store.recognition.finish() },
+                                        role = CouiButtonRole.Primary,
+                                        minHeight = 32.dp,
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    CouiButton(
+                                        text = stringResource(R.string.action_cancel),
+                                        onClick = { store.recognition.cancel() },
+                                        minHeight = 32.dp,
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    )
+                                }
                             }
                         } else {
                             null
@@ -315,13 +334,23 @@ private fun SpeechRecognitionTestSection(store: SpeechSettingsStore) {
                         onClick = { if (state.active) store.recognition.finish() else request() },
                         endActions = if (state.active) {
                             {
-                                TextButton(
-                                    text = stringResource(R.string.action_cancel),
-                                    onClick = { store.recognition.cancel() },
-                                    minWidth = 0.dp,
-                                    minHeight = 32.dp,
-                                    insideMargin = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    TextButton(
+                                        text = stringResource(R.string.action_done),
+                                        onClick = { store.recognition.finish() },
+                                        minWidth = 0.dp,
+                                        minHeight = 32.dp,
+                                        insideMargin = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    TextButton(
+                                        text = stringResource(R.string.action_cancel),
+                                        onClick = { store.recognition.cancel() },
+                                        minWidth = 0.dp,
+                                        minHeight = 32.dp,
+                                        insideMargin = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    )
+                                }
                             }
                         } else null,
                     )
