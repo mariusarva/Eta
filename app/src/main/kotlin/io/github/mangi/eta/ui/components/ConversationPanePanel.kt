@@ -81,6 +81,7 @@ import com.itos.coui.shape.CouiShape
 import com.itos.coui.text.CouiTextKind
 import com.itos.coui.text.Text as CouiText
 import com.itos.coui.theme.CouiTheme
+import io.github.mangi.eta.ui.app.ConversationTimeLabels
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
@@ -725,6 +726,22 @@ private fun ConversationHistoryRow(
                         modifier = Modifier.padding(top = 2.dp),
                     )
                 }
+            }
+
+            // 行内时间戳：日期 + 时间，窄屏下最多占 40% 宽度，超长省略。
+            val rowTimeLabel = ConversationTimeLabels.rowLabel(conversation.updatedAtMillis)
+            if (rowTimeLabel.isNotBlank()) {
+                Text(
+                    text = rowTimeLabel,
+                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = 11.sp),
+                    color = summaryColor.copy(alpha = 0.72f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .widthIn(max = 132.dp),
+                )
             }
 
             if (conversation.isActiveRun) {
