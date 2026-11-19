@@ -192,6 +192,10 @@
             android:exported="true"
             android:grantUriPermissions="false"
             android:permission="android.permission.MANAGE_ACCESSIBILITY" />
+        <!-- 离线语音：独立进程，避免 native 崩溃影响主进程。 -->
+        <service android:name=".agent.voice.local.LocalSpeechService"
+            android:exported="false" android:process=":local_speech" />
+
     </application>
 
 </manifest>
