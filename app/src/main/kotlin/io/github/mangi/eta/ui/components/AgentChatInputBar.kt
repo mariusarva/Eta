@@ -591,7 +591,7 @@ internal fun AgentChatInputBar(
                                 }
                             }
                             // 与停止键拉开距离，避免误触。
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(20.dp))
                         }
 
                         // 运行中注入：把输入作为补充指令插进当前轮次，不打断、不排队。
@@ -624,7 +624,7 @@ internal fun AgentChatInputBar(
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(20.dp))
                         }
 
                         AnimatedVisibility(
