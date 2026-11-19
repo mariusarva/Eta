@@ -1823,4 +1823,7 @@
     <string name="prompt_integrity_scope_maps">进程内的注入框架（/proc/self/maps 里的 xposed / lspd / riru / zygisk）</string>
     <string name="prompt_snapshot_base_picker_title">选择对比基准</string>
     <string name="prompt_snapshot_base_close">关闭</string>
+    <string name="eta_row_collapse">收起</string>
+    <string name="eta_row_expand">展开</string>
+    <string name="text_action_cut">剪切</string>
 </resources>
