@@ -653,6 +653,17 @@ private fun ConversationHistoryRow(
     } else {
         miuixColors.primary
     }
+    // 会话时间显示在标题下方，不再与标题争抢同一行宽度。
+    val rowTimeLabel = if (conversation.updatedAtMillis > 0L) {
+        ConversationTimeLabels.rowLabel(
+            timestampMillis = conversation.updatedAtMillis,
+            locale = LocalConfiguration.current.locales[0],
+            use24HourClock = android.text.format.DateFormat.is24HourFormat(LocalContext.current),
+        )
+    } else {
+        // 时间戳缺失时退回分组用的标签，至少不空着。
+        conversation.timeLabel
+    }
 
     Box(
         modifier = Modifier
@@ -697,8 +708,7 @@ private fun ConversationHistoryRow(
                 Spacer(Modifier.width(11.dp))
             }
 
-            // fill = false：标题按内容宽度，给右侧时间戳留出空间，否则会被压成 0 宽。
-            Column(modifier = Modifier.weight(1f, fill = false)) {
+            Column(modifier = Modifier.weight(1f)) {
                 val title = conversation.title.ifBlank { conversation.preview }
                 Text(
                     text = title,
@@ -729,31 +739,16 @@ private fun ConversationHistoryRow(
                         modifier = Modifier.padding(top = 2.dp),
                     )
                 }
-            }
-
-            // 行内时间戳：日期 + 时间，窄屏下最多占 40% 宽度，超长省略。
-            val rowTimeLabel = if (conversation.updatedAtMillis > 0L) {
-                ConversationTimeLabels.rowLabel(
-                    timestampMillis = conversation.updatedAtMillis,
-                    locale = LocalConfiguration.current.locales[0],
-                    use24HourClock = android.text.format.DateFormat.is24HourFormat(LocalContext.current),
-                )
-            } else {
-                // 时间戳缺失时退回分组用的标签，至少不空着。
-                conversation.timeLabel
-            }
-            if (rowTimeLabel.isNotBlank()) {
-                Text(
-                    text = rowTimeLabel,
-                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = 11.sp),
-                    color = summaryColor.copy(alpha = 0.72f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .widthIn(min = 60.dp, max = 110.dp),
-                )
+                if (rowTimeLabel.isNotBlank()) {
+                    Text(
+                        text = rowTimeLabel,
+                        style = MiuixTheme.textStyles.footnote1.copy(fontSize = 11.sp),
+                        color = summaryColor.copy(alpha = 0.72f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
             }
 
             if (conversation.isActiveRun) {
