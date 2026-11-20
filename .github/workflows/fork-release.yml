@@ -4,6 +4,11 @@ name: Eta Fork Release
 # 发布级优化，界面操作明显更卡。这里在 CI 现场生成签名（设备已核心破解，可无视签名升级）。
 on:
   workflow_dispatch:
+    inputs:
+      forkVersion:
+        description: fork 序号（写入 versionName 的 -fork.N）
+        required: false
+        default: "0"
   push:
     branches:
       - main
@@ -64,6 +69,7 @@ jobs:
         run: >-
           ./gradlew --no-daemon --no-configuration-cache
           "-Peta.buildMetadata=${GITHUB_SHA::7}"
+          "-Peta.forkVersion=${{ inputs.forkVersion || '0' }}"
           :app:assembleRelease
 
       - name: 整理产物

@@ -44,7 +44,9 @@ android {
         targetSdk = 37
         // versionCode 规则：yyyyMMdd + 两位当日序号（01 起），发版时随 versionName 一起手动递增。
         versionCode = 2026111302
-        versionName = "3.4.4"
+        // fork 序号参与「检查更新」比较：上游版本相同时靠它判断本 fork 是否有新版。
+        // 发版时通过 -Peta.forkVersion=N 传入（CI 的 workflow_dispatch 参数）。
+        versionName = "3.4.4-fork." + (providers.gradleProperty("eta.forkVersion").orNull ?: "0")
 
         ndk {
             // 同时过滤本地与依赖 AAR 的原生库，确保 APK 仅包含 ARM64。

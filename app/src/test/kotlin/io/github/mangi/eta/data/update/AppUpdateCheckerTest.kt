@@ -45,4 +45,23 @@ class AppUpdateCheckerTest {
         assertFalse(AppUpdateChecker.isNewer("3.0.6", "3.0.6-debug+a1b2c3d"))
         assertTrue(AppUpdateChecker.isNewer("3.0.7", "3.0.6+a1b2c3d"))
     }
+
+    @Test
+    fun forkSequenceParticipatesWhenUpstreamVersionIsEqual() {
+        // 上游相同，fork 序号更大的才算新版本。
+        assertTrue(AppUpdateChecker.isNewer("3.4.4-fork.17", "3.4.4-fork.16"))
+        assertFalse(AppUpdateChecker.isNewer("3.4.4-fork.16", "3.4.4-fork.16"))
+        assertFalse(AppUpdateChecker.isNewer("3.4.4-fork.15", "3.4.4-fork.16"))
+    }
+
+    @Test
+    fun forkTagIsNewerThanPlainUpstreamVersion() {
+        assertTrue(AppUpdateChecker.isNewer("3.4.4-fork.1", "3.4.4"))
+        assertFalse(AppUpdateChecker.isNewer("3.4.4", "3.4.4-fork.3"))
+    }
+
+    @Test
+    fun buildMetadataIsIgnored() {
+        assertFalse(AppUpdateChecker.isNewer("3.4.4-fork.17", "3.4.4-fork.17+abc1234"))
+    }
 }

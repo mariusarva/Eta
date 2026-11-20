@@ -71,8 +71,20 @@ internal object AppUpdateChecker {
                 if (compared != 0) return compared > 0
             }
         }
-        return false
+        // 上游版本相同：本 fork 的 `-fork.N` 序号参与比较，否则自己的修复版永远提示不了更新。
+        val latestFork = forkSequence(latest)
+        val currentFork = forkSequence(current)
+        return latestFork > currentFork
     }
+
+    /** 取 `-fork.N` 里的 N；没有 fork 后缀返回 0（纯上游版视为 fork.0）。 */
+    private fun forkSequence(version: String): Int =
+        Regex("fork[.-](\\d+)")
+            .find(version.substringBefore('+'))
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+            ?: 0
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)

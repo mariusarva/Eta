@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -39,6 +42,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -115,6 +119,7 @@ internal fun ChatTurnNavigator(
     onJumpToMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
     allTurns: List<ChatTurnEntry> = emptyList(),
+    onDeleteTurn: (String) -> Unit = {},
 ) {
     // 全库轮次优先：消息是分页加载的（128 条/页），只按已加载消息切轮次会让长会话少算前面的轮。
     val turns = remember(messages, allTurns) {
@@ -172,7 +177,10 @@ internal fun ChatTurnNavigator(
                     modifier = Modifier.heightIn(max = 360.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    itemsIndexed(turns, key = { position, item -> "$position:${item.firstMessageId}" }) { position, turn ->
+                    itemsIndexed(
+                        turns,
+                        key = { position, item -> "$position:${item.firstMessageId}" },
+                    ) { position, turn ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -221,6 +229,19 @@ internal fun ChatTurnNavigator(
                                         maxLines = 1,
                                     )
                                 }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 8.dp)
+                                    .clickable(role = Role.Button) { onDeleteTurn(turn.firstMessageId) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Delete,
+                                    contentDescription = "删除第 ${position + 1} 轮",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                )
                             }
                         }
                     }
