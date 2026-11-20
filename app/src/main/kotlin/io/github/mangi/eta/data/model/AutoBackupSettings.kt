@@ -21,6 +21,8 @@ data class AutoBackupSettings(
     val lastErrorAt: Long = 0L,
     /** 上次备份时的内容指纹，用来跳过「数据没变化」的那一次。 */
     val fingerprint: String = "",
+    /** 用户自选的备份文件夹（SAF 目录树 URI）；空表示用默认目录。 */
+    val directoryUri: String = "",
 ) {
     fun normalized(): AutoBackupSettings = copy(
         intervalHours = intervalHours.coerceIn(MIN_INTERVAL_HOURS, MAX_INTERVAL_HOURS),

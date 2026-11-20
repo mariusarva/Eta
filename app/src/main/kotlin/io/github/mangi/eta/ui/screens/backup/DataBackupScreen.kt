@@ -1,6 +1,7 @@
 package io.github.mangi.eta.ui.screens.backup
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -164,8 +165,9 @@ internal fun DataBackupScreen(
             .getOrDefault(AutoBackupSettings())
     }
 
-    val autoDirectory = remember(autoTick) { AutoBackupRunner.directory(context).absolutePath }
-    val autoSharedStorage = remember(autoTick) { AutoBackupRunner.isUsingSharedStorage(context) }
+    val autoDirectoryText = remember(autoTick, autoSettings) {
+        AutoBackupRunner.locationLabel(context, autoSettings)
+    }
 
     fun applyAuto(transform: (AutoBackupSettings) -> AutoBackupSettings) {
         scope.launch {
@@ -203,17 +205,26 @@ internal fun DataBackupScreen(
         }
     }
 
+    val autoTreeLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }
+            applyAuto { it.copy(directoryUri = uri.toString()) }
+        }
+    }
+
     val autoStatusText = when {
         autoSettings.lastError.isNotBlank() -> "上次失败：" + autoSettings.lastError
         autoSettings.lastAt > 0L -> "上次备份：" +
             SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA).format(Date(autoSettings.lastAt)) +
             if (autoSettings.lastFileName.isNotBlank()) " · " + autoSettings.lastFileName else ""
         else -> "还没有备份过"
-    }
-    val autoDirectoryText = if (autoSharedStorage) {
-        autoDirectory
-    } else {
-        autoDirectory + "（未授予所有文件访问权限，暂存应用私有目录）"
     }
 
     when (LocalUiStyle.current) {
@@ -258,10 +269,26 @@ internal fun DataBackupScreen(
                 Group(title = "自动备份") {
                     CouiSwitchPreference(
                         title = "启用自动备份",
-                        summary = autoDirectoryText,
+                        summary = "按周期导出数据，内容没变化时自动跳过",
                         checked = autoSettings.enabled,
                         onCheckedChange = { enabled -> applyAuto { it.copy(enabled = enabled) } },
                     )
+                    Divider()
+                    CouiPreference(
+                        title = "备份文件夹",
+                        summary = autoDirectoryText,
+                        value = "选择",
+                        showChevron = true,
+                        onClick = { autoTreeLauncher.launch(null) },
+                    )
+                    if (autoSettings.directoryUri.isNotBlank()) {
+                        Divider()
+                        CouiPreference(
+                            title = "恢复默认文件夹",
+                            summary = "改回默认的 Eta备份 目录",
+                            onClick = { applyAuto { it.copy(directoryUri = "") } },
+                        )
+                    }
                     Divider()
                     CouiPreference(
                         title = "备份周期",
@@ -395,10 +422,22 @@ internal fun DataBackupScreen(
                     ) {
                         SwitchPreference(
                             title = "启用自动备份",
-                            summary = autoDirectoryText,
+                            summary = "按周期导出数据，内容没变化时自动跳过",
                             checked = autoSettings.enabled,
                             onCheckedChange = { enabled -> applyAuto { it.copy(enabled = enabled) } },
                         )
+                        ArrowPreference(
+                            title = "备份文件夹",
+                            summary = autoDirectoryText,
+                            onClick = { autoTreeLauncher.launch(null) },
+                        )
+                        if (autoSettings.directoryUri.isNotBlank()) {
+                            ArrowPreference(
+                                title = "恢复默认文件夹",
+                                summary = "改回默认的 Eta备份 目录",
+                                onClick = { applyAuto { it.copy(directoryUri = "") } },
+                            )
+                        }
                         ArrowPreference(
                             title = "备份周期",
                             summary = "每 " + autoIntervalLabel(autoSettings.intervalHours) +
