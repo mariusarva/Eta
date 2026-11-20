@@ -77,6 +77,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -122,7 +123,10 @@ import kotlin.math.min
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
+import io.github.mangi.eta.data.db.EtaDatabase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -201,7 +205,27 @@ internal fun AgentChatBody(
     isDrawerOpen: Boolean = false,
     topInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
+    conversationId: String = "",
 ) {
+    // 轮次导航读全库用户消息：消息本身是分页加载的（128 条/页），按已加载消息切轮次会少算前面的轮。
+    val context = LocalContext.current.applicationContext
+    var allTurns by remember(conversationId) { mutableStateOf<List<ChatTurnEntry>>(emptyList()) }
+    LaunchedEffect(conversationId, isStreaming) {
+        if (conversationId.isBlank() || isStreaming) return@LaunchedEffect
+        val digests = withContext(Dispatchers.IO) {
+            runCatching {
+                EtaDatabase.get(context).conversationDao().userMessageDigests(conversationId)
+            }.getOrDefault(emptyList())
+        }
+        allTurns = digests.mapIndexed { index, digest ->
+            ChatTurnEntry(
+                index = index + 1,
+                firstMessageId = digest.id,
+                preview = digest.content.trim(),
+                timestampMillis = digest.createdAt,
+            )
+        }
+    }
     val visibleMessages = remember(messages, messageEdit?.targetMessageId, messageEdit?.preserveFollowingMessages) {
         AgentConversationRevisionReducer.visibleMessagesForEdit(
             messages = messages,
@@ -537,6 +561,9 @@ internal fun AgentConversationMessages(
         visibleMessages.toTimelineEntries(previous = timelineCache.entries)
     }
     SideEffect { timelineCache.entries = timelineEntries }
+    // 跳转轮次时要读「最新」的条目与分页状态，回调里的快照可能是旧的。
+    val timelineState = rememberUpdatedState(timelineEntries)
+    val hasEarlierState = rememberUpdatedState(hasEarlierMessages)
     val activeWorkProcessKey = if (isStreaming) {
         (timelineEntries.lastOrNull() as? AgentTimelineEntry.WorkProcess)?.key
     } else {
@@ -957,17 +984,28 @@ internal fun AgentConversationMessages(
             // 底部上拉小横条：展开当前会话的轮次列表，点击跳转。
             ChatTurnNavigator(
                 messages = visibleMessages,
+                allTurns = allTurns,
                 onJumpToMessage = { messageId ->
-                    val entryIndex = timelineEntries.indexOfFirst { entry ->
+                    // 目标可能在还没加载的历史里：先按页往前加载，直到这条消息出现。
+                    val latestHasEarlier = hasEarlierState
+                    val latestEntries = timelineState
+                    fun indexOfTarget(): Int = latestEntries.value.indexOfFirst { entry ->
                         when (entry) {
                             is AgentTimelineEntry.Message -> entry.message.id == messageId
                             is AgentTimelineEntry.WorkProcess ->
                                 entry.messages.any { it.id == messageId }
                         }
                     }
-                    if (entryIndex >= 0) {
-                        val offset = if (hasEarlierMessages) entryIndex + 1 else entryIndex
-                        scope.launch { scrollState.animateScrollToItem(offset) }
+                    scope.launch {
+                        var guard = 0
+                        while (indexOfTarget() < 0 && latestHasEarlier.value && guard++ < 80) {
+                            onLoadEarlierMessages()
+                            delay(250)
+                        }
+                        val index = indexOfTarget()
+                        if (index >= 0) {
+                            scrollState.animateScrollToItem(index + if (latestHasEarlier.value) 1 else 0)
+                        }
                     }
                 },
                 modifier = Modifier

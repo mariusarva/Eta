@@ -114,8 +114,12 @@ internal fun ChatTurnNavigator(
     messages: List<AgentChatMessageUi>,
     onJumpToMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
+    allTurns: List<ChatTurnEntry> = emptyList(),
 ) {
-    val turns = remember(messages) { messages.toChatTurns() }
+    // 全库轮次优先：消息是分页加载的（128 条/页），只按已加载消息切轮次会让长会话少算前面的轮。
+    val turns = remember(messages, allTurns) {
+        if (allTurns.isNotEmpty()) allTurns else messages.toChatTurns()
+    }
     var expanded by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     val listState = rememberLazyListState()
@@ -165,7 +169,7 @@ internal fun ChatTurnNavigator(
                 }
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.heightIn(max = 280.dp),
+                    modifier = Modifier.heightIn(max = 360.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     itemsIndexed(turns, key = { _, item -> item.firstMessageId }) { _, turn ->
@@ -203,7 +207,7 @@ internal fun ChatTurnNavigator(
                                     text = turn.preview.ifBlank { "（无内容）" },
                                     style = MiuixTheme.textStyles.body2,
                                     color = MiuixTheme.colorScheme.onSurface,
-                                    maxLines = 2,
+                                    maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 if (turn.timestampMillis > 0L) {

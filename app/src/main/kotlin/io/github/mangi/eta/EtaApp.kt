@@ -48,6 +48,8 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
 
     override fun onCreate() {
         super.onCreate()
+        // 全量备份还原必须在 Room / DataStore 打开前落地，否则打开的是旧库。
+        runCatching { io.github.mangi.eta.data.repository.EtaFullBackupArchive.applyPendingRestore(this) }
         Prefs.initLocal(this)
         if (!AppProcessPolicy.shouldInitializeFullRuntime(Application.getProcessName(), packageName)) {
             return

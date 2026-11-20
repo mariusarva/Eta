@@ -112,6 +112,7 @@ internal fun AgentHomeScreen(
                     onHistoryViewportChanged = { onAction(AgentHomeAction.HistoryViewportChanged(it)) },
                     isDrawerOpen = isDrawerOpen,
                     modifier = modifier,
+                    conversationId = conversationKey.orEmpty(),
                 )
             }
         }

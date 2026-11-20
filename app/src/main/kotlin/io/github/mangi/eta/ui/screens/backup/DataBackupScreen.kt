@@ -32,6 +32,9 @@ import io.github.mangi.eta.agent.automation.AutoBackupAlarm
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.repository.AutoBackupResult
 import io.github.mangi.eta.data.repository.AutoBackupRunner
+import io.github.mangi.eta.data.repository.EtaFullBackupArchive
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import io.github.mangi.eta.data.repository.EtaBackupSummary
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.MiuixDialogActions
@@ -205,6 +208,59 @@ internal fun DataBackupScreen(
         }
     }
 
+    val fullExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                busy = true
+                try {
+                    val summary = withContext(Dispatchers.IO) {
+                        val output = context.contentResolver.openOutputStream(uri)
+                            ?: error(context.getString(R.string.data_backup_file_open_failed))
+                        output.use { EtaFullBackupArchive.export(context, it) }
+                    }
+                    Toast.makeText(
+                        context,
+                        "已导出全量包：" + summary.privateFiles + " 个文件 · " +
+                            (summary.privateBytes / 1024 / 1024) + " MB",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                } catch (throwable: Throwable) {
+                    showFailure(throwable)
+                } finally {
+                    busy = false
+                }
+            }
+        }
+    }
+
+    val fullImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                busy = true
+                try {
+                    val summary = withContext(Dispatchers.IO) {
+                        val input = context.contentResolver.openInputStream(uri)
+                            ?: error(context.getString(R.string.data_backup_file_open_failed))
+                        input.use { EtaFullBackupArchive.stage(context, it) }
+                    }
+                    Toast.makeText(
+                        context,
+                        "已解包 " + summary.privateFiles + " 个文件，重启应用后生效",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                } catch (throwable: Throwable) {
+                    showFailure(throwable)
+                } finally {
+                    busy = false
+                }
+            }
+        }
+    }
+
     val autoTreeLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
@@ -314,6 +370,20 @@ internal fun DataBackupScreen(
                     )
                     Divider()
                     CouiPreference(
+                        title = "备份格式",
+                        summary = if (autoSettings.format == AutoBackupSettings.FORMAT_FULL) {
+                            "全量包：数据 + 私有文件（含图片、设置、技能），体积大"
+                        } else {
+                            "JSON：只有会话与配置数据，体积小"
+                        },
+                        value = if (autoSettings.format == AutoBackupSettings.FORMAT_FULL) "全量" else "JSON",
+                        enabled = autoSettings.enabled,
+                        onClick = {
+                            applyAuto { it.copy(format = AutoBackupSettings.nextFormat(it.format)) }
+                        },
+                    )
+                    Divider()
+                    CouiPreference(
                         title = "立即备份一次",
                         summary = if (autoBusy) stringResource(R.string.data_backup_working) else autoStatusText,
                         enabled = !autoBusy,
@@ -324,6 +394,27 @@ internal fun DataBackupScreen(
                             null
                         },
                         onClick = { if (!autoBusy) backupNow() },
+                    )
+                }
+                Group(title = "全量包") {
+                    CouiPreference(
+                        title = "导出全量包",
+                        summary = "数据 + 私有文件打成 zip，换机可直接还原",
+                        enabled = !busy,
+                        showChevron = false,
+                        trailing = if (busy) {
+                            { InfiniteProgressIndicator(size = 20.dp) }
+                        } else {
+                            null
+                        },
+                        onClick = { if (!busy) fullExportLauncher.launch(defaultFullBackupFileName()) },
+                    )
+                    Divider()
+                    CouiPreference(
+                        title = "导入全量包",
+                        summary = "解包到暂存区，重启应用后覆盖生效",
+                        enabled = !busy,
+                        onClick = { if (!busy) fullImportLauncher.launch(arrayOf("application/zip", "application/octet-stream")) },
                     )
                 }
                 CouiPageBottomSpacer()
@@ -413,6 +504,33 @@ internal fun DataBackupScreen(
                         )
                     }
                 }
+                item(key = "full") {
+                    SmallTitle("全量包")
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
+                        ArrowPreference(
+                            title = "导出全量包",
+                            summary = "数据 + 私有文件打成 zip，换机可直接还原",
+                            enabled = !busy,
+                            onClick = { if (!busy) fullExportLauncher.launch(defaultFullBackupFileName()) },
+                        )
+                        ArrowPreference(
+                            title = "导入全量包",
+                            summary = "解包到暂存区，重启应用后覆盖生效",
+                            enabled = !busy,
+                            onClick = {
+                                if (!busy) {
+                                    fullImportLauncher.launch(
+                                        arrayOf("application/zip", "application/octet-stream"),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
                 item(key = "auto") {
                     SmallTitle("自动备份")
                     Card(
@@ -458,6 +576,17 @@ internal fun DataBackupScreen(
                             },
                         )
                         ArrowPreference(
+                            title = "备份格式",
+                            summary = if (autoSettings.format == AutoBackupSettings.FORMAT_FULL) {
+                                "全量包：数据 + 私有文件（含图片、设置、技能），体积大"
+                            } else {
+                                "JSON：只有会话与配置数据，体积小"
+                            },
+                            onClick = {
+                                applyAuto { it.copy(format = AutoBackupSettings.nextFormat(it.format)) }
+                            },
+                        )
+                        ArrowPreference(
                             title = "立即备份一次",
                             summary = if (autoBusy) stringResource(R.string.data_backup_working) else autoStatusText,
                             enabled = !autoBusy,
@@ -491,6 +620,10 @@ private fun autoNextKeepCount(current: Int): Int {
     val index = options.indexOf(current).let { if (it >= 0) it else 0 }
     return options[(index + 1) % options.size]
 }
+
+private fun defaultFullBackupFileName(): String =
+    "Eta-fullbackup-" + SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date()) +
+        EtaFullBackupArchive.FULL_SUFFIX
 
 private fun defaultBackupFileName(): String =
     "Eta-backup-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}.eta-backup.json"

@@ -168,6 +168,13 @@ internal interface ConversationDao : ChunkedTextDao {
         return true
     }
 
+    /** 轮次导航用：只取用户消息的 id、前 80 字与落库时间，不读全文，也不占用消息分页窗口。 */
+    @Query(
+        "SELECT id, substr(content, 1, 80) AS content, created_at FROM conversation_messages " +
+            "WHERE conversation_id = :conversationId AND type = 'user' ORDER BY sort_index ASC"
+    )
+    suspend fun userMessageDigests(conversationId: String): List<ConversationUserDigest>
+
     @Query("SELECT COUNT(*) FROM conversations")
     suspend fun conversationTotal(): Int
 
@@ -290,3 +297,10 @@ internal interface ConversationDao : ChunkedTextDao {
         state?.let { insertState(it) }
     }
 }
+
+/** 轮次一行所需的用户消息摘要。 */
+internal data class ConversationUserDigest(
+    val id: String,
+    val content: String,
+    @androidx.room.ColumnInfo(name = "created_at") val createdAt: Long,
+)

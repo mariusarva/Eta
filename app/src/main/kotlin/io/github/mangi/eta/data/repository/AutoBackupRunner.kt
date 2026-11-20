@@ -61,6 +61,8 @@ internal object AutoBackupRunner {
     const val DIR_NAME = "Eta备份"
     private const val FILE_PREFIX = "Eta-自动备份-"
     private const val FILE_SUFFIX = ".eta-backup.json"
+    private const val FULL_PREFIX = "Eta-全量备份-"
+    private const val FULL_SUFFIX = EtaFullBackupArchive.FULL_SUFFIX
     private const val TEMP_SUFFIX = ".part"
     private const val MIME_JSON = "application/json"
 
@@ -68,7 +70,8 @@ internal object AutoBackupRunner {
     private val mutex = Mutex()
 
     private fun isBackupName(name: String?): Boolean =
-        name != null && name.startsWith(FILE_PREFIX) && name.endsWith(FILE_SUFFIX)
+        name != null && ((name.startsWith(FILE_PREFIX) && name.endsWith(FILE_SUFFIX)) ||
+            (name.startsWith(FULL_PREFIX) && name.endsWith(FULL_SUFFIX)))
 
     /** 默认目录：有「所有文件访问权限」用共享存储，否则用应用外部私有目录。 */
     fun defaultDirectory(context: Context): File {
@@ -186,12 +189,13 @@ internal object AutoBackupRunner {
         now: Long,
     ): AutoBackupResult {
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date(now))
-        val fileName = "$FILE_PREFIX$stamp$FILE_SUFFIX"
+        val full = settings.format == AutoBackupSettings.FORMAT_FULL
+        val fileName = if (full) "$FULL_PREFIX$stamp$FULL_SUFFIX" else "$FILE_PREFIX$stamp$FILE_SUFFIX"
         val tree = treeDirectory(context, settings)
         return if (tree != null) {
-            runIntoTree(context, settings, tree, fileName, fingerprint, now)
+            runIntoTree(context, settings, tree, fileName, fingerprint, now, full)
         } else {
-            runIntoDirectory(context, settings, fileName, fingerprint, now)
+            runIntoDirectory(context, settings, fileName, fingerprint, now, full)
         }
     }
 
@@ -201,6 +205,7 @@ internal object AutoBackupRunner {
         fileName: String,
         fingerprint: String,
         now: Long,
+        full: Boolean,
     ): AutoBackupResult {
         val dir = defaultDirectory(context)
         if (!dir.exists() && !dir.mkdirs()) return fail(settings, now, "无法创建备份目录 " + dir.absolutePath)
@@ -212,7 +217,11 @@ internal object AutoBackupRunner {
         val temp = File(dir, fileName + TEMP_SUFFIX)
         return try {
             val conversationCount = temp.outputStream().use { stream ->
-                EtaBackupRepository.export(context, stream).conversationCount
+                if (full) {
+                    EtaFullBackupArchive.export(context, stream).conversationCount
+                } else {
+                    EtaBackupRepository.export(context, stream).conversationCount
+                }
             }
             if (!commitFile(temp, target)) {
                 temp.deleteQuietly()
@@ -234,6 +243,7 @@ internal object AutoBackupRunner {
         fileName: String,
         fingerprint: String,
         now: Long,
+        full: Boolean,
     ): AutoBackupResult {
         tree.listFiles()
             .filter { it.isFile && it.name?.endsWith(TEMP_SUFFIX) == true }
@@ -243,7 +253,11 @@ internal object AutoBackupRunner {
             ?: return fail(settings, now, "无法在所选文件夹创建备份文件")
         return try {
             val conversationCount = context.contentResolver.openOutputStream(temp.uri)?.use { stream ->
-                EtaBackupRepository.export(context, stream).conversationCount
+                if (full) {
+                    EtaFullBackupArchive.export(context, stream).conversationCount
+                } else {
+                    EtaBackupRepository.export(context, stream).conversationCount
+                }
             } ?: throw IOException("无法写入所选文件夹")
             val renamed = runCatching { temp.renameTo(fileName) }.getOrDefault(false)
             if (!renamed) {

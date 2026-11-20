@@ -831,6 +831,18 @@ private fun SettingsPageContent(
                         },
                         onClick = { onNavigate(AppRoute.DataBackup) },
                     )
+                    CouiIconDivider()
+                    CouiPreference(
+                        title = stringResource(R.string.usage_stats_title),
+                        icon = { CouiSettingsIcon(Icons.Rounded.BarChart, SettingsIconColors.Green) },
+                        onClick = { onNavigate(AppRoute.TokenUsage) },
+                    )
+                    CouiIconDivider()
+                    CouiPreference(
+                        title = stringResource(R.string.data_usage_title),
+                        icon = { CouiSettingsIcon(Icons.Rounded.Storage, SettingsIconColors.Orange) },
+                        onClick = { onNavigate(AppRoute.DataUsage) },
+                    )
                 }
 
                 Group(title = stringResource(R.string.ui_permissions_560165)) {
@@ -1197,6 +1209,16 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.data_backup_title),
                             startAction = { SettingsIcon(Icons.Rounded.Description) },
                             onClick = { onNavigate(AppRoute.DataBackup) },
+                        )
+                        ArrowPreference(
+                            title = stringResource(R.string.usage_stats_title),
+                            startAction = { SettingsIcon(Icons.Rounded.BarChart) },
+                            onClick = { onNavigate(AppRoute.TokenUsage) },
+                        )
+                        ArrowPreference(
+                            title = stringResource(R.string.data_usage_title),
+                            startAction = { SettingsIcon(Icons.Rounded.Storage) },
+                            onClick = { onNavigate(AppRoute.DataUsage) },
                         )
                     }
                 }
