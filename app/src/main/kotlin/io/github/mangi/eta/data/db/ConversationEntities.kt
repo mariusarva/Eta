@@ -9,7 +9,10 @@ import io.github.mangi.eta.data.model.ReasoningEffort
 import kotlinx.serialization.Serializable
 
 @Serializable
-@Entity(tableName = "conversations")
+@Entity(
+    tableName = "conversations",
+    indices = [Index(name = "index_conversations_category_id", value = ["category_id"])],
+)
 internal data class ConversationEntity(
     @PrimaryKey val id: String,
     val title: String,
