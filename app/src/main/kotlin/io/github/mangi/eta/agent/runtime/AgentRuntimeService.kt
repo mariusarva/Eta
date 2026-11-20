@@ -59,7 +59,6 @@ import io.github.mangi.eta.agent.overlay.AgentOverlayState
 import io.github.mangi.eta.agent.overlay.AgentOverlayStatus
 import io.github.mangi.eta.agent.overlay.AgentOverlayVisibilityPolicy
 import io.github.mangi.eta.agent.overlay.applyEvent
-import io.github.mangi.eta.data.usage.TokenUsageRecorder
 import io.github.mangi.eta.agent.virtualdisplay.VirtualDisplayController
 import io.github.mangi.eta.agent.virtualdisplay.VirtualDisplaySnapshot
 import io.github.mangi.eta.config.Prefs
@@ -545,28 +544,6 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         run: RuntimeRunRegistry.Run,
         event: AgentEvent,
     ) {
-        // 用量记录：一次模型请求一行，只服务设置里的「用量统计」，失败不影响运行。
-        if (event is AgentEvent.UsageReceived) {
-            val usage = event.usage
-            val conversationId = run.conversationId
-            val modelId = run.request.config.model.ifBlank { null }
-            serviceScope.launch {
-                runCatching {
-                    TokenUsageRecorder.recordUsage(
-                        context = this@AgentRuntimeService,
-                        conversationId = conversationId,
-                        modelId = modelId,
-                        kind = usage.requestKind ?: AgentTokenUsage.REQUEST_KIND_CHAT,
-                        contextTokens = usage.contextTokens,
-                        inputTokens = usage.inputTokens,
-                        outputTokens = usage.outputTokens,
-                        reasoningTokens = usage.reasoningTokens,
-                        cachedTokens = usage.cachedTokens,
-                        durationMs = usage.llmMs,
-                    )
-                }
-            }
-        }
         if (event is AgentEvent.GuiControlChanged) {
             run.guiStatus = event.status
             if (event.status == GuiControlStatus.Acquired) lastGuiOwnerRunId = run.runId

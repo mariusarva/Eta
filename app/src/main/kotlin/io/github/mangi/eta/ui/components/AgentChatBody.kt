@@ -518,6 +518,7 @@ private fun AgentChatScaffold(
                     historyLoadState = historyLoadState,
                     onLoadEarlierMessages = onLoadEarlierMessages,
                     onHistoryViewportChanged = onHistoryViewportChanged,
+                    allTurns = allTurns,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -529,6 +530,7 @@ private fun AgentChatScaffold(
 @OptIn(ExperimentalLayoutApi::class)
 internal fun AgentConversationMessages(
     visibleMessages: List<AgentChatMessageUi>,
+    allTurns: List<ChatTurnEntry> = emptyList(),
     scrollState: LazyListState,
     isStreaming: Boolean,
     bottomInset: Dp,

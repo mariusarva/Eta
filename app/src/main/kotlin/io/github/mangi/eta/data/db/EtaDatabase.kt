@@ -23,11 +23,10 @@ import androidx.room.migration.Migration
         RuntimeInFlightEventEntity::class,
         SkillRegistryEntity::class,
         McpServerEntity::class,
-        TokenUsageRecordEntity::class,
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 30,
+    version = 29,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -37,7 +36,6 @@ internal abstract class EtaDatabase : RoomDatabase() {
     abstract fun skillDao(): SkillDao
     abstract fun mcpServerDao(): McpServerDao
     abstract fun characterDao(): CharacterDao
-    abstract fun tokenUsageDao(): TokenUsageDao
 
     companion object {
         @Volatile
@@ -74,7 +72,6 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_26_27,
                         MIGRATION_27_28,
                         MIGRATION_28_29,
-                        MIGRATION_29_30,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -180,22 +177,6 @@ internal abstract class EtaDatabase : RoomDatabase() {
                 )
                 WHERE created_at = 0
                 """.trimIndent()
-            )
-        }
-
-        /** 建用量记录表：一次模型请求一行，只服务「用量统计」，可整表清理。 */
-        internal val MIGRATION_29_30 = Migration(29, 30) { database ->
-            database.execSQL(
-                "CREATE TABLE IF NOT EXISTS `token_usage_records` (" +
-                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
-                    "`conversation_id` TEXT, `model_id` TEXT, " +
-                    "`created_at` INTEGER NOT NULL, `kind` TEXT NOT NULL, " +
-                    "`context_tokens` INTEGER, `input_tokens` INTEGER, `output_tokens` INTEGER, " +
-                    "`reasoning_tokens` INTEGER, `cached_tokens` INTEGER, `duration_ms` INTEGER)"
-            )
-            database.execSQL(
-                "CREATE INDEX IF NOT EXISTS `index_token_usage_records_created_at` " +
-                    "ON `token_usage_records` (`created_at`)"
             )
         }
 
