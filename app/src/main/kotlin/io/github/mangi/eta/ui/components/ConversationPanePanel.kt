@@ -212,7 +212,8 @@ internal fun ConversationPanePanel(
                                 .scrollEndHaptic()
                                 .overScrollVertical(),
                             contentPadding = PaddingValues(
-                                top = barInsets.top + 10.dp,
+                                // 顶栏高度测量有半帧延迟，多留 6dp 缓冲，避免首屏卡片被顶栏压住。
+                                top = barInsets.top + 16.dp,
                                 bottom = barInsets.bottom + 10.dp,
                             ),
                             verticalArrangement = Arrangement.spacedBy(ConversationPanelMetrics.RowGap),
@@ -348,33 +349,50 @@ internal fun ConversationPanePanel(
         EtaWindowDialog(
             show = true,
             title = "会话分类",
-            summary = "点分类即可筛选侧栏；删除分类不会删除会话",
             onDismissRequest = { showCategoryDialog = false },
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "点分类筛选侧栏；删除只解散归属，不删会话",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 10.dp),
+                )
                 EtaPreferenceGroup {
-                    EtaPreference(
-                        title = "全部会话",
-                        summary = "清除筛选",
-                        onClick = {
-                            onFilterCategory(null)
-                            showCategoryDialog = false
-                        },
-                    )
-                    state.categories.forEach { category ->
-                        EtaPreferenceDivider()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         EtaPreference(
-                            title = category.name,
-                            summary = category.conversationCount.toString() + " 个会话" +
-                                if (state.categoryFilterId == category.id) " · 筛选中" else "",
+                            title = "全部会话",
+                            summary = state.conversations.size.toString() + " 个会话",
+                            modifier = Modifier.weight(1f),
                             onClick = {
-                                onFilterCategory(category.id)
+                                onFilterCategory(null)
                                 showCategoryDialog = false
                             },
                         )
                     }
+                    state.categories.forEach { category ->
+                        EtaPreferenceDivider()
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            EtaPreference(
+                                title = category.name,
+                                summary = category.conversationCount.toString() + " 个会话" +
+                                    if (state.categoryFilterId == category.id) " · 筛选中" else "",
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    onFilterCategory(category.id)
+                                    showCategoryDialog = false
+                                },
+                            )
+                            Box(modifier = Modifier.padding(end = 8.dp)) {
+                                BulkActionChip(
+                                    text = "×",
+                                    onClick = { onDeleteCategory(category.id) },
+                                )
+                            }
+                        }
+                    }
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(14.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -383,7 +401,7 @@ internal fun ConversationPanePanel(
                         value = newCategoryName,
                         onValueChange = { newCategoryName = it },
                         singleLine = true,
-                        textStyle = MiuixTheme.textStyles.body2.copy(color = MiuixTheme.colorScheme.onSurface),
+                        textStyle = MiuixTheme.textStyles.footnote1.copy(color = MiuixTheme.colorScheme.onSurface),
                         modifier = Modifier.weight(1f),
                         decorationBox = { inner ->
                             Box(
@@ -391,12 +409,12 @@ internal fun ConversationPanePanel(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    .padding(horizontal = 12.dp, vertical = 9.dp),
                             ) {
                                 if (newCategoryName.isEmpty()) {
                                     Text(
                                         text = "新建分类名称",
-                                        style = MiuixTheme.textStyles.body2,
+                                        style = MiuixTheme.textStyles.footnote1,
                                         color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                                     )
                                 }
@@ -405,7 +423,7 @@ internal fun ConversationPanePanel(
                         },
                     )
                     Spacer(Modifier.width(8.dp))
-                    EtaTextButton(
+                    BulkActionChip(
                         text = "新建",
                         enabled = newCategoryName.isNotBlank(),
                         onClick = {
@@ -413,20 +431,6 @@ internal fun ConversationPanePanel(
                             newCategoryName = ""
                         },
                     )
-                }
-                if (state.categories.isNotEmpty()) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        state.categories.forEach { category ->
-                            EtaTextButton(
-                                text = "删除 " + category.name,
-                                onClick = { onDeleteCategory(category.id) },
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -437,10 +441,15 @@ internal fun ConversationPanePanel(
         EtaWindowDialog(
             show = true,
             title = "移到分类",
-            summary = "已选 " + ids.size + " 个会话",
             onDismissRequest = { showMoveDialog = false },
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "已选 " + ids.size + " 个会话",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    modifier = Modifier.padding(start = 2.dp, bottom = 10.dp),
+                )
                 EtaPreferenceGroup {
                     EtaPreference(
                         title = "未分类",
