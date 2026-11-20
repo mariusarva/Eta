@@ -156,6 +156,8 @@ internal class AgentAppState(
     private var conversationCategoryIds: Map<String, String> = initialConversations.categoryIds
     private var conversationCategoryList: List<io.github.mangi.eta.data.db.ConversationCategoryEntity> =
         initialConversations.categories
+    /** 新会话在首次落库时要归入的分类。 */
+    private var pendingNewConversationCategoryId: String? = null
 
     var homeState by mutableStateOf(
         selectedConversationId?.let(conversationsById::get) ?: emptyChatState(defaultReasoningEffort(null))
@@ -1385,6 +1387,31 @@ internal class AgentAppState(
             }
             reloadConversationCategories()
         }
+    }
+
+    /** 分类上移 / 下移：与相邻分类交换 sort_order。 */
+    fun moveConversationCategory(categoryId: String, delta: Int) {
+        scope.launch {
+            val dao = conversationDao()
+            withContext(Dispatchers.IO) {
+                val ordered = dao.categories().sortedWith(compareBy({ it.sortOrder }, { it.createdAt }))
+                val index = ordered.indexOfFirst { it.id == categoryId }
+                if (index < 0) return@withContext
+                val target = index + delta
+                if (target !in ordered.indices) return@withContext
+                val current = ordered[index]
+                val neighbour = ordered[target]
+                dao.updateCategoryOrder(current.id, neighbour.sortOrder)
+                dao.updateCategoryOrder(neighbour.id, current.sortOrder)
+            }
+            reloadConversationCategories()
+        }
+    }
+
+    /** 新建会话并预置分类：会话真正落库后自动归入该分类。 */
+    fun createConversationInCategory(categoryId: String?) {
+        pendingNewConversationCategoryId = categoryId
+        createConversation()
     }
 
     fun setConversationCategoryFilter(categoryId: String?) {
@@ -3058,6 +3085,7 @@ internal class AgentAppState(
                     previous?.join()
                     persistence.save(appContext,
                         AgentConversationStore.Snapshot(selected, conversations, titles, timestamps, pinned))
+                    applyPendingCategoryIfNeeded(selected)
                     onSaved?.invoke()
                     scope.launch(Dispatchers.Main.immediate) { releaseInactiveConversations(conversations) }
                     true
@@ -3071,6 +3099,15 @@ internal class AgentAppState(
                 }
             }.also { persistenceJob = it }
         }
+    }
+
+    /** 新会话首次落库后，把它归入用户在「分类下新建」时选的分类。 */
+    private suspend fun applyPendingCategoryIfNeeded(selected: String?) {
+        val pending = pendingNewConversationCategoryId ?: return
+        if (selected.isNullOrBlank()) return
+        pendingNewConversationCategoryId = null
+        runCatching { conversationDao().assignCategory(listOf(selected), pending) }
+        reloadConversationCategories()
     }
 
     private companion object {

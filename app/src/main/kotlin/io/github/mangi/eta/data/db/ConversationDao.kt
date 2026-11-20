@@ -46,6 +46,9 @@ internal interface ConversationDao : ChunkedTextDao {
     @Query("SELECT COALESCE(MAX(sort_order), 0) FROM conversation_categories")
     suspend fun maxCategorySortOrder(): Int
 
+    @Query("UPDATE conversation_categories SET sort_order = :order WHERE id = :categoryId")
+    suspend fun updateCategoryOrder(categoryId: String, order: Int)
+
     @Query("UPDATE conversations SET title = :title, updated_at = :updatedAt, is_pinned = :isPinned WHERE id = :conversationId")
     suspend fun updateConversationTitle(conversationId: String, title: String, updatedAt: Long, isPinned: Boolean = false)
 

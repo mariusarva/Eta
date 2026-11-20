@@ -154,6 +154,8 @@ internal fun ConversationPanePanel(
     onMoveConversationsToCategory: (List<String>, String?) -> Unit = { _, _ -> },
     onFilterCategory: (String?) -> Unit = {},
     onDeleteConversations: (List<String>) -> Unit = {},
+    onMoveCategory: (String, Int) -> Unit = { _, _ -> },
+    onNewConversationInCategory: (String) -> Unit = {},
     onOpenSettings: () -> Unit,
     onOpenModelProviders: () -> Unit,
     onOpenTools: () -> Unit,
@@ -173,6 +175,10 @@ internal fun ConversationPanePanel(
     var newCategoryName by remember { mutableStateOf("") }
     var renamingCategoryId by remember { mutableStateOf<String?>(null) }
     var selecting by remember { mutableStateOf(false) }
+    var collapsedSections by remember { mutableStateOf(setOf<String>()) }
+    var renamingCategoryId by remember { mutableStateOf<String?>(null) }
+    var renameCategoryText by remember { mutableStateOf("") }
+    var pendingDeleteCategoryId by remember { mutableStateOf<String?>(null) }
     val selectedConversationIds = remember { mutableStateMapOf<String, Boolean>() }
     val containerColor = conversationPaneContainerColor()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
@@ -239,13 +245,27 @@ internal fun ConversationPanePanel(
                                 }
                             } else {
                                 groups.forEachIndexed { groupIndex, group ->
+                                    val sectionKey = group.section.toString()
+                                    val collapsed = sectionKey in collapsedSections
                                     item(key = "section-${group.section}") {
                                         ConversationSectionHeader(
                                             group = group,
                                             isFirstSection = groupIndex == 0,
                                             hasWorkbenchAbove = !isSearching,
+                                            collapsed = collapsed,
+                                            onToggleCollapse = {
+                                                collapsedSections = if (collapsed) {
+                                                    collapsedSections - sectionKey
+                                                } else {
+                                                    collapsedSections + sectionKey
+                                                }
+                                            },
+                                            onNewConversationInCategory = { categoryId ->
+                                                onNewConversationInCategory(categoryId)
+                                            },
                                         )
                                     }
+                                    if (collapsed) return@forEachIndexed
                                     items(
                                         items = group.items,
                                         key = { it.id },
@@ -393,10 +413,27 @@ internal fun ConversationPanePanel(
                                         showCategoryDialog = false
                                     },
                                 )
-                                Box(modifier = Modifier.padding(end = 10.dp)) {
+                                Row(
+                                    modifier = Modifier.padding(end = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    BulkActionChip(text = "↑", compact = true, onClick = { onMoveCategory(category.id, -1) })
+                                    Spacer(Modifier.width(3.dp))
+                                    BulkActionChip(text = "↓", compact = true, onClick = { onMoveCategory(category.id, 1) })
+                                    Spacer(Modifier.width(3.dp))
+                                    BulkActionChip(
+                                        text = "改名",
+                                        compact = true,
+                                        onClick = {
+                                            renamingCategoryId = category.id
+                                            renameCategoryText = category.name
+                                        },
+                                    )
+                                    Spacer(Modifier.width(3.dp))
                                     BulkActionChip(
                                         text = "×",
-                                        onClick = { onDeleteCategory(category.id) },
+                                        compact = true,
+                                        onClick = { pendingDeleteCategoryId = category.id },
                                     )
                                 }
                             }
@@ -440,6 +477,89 @@ internal fun ConversationPanePanel(
                         onClick = {
                             onCreateCategory(newCategoryName)
                             newCategoryName = ""
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    renamingCategoryId?.let { categoryId ->
+        EtaWindowDialog(
+            show = true,
+            title = "重命名分类",
+            onDismissRequest = { renamingCategoryId = null },
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                BasicTextField(
+                    value = renameCategoryText,
+                    onValueChange = { renameCategoryText = it },
+                    singleLine = true,
+                    textStyle = MiuixTheme.textStyles.footnote1.copy(color = MiuixTheme.colorScheme.onSurface),
+                    modifier = Modifier.fillMaxWidth(),
+                    decorationBox = { inner ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                        ) {
+                            if (renameCategoryText.isEmpty()) {
+                                Text(
+                                    text = "分类名称",
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                )
+                            }
+                            inner()
+                        }
+                    },
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    BulkActionChip(text = "取消", onClick = { renamingCategoryId = null })
+                    Spacer(Modifier.width(8.dp))
+                    BulkActionChip(
+                        text = "保存",
+                        enabled = renameCategoryText.isNotBlank(),
+                        onClick = {
+                            onRenameCategory(categoryId, renameCategoryText)
+                            renamingCategoryId = null
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    pendingDeleteCategoryId?.let { categoryId ->
+        EtaWindowDialog(
+            show = true,
+            title = "删除分类",
+            onDismissRequest = { pendingDeleteCategoryId = null },
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "分类里的会话不会被删除，只会变回未分类。",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    BulkActionChip(text = "取消", onClick = { pendingDeleteCategoryId = null })
+                    Spacer(Modifier.width(8.dp))
+                    BulkActionChip(
+                        text = "删除",
+                        onClick = {
+                            onDeleteCategory(categoryId)
+                            pendingDeleteCategoryId = null
                         },
                     )
                 }
@@ -535,6 +655,7 @@ private fun ConversationBulkBar(
 private fun BulkActionChip(
     text: String,
     enabled: Boolean = true,
+    compact: Boolean = false,
     onClick: () -> Unit,
 ) {
     Box(
@@ -545,7 +666,7 @@ private fun BulkActionChip(
                 RoundedCornerShape(9.dp),
             )
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(horizontal = 9.dp, vertical = 5.dp),
+            .padding(horizontal = if (compact) 7.dp else 9.dp, vertical = if (compact) 4.dp else 5.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -796,6 +917,9 @@ private fun ConversationSectionHeader(
     group: ConversationDrawerGroup,
     isFirstSection: Boolean,
     hasWorkbenchAbove: Boolean,
+    collapsed: Boolean = false,
+    onToggleCollapse: () -> Unit = {},
+    onNewConversationInCategory: (String) -> Unit = {},
 ) {
     val label = group.localizedLabel()
     val topPadding = when {
@@ -806,40 +930,45 @@ private fun ConversationSectionHeader(
     val horizontalInset = ConversationPanelMetrics.PaneHorizontalPadding +
         ConversationPanelMetrics.RowHorizontalPadding
 
-    when (LocalUiStyle.current) {
-        AppearanceUiStyle.COUI -> {
-            val colors = CouiPageDefaults.themeColors()
-            CouiText(
-                text = label,
-                kind = CouiTextKind.GroupTitle,
-                color = colors.summary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = horizontalInset,
-                        top = topPadding,
-                        end = horizontalInset,
-                        bottom = ConversationPanelMetrics.SectionBottomPadding,
-                    )
-                    .semantics { heading() },
-                textAlign = TextAlign.Start,
+    val isCouiHeader = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val headerColor = if (isCouiHeader) {
+        CouiPageDefaults.themeColors().summary
+    } else {
+        MiuixTheme.colorScheme.onBackgroundVariant
+    }
+    val categoryId = (group.section as? ConversationDrawerSection.Category)?.id
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = horizontalInset,
+                top = topPadding,
+                end = horizontalInset,
+                bottom = ConversationPanelMetrics.SectionBottomPadding,
             )
-        }
-        AppearanceUiStyle.MIUIX -> {
-            Text(
-                text = label,
-                style = MiuixTheme.textStyles.footnote1,
-                fontWeight = FontWeight.Medium,
-                color = MiuixTheme.colorScheme.onBackgroundVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = horizontalInset,
-                        top = topPadding,
-                        end = horizontalInset,
-                        bottom = ConversationPanelMetrics.SectionBottomPadding,
-                    )
-                    .semantics { heading() },
+            .clickable(role = Role.Button, onClick = onToggleCollapse)
+            .semantics { heading() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (collapsed) "▸" else "▾",
+            style = MiuixTheme.textStyles.footnote1,
+            color = headerColor,
+            modifier = Modifier.padding(end = 4.dp),
+        )
+        Text(
+            text = label,
+            style = MiuixTheme.textStyles.footnote1,
+            fontWeight = FontWeight.Medium,
+            color = headerColor,
+            maxLines = 1,
+        )
+        if (categoryId != null && !collapsed) {
+            Spacer(Modifier.weight(1f))
+            BulkActionChip(
+                text = "+ 新会话",
+                onClick = { onNewConversationInCategory(categoryId) },
             )
         }
     }
