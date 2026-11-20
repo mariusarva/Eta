@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.ChatBubble
@@ -79,6 +80,7 @@ import io.github.mangi.eta.agent.voice.DefaultAssistantOwner
 import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.ModuleConfig
+import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.model.enabledModel
@@ -189,6 +191,16 @@ private fun SettingsPageContent(
     onBack: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    var notificationLargeIcon by remember {
+        mutableStateOf(io.github.mangi.eta.agent.runtime.ExecutionNotificationPolicy.isLargeIconEnabled())
+    }
+    val onNotificationLargeIconToggle: (Boolean) -> Unit = { enabled ->
+        notificationLargeIcon = enabled
+        io.github.mangi.eta.agent.runtime.ExecutionNotificationPolicy.set(enabled)
+        coroutineScope.launch {
+            runCatching { SettingsDataStore.setExecutionNotificationLargeIcon(enabled) }
+        }
+    }
     val capabilities = rememberDeviceCapabilities()
     val enhancementHistory = remember(context.applicationContext) { EnhancementSettingsHistory(context) }
     var hasConnectedFramework by remember { mutableStateOf(enhancementHistory.hasConnected) }
@@ -892,6 +904,16 @@ private fun SettingsPageContent(
                     }
                 }
 
+                Group(title = "运行通知") {
+                    CouiSwitchPreference(
+                        title = "显示通知大图标",
+                        summary = "关闭后卡片右上角的图标不再显示",
+                        checked = notificationLargeIcon,
+                        onCheckedChange = onNotificationLargeIconToggle,
+                        icon = { CouiSettingsIcon(Icons.Rounded.Notifications, SettingsIconColors.Blue) },
+                    )
+                }
+
                 Group(title = stringResource(R.string.ui_about_bed172)) {
                     CouiPreference(
                         title = stringResource(R.string.ui_about_version_title),
@@ -1276,6 +1298,17 @@ private fun SettingsPageContent(
                 }
 
                 item(key = "section_about") {
+                    SmallTitle("运行通知")
+                    SettingsGroupCard {
+                        SwitchPreference(
+                            title = "显示通知大图标",
+                            summary = "关闭后卡片右上角的图标不再显示",
+                            checked = notificationLargeIcon,
+                            onCheckedChange = onNotificationLargeIconToggle,
+                            startAction = { SettingsIcon(Icons.Rounded.Notifications) },
+                        )
+                    }
+
                     SmallTitle(stringResource(R.string.ui_about_bed172))
                     SettingsGroupCard {
                         BasicComponent(

@@ -1099,10 +1099,13 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         } else {
             (owner ?: activeRuns.firstOrNull())?.overlayState?.status
         }
+        val primary = owner ?: activeRuns.firstOrNull()
         AgentExecutionService.updateRunStatus(
             this,
             status,
             activeRunCount = activeRuns.size,
+            primaryRunId = primary?.runId,
+            isPaused = primary?.session?.controller?.isPaused == true || (owner != null && guiState.userPaused),
         )
     }
 

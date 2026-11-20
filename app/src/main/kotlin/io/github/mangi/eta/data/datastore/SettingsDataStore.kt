@@ -38,6 +38,7 @@ internal object SettingsDataStore {
     private val CONVERSATION_TITLE_SETTINGS = stringPreferencesKey("conversation_title_settings_v1")
     private val ASSISTANT_OVERLAY_SETTINGS = stringPreferencesKey("assistant_overlay_settings_v1")
     private val AUTO_BACKUP_SETTINGS = stringPreferencesKey("auto_backup_settings_v1")
+    private val EXECUTION_LARGE_ICON = booleanPreferencesKey("execution_notification_large_icon")
     private val speechJson = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
@@ -117,6 +118,20 @@ internal object SettingsDataStore {
     suspend fun setConversationTitleSettings(settings: ConversationTitleSettings) {
         ensureInitialized()
         dataStore.edit { it[CONVERSATION_TITLE_SETTINGS] = speechJson.encodeToString(settings) }
+    }
+
+    suspend fun executionNotificationLargeIcon(): Boolean {
+        ensureInitialized()
+        return dataStore.data
+            .catch { cause ->
+                if (cause is IOException) emit(emptyPreferences()) else throw cause
+            }
+            .first()[EXECUTION_LARGE_ICON] ?: true
+    }
+
+    suspend fun setExecutionNotificationLargeIcon(enabled: Boolean) {
+        ensureInitialized()
+        dataStore.edit { it[EXECUTION_LARGE_ICON] = enabled }
     }
 
     fun autoBackupSettingsFlow(): Flow<AutoBackupSettings> {

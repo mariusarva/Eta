@@ -66,6 +66,14 @@ internal class AgentExecutionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             stopTasks()
+        } else if (intent?.action == ACTION_TOGGLE_PAUSE) {
+            val targetRunId = intent.getStringExtra(EXTRA_TOGGLE_RUN_ID).orEmpty()
+            val pausedNow = runPaused
+            if (targetRunId.isNotBlank()) {
+                val client = AgentRuntimeClient(this, AndroidAgentLogger)
+                if (pausedNow) client.resumeRun() else client.pauseRun(targetRunId)
+            }
+            refreshNotification()
         } else {
             ensureForeground()
             refreshNotification()
@@ -120,7 +128,34 @@ internal class AgentExecutionService : Service() {
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .addAction(Notification.Action.Builder(null, getString(R.string.execution_stop), stop).build())
+        val runId = primaryRunId
+        if (runId != null) {
+            // 暂停 / 继续：与 App 内运行键同一套控制通道（MSG_PAUSE / MSG_RESUME）。
+            val pauseLabel = if (runPaused) "继续" else "暂停"
+            val pauseIntent = PendingIntent.getService(
+                this, 3,
+                Intent(this, AgentExecutionService::class.java)
+                    .setAction(ACTION_TOGGLE_PAUSE)
+                    .putExtra(EXTRA_TOGGLE_RUN_ID, runId),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.addAction(
+                Notification.Action.Builder(null, pauseLabel, pauseIntent).build(),
+            )
+            // 插入对话：独立栈的透明输入层，交出输入后自动关闭。
+            val supplement = PendingIntent.getActivity(
+                this, 4,
+                Intent(this, SupplementActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    .putExtra(SupplementActivity.EXTRA_RUN_ID, runId)
+                    .putExtra(SupplementActivity.EXTRA_TITLE, getString(R.string.execution_title)),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.addAction(
+                Notification.Action.Builder(null, "插入对话", supplement).build(),
+            )
+        }
+        builder.addAction(Notification.Action.Builder(null, getString(R.string.execution_stop), stop).build())
         // 只有 Agent run 在跑时才申请提升为 Live Update；终端会话、Linux 启动等长驻任务不属于"正在进行、需要持续关注"的活动。
         if (status != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             // 不使用无进度的 ProgressStyle，避免 Live Update 卡片渲染出空进度白条；改用 BigTextStyle 并附上桌面同款图标作为视觉锚点。
@@ -135,6 +170,7 @@ internal class AgentExecutionService : Service() {
     }
 
     private fun launcherLargeIcon(): Icon? {
+        if (!ExecutionNotificationPolicy.isLargeIconEnabled()) return null
         cachedLargeIcon?.let { return it }
         val foreground = getDrawable(R.drawable.ic_launcher_foreground) ?: return null
         val sizePx = (resources.displayMetrics.density * LARGE_ICON_DP).roundToInt().coerceIn(96, 192)
@@ -161,6 +197,8 @@ internal class AgentExecutionService : Service() {
         private const val CHANNEL = "eta_execution"
         private const val NOTIFICATION_ID = 1107
         private const val ACTION_STOP = "io.github.mangi.eta.action.STOP_USER_EXECUTION"
+        private const val ACTION_TOGGLE_PAUSE = "io.github.mangi.eta.action.TOGGLE_RUN_PAUSE"
+        private const val EXTRA_TOGGLE_RUN_ID = "io.github.mangi.eta.extra.TOGGLE_RUN_ID"
         private const val BRAND_COLOR = 0xFF4285F4.toInt()
         private const val LARGE_ICON_DP = 48f
         private val leases = ExecutionLeaseRegistry()
@@ -169,16 +207,27 @@ internal class AgentExecutionService : Service() {
         @Volatile private var instance: AgentExecutionService? = null
         private var runStatus: AgentOverlayStatus? = null
         private var activeRunCount = 0
+        /** 当前主运行的 runId 与暂停态：通知上的暂停 / 插入按钮都按它投递。 */
+        private var primaryRunId: String? = null
+        private var runPaused = false
         private var publishedStatusText: String? = null
 
         /**
          * Agent run 的当前状态，供通知与状态栏胶囊展示；null 表示没有 Agent run 在跑。
          * 只在显示文字变化时刷新通知，避免流式事件把通知更新频率推到系统限流。
          */
-        fun updateRunStatus(context: Context, status: AgentOverlayStatus?, activeRunCount: Int) {
+        fun updateRunStatus(
+            context: Context,
+            status: AgentOverlayStatus?,
+            activeRunCount: Int,
+            primaryRunId: String? = null,
+            isPaused: Boolean = false,
+        ) {
             mainHandler.post {
                 runStatus = status
                 this.activeRunCount = activeRunCount
+                this.primaryRunId = primaryRunId
+                this.runPaused = isPaused
                 val count = if (activeRunCount > 0) activeRunCount else leases.count()
                 val text = executionText(context, status, count)
                 if (text == publishedStatusText) return@post

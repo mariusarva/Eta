@@ -194,6 +194,15 @@
             android:exported="true"
             android:grantUriPermissions="false"
             android:permission="android.permission.MANAGE_ACCESSIBILITY" />
+        <!-- 运行通知「插入对话」的输入弹层：独立任务栈 + 透明背景。 -->
+        <activity
+            android:name=".agent.runtime.SupplementActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity="io.github.mangi.eta.supplement"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- 离线语音：独立进程，避免 native 崩溃影响主进程。 -->
         <service android:name=".agent.voice.local.LocalSpeechService"
             android:exported="false" android:process=":local_speech" />
