@@ -482,28 +482,50 @@ private fun ConversationBulkBar(
             .padding(horizontal = 12.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "已选 " + selectedCount + " 项",
-            style = MiuixTheme.textStyles.body2,
+            text = if (selectedCount == 0) "点会话开始多选" else "已选 " + selectedCount + " 项",
+            style = MiuixTheme.textStyles.footnote1,
             color = MiuixTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            softWrap = false,
         )
-        EtaTextButton(
-            text = "移到分类",
-            enabled = selectedCount > 0,
-            onClick = onMove,
-        )
+        Spacer(Modifier.weight(1f))
+        BulkActionChip(text = "移到分类", enabled = selectedCount > 0, onClick = onMove)
         Spacer(Modifier.width(6.dp))
-        EtaTextButton(
-            text = "删除",
-            enabled = selectedCount > 0,
-            onClick = onDelete,
-        )
+        BulkActionChip(text = "删除", enabled = selectedCount > 0, onClick = onDelete)
         Spacer(Modifier.width(6.dp))
-        EtaTextButton(text = "取消", onClick = onClear)
+        BulkActionChip(text = "取消", onClick = onClear)
+    }
+}
+
+/** 批量条的紧凑按钮：侧栏宽度有限，用自绘小胶囊代替带最小宽度的 TextButton。 */
+@Composable
+private fun BulkActionChip(
+    text: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(9.dp))
+            .background(
+                MiuixTheme.colorScheme.surfaceContainer,
+                RoundedCornerShape(9.dp),
+            )
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 9.dp, vertical = 5.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.onSurface.copy(alpha = if (enabled) 0.92f else 0.35f),
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
 

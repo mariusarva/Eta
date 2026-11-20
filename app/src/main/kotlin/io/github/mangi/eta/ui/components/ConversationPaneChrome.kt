@@ -265,14 +265,14 @@ internal fun ConversationPaneTopBar(
                 miuixBackdrop = miuixBackdrop,
                 onClick = onManageCategories,
             )
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(4.dp))
             PaneSelectButton(
                 hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
                 miuixBackdrop = miuixBackdrop,
                 isSelecting = isSelecting,
                 onClick = onToggleSelecting,
             )
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(4.dp))
             PaneNewChatButton(
                 hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
                 miuixBackdrop = miuixBackdrop,
@@ -442,7 +442,7 @@ private fun PaneCategoryButton(
                 val source = remember { MutableInteractionSource() }
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
                         .background(if (dark) Color(0xFF252830) else Color.White, CircleShape)
                         .border(0.5.dp, if (dark) Color(0x1EFFFFFF) else Color(0x12000000), CircleShape)
@@ -470,12 +470,12 @@ private fun PaneCategoryButton(
             GlassIconButton(
                 onClick = onClick,
                 backdrop = miuixBackdrop,
-                size = GlassTopAppBarDefaults.ButtonSize,
+                size = 34.dp,
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Folder,
                     contentDescription = description,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = MiuixTheme.colorScheme.onSurface,
                 )
             }
@@ -508,7 +508,7 @@ private fun PaneSelectButton(
                 val source = remember { MutableInteractionSource() }
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
                         .background(if (dark) Color(0xFF252830) else Color.White, CircleShape)
                         .border(0.5.dp, if (dark) Color(0x1EFFFFFF) else Color(0x12000000), CircleShape)
@@ -536,12 +536,12 @@ private fun PaneSelectButton(
             GlassIconButton(
                 onClick = onClick,
                 backdrop = miuixBackdrop,
-                size = GlassTopAppBarDefaults.ButtonSize,
+                size = 34.dp,
             ) {
                 Icon(
                     imageVector = if (isSelecting) Icons.Rounded.Close else Icons.Rounded.Checklist,
                     contentDescription = description,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = MiuixTheme.colorScheme.onSurface,
                 )
             }
@@ -573,7 +573,7 @@ private fun PaneNewChatButton(
                 val source = remember { MutableInteractionSource() }
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
                         .background(if (dark) Color(0xFF252830) else Color.White, CircleShape)
                         .border(0.5.dp, if (dark) Color(0x1EFFFFFF) else Color(0x12000000), CircleShape)
@@ -601,12 +601,12 @@ private fun PaneNewChatButton(
             GlassIconButton(
                 onClick = onClick,
                 backdrop = miuixBackdrop,
-                size = GlassTopAppBarDefaults.ButtonSize,
+                size = 34.dp,
             ) {
                 Icon(
                     imageVector = MiuixIcons.Glass.NewMessage,
                     contentDescription = description,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(22.dp),
                     tint = colors.onSurface,
                 )
             }
