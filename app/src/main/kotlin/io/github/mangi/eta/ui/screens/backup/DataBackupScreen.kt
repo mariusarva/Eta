@@ -7,7 +7,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -24,6 +26,11 @@ import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.core.safeStackTrace
 import io.github.mangi.eta.data.model.AppearanceUiStyle
+import io.github.mangi.eta.data.model.AutoBackupSettings
+import io.github.mangi.eta.agent.automation.AutoBackupAlarm
+import io.github.mangi.eta.data.datastore.SettingsDataStore
+import io.github.mangi.eta.data.repository.AutoBackupResult
+import io.github.mangi.eta.data.repository.AutoBackupRunner
 import io.github.mangi.eta.data.repository.EtaBackupSummary
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.MiuixDialogActions
@@ -32,6 +39,7 @@ import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
 import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
 import io.github.mangi.eta.ui.components.coui.CouiPreference
 import io.github.mangi.eta.ui.components.coui.CouiScaffoldPage
+import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
 import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
 import java.io.InputStream
 import java.io.OutputStream
@@ -46,6 +54,7 @@ import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.glass.GlassDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
 internal fun DataBackupScreen(
@@ -145,6 +154,68 @@ internal fun DataBackupScreen(
         }
     }
 
+    // ---- 自动备份 ----
+    var autoSettings by remember { mutableStateOf(AutoBackupSettings()) }
+    var autoBusy by remember { mutableStateOf(false) }
+    var autoTick by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(autoTick) {
+        autoSettings = runCatching { SettingsDataStore.autoBackupSettings() }
+            .getOrDefault(AutoBackupSettings())
+    }
+
+    val autoDirectory = remember(autoTick) { AutoBackupRunner.directory(context).absolutePath }
+    val autoSharedStorage = remember(autoTick) { AutoBackupRunner.isUsingSharedStorage(context) }
+
+    fun applyAuto(transform: (AutoBackupSettings) -> AutoBackupSettings) {
+        scope.launch {
+            runCatching {
+                SettingsDataStore.updateAutoBackupSettings { transform(it).normalized() }
+                AutoBackupAlarm.refresh(context)
+            }
+            autoTick++
+        }
+    }
+
+    fun backupNow() {
+        scope.launch {
+            autoBusy = true
+            try {
+                when (val result = AutoBackupRunner.maybeRun(context, force = true)) {
+                    is AutoBackupResult.Done -> Toast.makeText(
+                        context,
+                        "已备份 " + result.conversationCount + " 个会话 · " + result.fileName,
+                        Toast.LENGTH_LONG,
+                    ).show()
+
+                    is AutoBackupResult.Skipped ->
+                        Toast.makeText(context, result.reason, Toast.LENGTH_SHORT).show()
+
+                    is AutoBackupResult.Failed ->
+                        Toast.makeText(context, "备份失败：" + result.message, Toast.LENGTH_LONG).show()
+                }
+            } catch (throwable: Throwable) {
+                showFailure(throwable)
+            } finally {
+                autoBusy = false
+                autoTick++
+            }
+        }
+    }
+
+    val autoStatusText = when {
+        autoSettings.lastError.isNotBlank() -> "上次失败：" + autoSettings.lastError
+        autoSettings.lastAt > 0L -> "上次备份：" +
+            SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA).format(Date(autoSettings.lastAt)) +
+            if (autoSettings.lastFileName.isNotBlank()) " · " + autoSettings.lastFileName else ""
+        else -> "还没有备份过"
+    }
+    val autoDirectoryText = if (autoSharedStorage) {
+        autoDirectory
+    } else {
+        autoDirectory + "（未授予所有文件访问权限，暂存应用私有目录）"
+    }
+
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
             CouiScaffoldPage(
@@ -182,6 +253,50 @@ internal fun DataBackupScreen(
                         onClick = {
                             importLauncher.launch(arrayOf("application/json", "text/plain"))
                         },
+                    )
+                }
+                Group(title = "自动备份") {
+                    CouiSwitchPreference(
+                        title = "启用自动备份",
+                        summary = autoDirectoryText,
+                        checked = autoSettings.enabled,
+                        onCheckedChange = { enabled -> applyAuto { it.copy(enabled = enabled) } },
+                    )
+                    Divider()
+                    CouiPreference(
+                        title = "备份周期",
+                        summary = autoStatusText,
+                        value = autoIntervalLabel(autoSettings.intervalHours),
+                        enabled = autoSettings.enabled,
+                        onClick = {
+                            applyAuto { settings ->
+                                settings.copy(intervalHours = autoNextInterval(settings.intervalHours))
+                            }
+                        },
+                    )
+                    Divider()
+                    CouiPreference(
+                        title = "保留份数",
+                        value = autoSettings.keepCount.toString() + " 份",
+                        enabled = autoSettings.enabled,
+                        onClick = {
+                            applyAuto { settings ->
+                                settings.copy(keepCount = autoNextKeepCount(settings.keepCount))
+                            }
+                        },
+                    )
+                    Divider()
+                    CouiPreference(
+                        title = "立即备份一次",
+                        summary = if (autoBusy) stringResource(R.string.data_backup_working) else autoStatusText,
+                        enabled = !autoBusy,
+                        showChevron = false,
+                        trailing = if (autoBusy) {
+                            { InfiniteProgressIndicator(size = 20.dp) }
+                        } else {
+                            null
+                        },
+                        onClick = { if (!autoBusy) backupNow() },
                     )
                 }
                 CouiPageBottomSpacer()
@@ -271,9 +386,71 @@ internal fun DataBackupScreen(
                         )
                     }
                 }
+                item(key = "auto") {
+                    SmallTitle("自动备份")
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
+                        SwitchPreference(
+                            title = "启用自动备份",
+                            summary = autoDirectoryText,
+                            checked = autoSettings.enabled,
+                            onCheckedChange = { enabled -> applyAuto { it.copy(enabled = enabled) } },
+                        )
+                        ArrowPreference(
+                            title = "备份周期",
+                            summary = "每 " + autoIntervalLabel(autoSettings.intervalHours) +
+                                " · " + autoStatusText,
+                            onClick = {
+                                applyAuto { settings ->
+                                    settings.copy(intervalHours = autoNextInterval(settings.intervalHours))
+                                }
+                            },
+                        )
+                        ArrowPreference(
+                            title = "保留份数",
+                            summary = "保留最近 " + autoSettings.keepCount + " 份，点击切换",
+                            onClick = {
+                                applyAuto { settings ->
+                                    settings.copy(keepCount = autoNextKeepCount(settings.keepCount))
+                                }
+                            },
+                        )
+                        ArrowPreference(
+                            title = "立即备份一次",
+                            summary = if (autoBusy) stringResource(R.string.data_backup_working) else autoStatusText,
+                            enabled = !autoBusy,
+                            endActions = {
+                                if (autoBusy) {
+                                    InfiniteProgressIndicator(size = 20.dp)
+                                }
+                            },
+                            onClick = { if (!autoBusy) backupNow() },
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+private fun autoIntervalLabel(hours: Int): String = when {
+    hours % 24 == 0 && hours >= 24 -> (hours / 24).toString() + " 天"
+    else -> hours.toString() + " 小时"
+}
+
+private fun autoNextInterval(current: Int): Int {
+    val options = AutoBackupSettings.INTERVAL_OPTIONS
+    val index = options.indexOf(current).let { if (it >= 0) it else options.indexOf(24).coerceAtLeast(0) }
+    return options[(index + 1) % options.size]
+}
+
+private fun autoNextKeepCount(current: Int): Int {
+    val options = AutoBackupSettings.KEEP_OPTIONS
+    val index = options.indexOf(current).let { if (it >= 0) it else 0 }
+    return options[(index + 1) % options.size]
 }
 
 private fun defaultBackupFileName(): String =

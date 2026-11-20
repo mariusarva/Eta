@@ -168,6 +168,12 @@ internal interface ConversationDao : ChunkedTextDao {
         return true
     }
 
+    @Query("SELECT COUNT(*) FROM conversations")
+    suspend fun conversationTotal(): Int
+
+    @Query("SELECT COUNT(*) FROM conversation_messages")
+    suspend fun messageTotal(): Int
+
     @Query("SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = :conversationId")
     suspend fun messageCount(conversationId: String): Int
 

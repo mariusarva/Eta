@@ -6,6 +6,7 @@ import android.content.ComponentCallbacks2
 import android.os.Handler
 import android.os.Looper
 import io.github.mangi.eta.agent.skill.SkillRuntime
+import io.github.mangi.eta.agent.automation.AutoBackupAlarm
 import io.github.mangi.eta.agent.browser.BrowserSessionRegistry
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.terminal.TerminalRuntime
@@ -14,6 +15,7 @@ import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.repository.AgentMemoryRepository
+import io.github.mangi.eta.data.repository.AutoBackupRunner
 import io.github.mangi.eta.data.repository.AppearanceSettingsRepository
 import io.github.mangi.eta.data.repository.McpServerRepository
 import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
@@ -68,6 +70,16 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
             } catch (error: Exception) {
                 if (error is kotlinx.coroutines.CancellationException) throw error
                 AndroidAgentLogger.warn("Eta speech cleanup unavailable: type=${error.javaClass.simpleName}")
+            }
+        }
+        // 自动备份：进程起来先把闹钟排回来，再按周期判断要不要补一次（没开启就直接跳过）。
+        applicationScope.launch {
+            runCatching {
+                AutoBackupAlarm.refresh(this@EtaApp)
+                AutoBackupRunner.maybeRun(this@EtaApp)
+                AutoBackupAlarm.refresh(this@EtaApp)
+            }.onFailure { throwable ->
+                AndroidAgentLogger.warn("Auto backup startup skipped: type=${throwable.safeLogType()}")
             }
         }
         applicationScope.launch {
