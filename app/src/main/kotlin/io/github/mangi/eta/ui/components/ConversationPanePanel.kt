@@ -173,7 +173,6 @@ internal fun ConversationPanePanel(
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showMoveDialog by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
-    var renamingCategoryId by remember { mutableStateOf<String?>(null) }
     var selecting by remember { mutableStateOf(false) }
     var collapsedSections by remember { mutableStateOf(setOf<String>()) }
     var renamingCategoryId by remember { mutableStateOf<String?>(null) }
