@@ -1125,6 +1125,30 @@ internal class AgentAppState(
         }
     }
 
+    /** 新建会话自动绑定角色卡时的去重闸门，避免连点新建触发多次查询。 */
+    private var roleplayAutoBindInFlight = false
+
+    /**
+     * 新建会话时自动绑定角色卡：角色库为空、当前已有绑定、或会话已开始时不介入。
+     * 目标卡由 [io.github.mangi.eta.data.repository.CharacterRepository.autoBindTargetId] 决定。
+     */
+    private fun bindDefaultCharacterIfNeeded() {
+        if (homeState.roleplay != null || homeState.messages.isNotEmpty()) return
+        if (roleplayAutoBindInFlight) return
+        roleplayAutoBindInFlight = true
+        scope.launch {
+            try {
+                CharacterRepository.initialize(appContext)
+                val targetId = runCatching { CharacterRepository.autoBindTargetId() }.getOrNull() ?: return@launch
+                val binding = runCatching { CharacterRepository.binding(targetId) }.getOrNull() ?: return@launch
+                if (selectedConversationId != null || homeState.roleplay != null) return@launch
+                homeState = homeState.copy(roleplay = binding)
+            } finally {
+                roleplayAutoBindInFlight = false
+            }
+        }
+    }
+
     fun createConversation() {
         conversationSelectionVersion += 1
         cancelHistoryPageLoad()
@@ -1143,6 +1167,7 @@ internal class AgentAppState(
         )
         refreshConversationSummaries()
         persistConversations()
+        bindDefaultCharacterIfNeeded()
     }
 
     fun branchConversation(conversationId: String, messageId: String, draftText: String = homeState.input) {
