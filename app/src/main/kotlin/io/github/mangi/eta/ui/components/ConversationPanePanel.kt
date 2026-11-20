@@ -365,8 +365,8 @@ internal fun ConversationPanePanel(
                         EtaPreferenceDivider()
                         EtaPreference(
                             title = category.name,
-                            summary = category.conversationCount.toString() + " 个会话",
-                            value = if (state.categoryFilterId == category.id) "筛选中" else null,
+                            summary = category.conversationCount.toString() + " 个会话" +
+                                if (state.categoryFilterId == category.id) " · 筛选中" else "",
                             onClick = {
                                 onFilterCategory(category.id)
                                 showCategoryDialog = false
