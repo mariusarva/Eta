@@ -11,7 +11,7 @@ import androidx.room.Upsert
 @Dao
 internal interface ConversationDao : ChunkedTextDao {
     @Query(
-        "SELECT c.id, c.title, c.reasoning_effort, c.created_at, c.updated_at, c.model_id, c.is_pinned, " +
+        "SELECT c.id, c.title, c.reasoning_effort, c.created_at, c.updated_at, c.model_id, c.is_pinned, c.category_id, " +
             "(c.roleplay_json != '') AS has_roleplay, " +
             "m.id AS message_id, m.type AS message_type, m.tool_name, " +
             "COALESCE((SELECT substr(content, 1, 256) FROM agent_text_chunks " +
@@ -25,6 +25,26 @@ internal interface ConversationDao : ChunkedTextDao {
 
     @Query("SELECT id, title, created_at, updated_at, is_pinned FROM conversations")
     suspend fun conversationIdentities(): List<ConversationIdentity>
+
+    // ---- 会话分类 ----
+
+    @Query("SELECT * FROM conversation_categories ORDER BY sort_order ASC, created_at ASC")
+    suspend fun categories(): List<ConversationCategoryEntity>
+
+    @Upsert
+    suspend fun upsertCategory(category: ConversationCategoryEntity)
+
+    @Query("DELETE FROM conversation_categories WHERE id = :categoryId")
+    suspend fun deleteCategory(categoryId: String)
+
+    @Query("UPDATE conversations SET category_id = NULL WHERE category_id = :categoryId")
+    suspend fun clearCategoryMembers(categoryId: String)
+
+    @Query("UPDATE conversations SET category_id = :categoryId WHERE id IN (:conversationIds)")
+    suspend fun assignCategory(conversationIds: List<String>, categoryId: String?)
+
+    @Query("SELECT COALESCE(MAX(sort_order), 0) FROM conversation_categories")
+    suspend fun maxCategorySortOrder(): Int
 
     @Query("UPDATE conversations SET title = :title, updated_at = :updatedAt, is_pinned = :isPinned WHERE id = :conversationId")
     suspend fun updateConversationTitle(conversationId: String, title: String, updatedAt: Long, isPinned: Boolean = false)

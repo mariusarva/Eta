@@ -39,7 +39,17 @@ import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import io.github.mangi.eta.ui.components.EtaPreference
+import io.github.mangi.eta.ui.components.EtaPreferenceDivider
+import io.github.mangi.eta.ui.components.EtaPreferenceGroup
+import io.github.mangi.eta.ui.components.EtaTextButton
+import io.github.mangi.eta.ui.components.EtaWindowDialog
+import io.github.mangi.eta.ui.model.ConversationCategoryUi
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -136,6 +146,12 @@ internal fun ConversationPanePanel(
     onConversationRename: (ConversationSummaryUi) -> Unit,
     onConversationExport: (ConversationSummaryUi) -> Unit,
     onConversationDelete: (ConversationSummaryUi) -> Unit,
+    onCreateCategory: (String) -> Unit = {},
+    onRenameCategory: (String, String) -> Unit = { _, _ -> },
+    onDeleteCategory: (String) -> Unit = {},
+    onMoveConversationsToCategory: (List<String>, String?) -> Unit = { _, _ -> },
+    onFilterCategory: (String?) -> Unit = {},
+    onDeleteConversations: (List<String>) -> Unit = {},
     onOpenSettings: () -> Unit,
     onOpenModelProviders: () -> Unit,
     onOpenTools: () -> Unit,
@@ -147,7 +163,15 @@ internal fun ConversationPanePanel(
     // state.conversations 已由 AgentAppState 按标题、预览与消息内容过滤。
     val query = state.searchQuery.trim()
     val isSearching = query.isNotBlank()
-    val groups = remember(state.conversations) { state.conversations.groupForDrawer() }
+    val groups = remember(state.conversations, state.categories) {
+        state.conversations.groupForDrawer(state.categories)
+    }
+    var showCategoryDialog by remember { mutableStateOf(false) }
+    var showMoveDialog by remember { mutableStateOf(false) }
+    var newCategoryName by remember { mutableStateOf("") }
+    var renamingCategoryId by remember { mutableStateOf<String?>(null) }
+    var selecting by remember { mutableStateOf(false) }
+    val selectedConversationIds = remember { mutableStateMapOf<String, Boolean>() }
     val containerColor = conversationPaneContainerColor()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val couiBackdrop = if (isCoui) rememberCouiBackdrop() else null
@@ -225,9 +249,23 @@ internal fun ConversationPanePanel(
                                     ) { conversation ->
                                         ConversationHistoryRow(
                                             conversation = conversation,
-                                            selected = conversation.id == state.selectedConversationId,
+                                            selected = if (selecting) {
+                                                selectedConversationIds[conversation.id] == true
+                                            } else {
+                                                conversation.id == state.selectedConversationId
+                                            },
                                             miuixBackdrop = miuixBackdrop,
-                                            onClick = { onConversationSelected(conversation.id) },
+                                            onClick = {
+                                                if (selecting) {
+                                                    if (selectedConversationIds[conversation.id] == true) {
+                                                        selectedConversationIds.remove(conversation.id)
+                                                    } else {
+                                                        selectedConversationIds[conversation.id] = true
+                                                    }
+                                                } else {
+                                                    onConversationSelected(conversation.id)
+                                                }
+                                            },
                                             onTogglePin = { onConversationTogglePin(conversation) },
                                             onRename = { onConversationRename(conversation) },
                                             onExport = { onConversationExport(conversation) },
@@ -243,8 +281,31 @@ internal fun ConversationPanePanel(
                         couiBackdrop = couiBackdrop,
                         miuixBackdrop = miuixBackdrop,
                         onNewConversation = onNewConversation,
+                        onManageCategories = { showCategoryDialog = true },
+                        isSelecting = selecting,
+                        onToggleSelecting = {
+                            selecting = !selecting
+                            if (!selecting) selectedConversationIds.clear()
+                        },
                     )
-                    ConversationPaneBottomDock(
+                    if (selecting) {
+                        ConversationBulkBar(
+                            selectedCount = selectedConversationIds.size,
+                            onMove = { if (selectedConversationIds.isNotEmpty()) showMoveDialog = true },
+                            onDelete = {
+                                val ids = selectedConversationIds.keys.toList()
+                                if (ids.isNotEmpty()) {
+                                    onDeleteConversations(ids)
+                                    selectedConversationIds.clear()
+                                    selecting = false
+                                }
+                            },
+                            onClear = {
+                                selectedConversationIds.clear()
+                                selecting = false
+                            },
+                        )
+                    } else ConversationPaneBottomDock(
                         query = state.searchQuery,
                         isRevealed = isRevealed,
                         hasPermissionAttention = hasPermissionAttention,
@@ -281,6 +342,168 @@ internal fun ConversationPanePanel(
                     .background(conversationPaneEdgeBorderColor()),
             )
         }
+    }
+
+    if (showCategoryDialog) {
+        EtaWindowDialog(
+            show = true,
+            title = "会话分类",
+            summary = "点分类即可筛选侧栏；删除分类不会删除会话",
+            onDismissRequest = { showCategoryDialog = false },
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                EtaPreferenceGroup {
+                    EtaPreference(
+                        title = "全部会话",
+                        summary = "清除筛选",
+                        onClick = {
+                            onFilterCategory(null)
+                            showCategoryDialog = false
+                        },
+                    )
+                    state.categories.forEach { category ->
+                        EtaPreferenceDivider()
+                        EtaPreference(
+                            title = category.name,
+                            summary = category.conversationCount.toString() + " 个会话",
+                            value = if (state.categoryFilterId == category.id) "筛选中" else null,
+                            onClick = {
+                                onFilterCategory(category.id)
+                                showCategoryDialog = false
+                            },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BasicTextField(
+                        value = newCategoryName,
+                        onValueChange = { newCategoryName = it },
+                        singleLine = true,
+                        textStyle = MiuixTheme.textStyles.body2.copy(color = MiuixTheme.colorScheme.onSurface),
+                        modifier = Modifier.weight(1f),
+                        decorationBox = { inner ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                            ) {
+                                if (newCategoryName.isEmpty()) {
+                                    Text(
+                                        text = "新建分类名称",
+                                        style = MiuixTheme.textStyles.body2,
+                                        color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                    )
+                                }
+                                inner()
+                            }
+                        },
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    EtaTextButton(
+                        text = "新建",
+                        enabled = newCategoryName.isNotBlank(),
+                        onClick = {
+                            onCreateCategory(newCategoryName)
+                            newCategoryName = ""
+                        },
+                    )
+                }
+                if (state.categories.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        state.categories.forEach { category ->
+                            EtaTextButton(
+                                text = "删除 " + category.name,
+                                onClick = { onDeleteCategory(category.id) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showMoveDialog) {
+        val ids = selectedConversationIds.keys.toList()
+        EtaWindowDialog(
+            show = true,
+            title = "移到分类",
+            summary = "已选 " + ids.size + " 个会话",
+            onDismissRequest = { showMoveDialog = false },
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                EtaPreferenceGroup {
+                    EtaPreference(
+                        title = "未分类",
+                        onClick = {
+                            onMoveConversationsToCategory(ids, null)
+                            showMoveDialog = false
+                            selectedConversationIds.clear()
+                            selecting = false
+                        },
+                    )
+                    state.categories.forEach { category ->
+                        EtaPreferenceDivider()
+                        EtaPreference(
+                            title = category.name,
+                            onClick = {
+                                onMoveConversationsToCategory(ids, category.id)
+                                showMoveDialog = false
+                                selectedConversationIds.clear()
+                                selecting = false
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConversationBulkBar(
+    selectedCount: Int,
+    onMove: () -> Unit,
+    onDelete: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "已选 " + selectedCount + " 项",
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        EtaTextButton(
+            text = "移到分类",
+            enabled = selectedCount > 0,
+            onClick = onMove,
+        )
+        Spacer(Modifier.width(6.dp))
+        EtaTextButton(
+            text = "删除",
+            enabled = selectedCount > 0,
+            onClick = onDelete,
+        )
+        Spacer(Modifier.width(6.dp))
+        EtaTextButton(text = "取消", onClick = onClear)
     }
 }
 
@@ -979,6 +1202,7 @@ private data class ConversationDrawerGroup(
 
 private sealed interface ConversationDrawerSection {
     data object Pinned : ConversationDrawerSection
+    data class Category(val id: String, val name: String) : ConversationDrawerSection
     data object Today : ConversationDrawerSection
     data class Dated(val label: String) : ConversationDrawerSection
 }
@@ -986,14 +1210,39 @@ private sealed interface ConversationDrawerSection {
 @Composable
 private fun ConversationDrawerGroup.localizedLabel(): String = when (val value = section) {
     ConversationDrawerSection.Pinned -> stringResource(R.string.conversation_section_pinned)
+    is ConversationDrawerSection.Category -> value.name
     ConversationDrawerSection.Today -> stringResource(R.string.conversation_section_today)
     is ConversationDrawerSection.Dated -> value.label
 }
 
-private fun List<ConversationSummaryUi>.groupForDrawer(): List<ConversationDrawerGroup> {
+private fun List<ConversationSummaryUi>.groupForDrawer(
+    categories: List<ConversationCategoryUi> = emptyList(),
+): List<ConversationDrawerGroup> {
     if (isEmpty()) return emptyList()
     val groups = mutableListOf<ConversationDrawerGroup>()
+
+    // 置顶永远在最前，且不进任何分类分组。
+    val pinned = filter { it.isPinned }
+    if (pinned.isNotEmpty()) {
+        groups += ConversationDrawerGroup(ConversationDrawerSection.Pinned, pinned)
+    }
+
+    // 分类分组按 sort_order 顺序，只收非置顶会话。
+    val categorized = mutableSetOf<String>()
+    categories.forEach { category ->
+        val items = filter { !it.isPinned && it.categoryId == category.id }
+        if (items.isNotEmpty()) {
+            categorized += items.map { it.id }
+            groups += ConversationDrawerGroup(
+                ConversationDrawerSection.Category(category.id, category.name),
+                items,
+            )
+        }
+    }
+
+    // 其余（未分类，或分类已被删除）沿用时间分组。
     for (conversation in this) {
+        if (conversation.isPinned || conversation.id in categorized) continue
         val section = conversation.drawerSection()
         val last = groups.lastOrNull()
         if (last?.section == section) {

@@ -27,10 +27,11 @@ import androidx.room.migration.Migration
         RuntimeInFlightEventEntity::class,
         SkillRegistryEntity::class,
         McpServerEntity::class,
+        ConversationCategoryEntity::class,
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 29,
+    version = 30,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -77,6 +78,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_26_27,
                         MIGRATION_27_28,
                         MIGRATION_28_29,
+                        MIGRATION_29_30,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -88,7 +90,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
             }
 
         /** 当前 schema 版本，与 [EtaDatabase.version] 必须同步。 */
-        private const val DB_VERSION = 29
+        private const val DB_VERSION = 30
 
         /** 迁移前快照保留份数。 */
         private const val SNAPSHOT_KEEP = 3
@@ -230,6 +232,20 @@ internal abstract class EtaDatabase : RoomDatabase() {
                 )
                 WHERE created_at = 0
                 """.trimIndent()
+            )
+        }
+
+        /** 会话分类：新表 + conversations 归属列；删除分类只解散归属，不删会话。 */
+        internal val MIGRATION_29_30 = Migration(29, 30) { database ->
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS `conversation_categories` (" +
+                    "`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                    "`sort_order` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`id`))"
+            )
+            database.execSQL("ALTER TABLE conversations ADD COLUMN category_id TEXT")
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_conversations_category_id` ON `conversations` (`category_id`)"
             )
         }
 

@@ -45,6 +45,9 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.MapsUgc
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -240,6 +243,9 @@ internal fun ConversationPaneTopBar(
     couiBackdrop: CouiBackdrop?,
     miuixBackdrop: LayerBackdrop?,
     onNewConversation: () -> Unit,
+    onManageCategories: () -> Unit = {},
+    isSelecting: Boolean = false,
+    onToggleSelecting: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val barContent: @Composable () -> Unit = {
@@ -254,6 +260,19 @@ internal fun ConversationPaneTopBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PaneBrandHeader(modifier = Modifier.weight(1f))
+            PaneCategoryButton(
+                hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
+                miuixBackdrop = miuixBackdrop,
+                onClick = onManageCategories,
+            )
+            Spacer(Modifier.width(6.dp))
+            PaneSelectButton(
+                hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
+                miuixBackdrop = miuixBackdrop,
+                isSelecting = isSelecting,
+                onClick = onToggleSelecting,
+            )
+            Spacer(Modifier.width(6.dp))
             PaneNewChatButton(
                 hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
                 miuixBackdrop = miuixBackdrop,
@@ -395,6 +414,137 @@ private fun PaneBrandHeader(modifier: Modifier = Modifier) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+    }
+}
+
+@Composable
+private fun PaneCategoryButton(
+    hasCouiToolbarBackdrop: Boolean,
+    miuixBackdrop: Backdrop?,
+    onClick: () -> Unit,
+) {
+    val description = "会话分类"
+    when (LocalUiStyle.current) {
+        AppearanceUiStyle.COUI -> {
+            val dark = CouiTheme.isDark
+            val colors = CouiPageDefaults.themeColors(dark)
+            if (hasCouiToolbarBackdrop) {
+                CouiTopAppBarIconButton(
+                    icon = Icons.Rounded.Folder,
+                    contentDescription = description,
+                    onClick = onClick,
+                    dark = dark,
+                    colors = colors,
+                    iconSize = ConversationPanelMetrics.NewChatIconSize,
+                )
+            } else {
+                val source = remember { MutableInteractionSource() }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(if (dark) Color(0xFF252830) else Color.White, CircleShape)
+                        .border(0.5.dp, if (dark) Color(0x1EFFFFFF) else Color(0x12000000), CircleShape)
+                        .couiButtonFeedback(dark, source, enabled = true)
+                        .clickable(
+                            interactionSource = source,
+                            indication = null,
+                            role = Role.Button,
+                            onClick = onClick,
+                        )
+                        .semantics { contentDescription = description },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CouiIcon(
+                        imageVector = Icons.Rounded.Folder,
+                        contentDescription = null,
+                        modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
+                        tint = colors.title,
+                    )
+                }
+            }
+        }
+
+        AppearanceUiStyle.MIUIX -> {
+            GlassIconButton(
+                onClick = onClick,
+                backdrop = miuixBackdrop,
+                size = GlassTopAppBarDefaults.ButtonSize,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Folder,
+                    contentDescription = description,
+                    modifier = Modifier.size(24.dp),
+                    tint = MiuixTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaneSelectButton(
+    hasCouiToolbarBackdrop: Boolean,
+    miuixBackdrop: Backdrop?,
+    isSelecting: Boolean,
+    onClick: () -> Unit,
+) {
+    val description = if (isSelecting) "退出多选" else "多选会话"
+    when (LocalUiStyle.current) {
+        AppearanceUiStyle.COUI -> {
+            val dark = CouiTheme.isDark
+            val colors = CouiPageDefaults.themeColors(dark)
+            if (hasCouiToolbarBackdrop) {
+                CouiTopAppBarIconButton(
+                    icon = if (isSelecting) Icons.Rounded.Close else Icons.Rounded.Checklist,
+                    contentDescription = description,
+                    onClick = onClick,
+                    dark = dark,
+                    colors = colors,
+                    iconSize = ConversationPanelMetrics.NewChatIconSize,
+                )
+            } else {
+                val source = remember { MutableInteractionSource() }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(if (dark) Color(0xFF252830) else Color.White, CircleShape)
+                        .border(0.5.dp, if (dark) Color(0x1EFFFFFF) else Color(0x12000000), CircleShape)
+                        .couiButtonFeedback(dark, source, enabled = true)
+                        .clickable(
+                            interactionSource = source,
+                            indication = null,
+                            role = Role.Button,
+                            onClick = onClick,
+                        )
+                        .semantics { contentDescription = description },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CouiIcon(
+                        imageVector = if (isSelecting) Icons.Rounded.Close else Icons.Rounded.Checklist,
+                        contentDescription = null,
+                        modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
+                        tint = colors.title,
+                    )
+                }
+            }
+        }
+
+        AppearanceUiStyle.MIUIX -> {
+            GlassIconButton(
+                onClick = onClick,
+                backdrop = miuixBackdrop,
+                size = GlassTopAppBarDefaults.ButtonSize,
+            ) {
+                Icon(
+                    imageVector = if (isSelecting) Icons.Rounded.Close else Icons.Rounded.Checklist,
+                    contentDescription = description,
+                    modifier = Modifier.size(24.dp),
+                    tint = MiuixTheme.colorScheme.onSurface,
+                )
+            }
         }
     }
 }

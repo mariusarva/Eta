@@ -365,6 +365,12 @@ fun AgentAppRoot(
             onConversationDelete = { conversation ->
                 conversationDeleteTarget = conversation
             },
+            onCreateCategory = agentState::createConversationCategory,
+            onRenameCategory = agentState::renameConversationCategory,
+            onDeleteCategory = agentState::deleteConversationCategory,
+            onMoveConversationsToCategory = agentState::moveConversationsToCategory,
+            onFilterCategory = agentState::setConversationCategoryFilter,
+            onDeleteConversations = agentState::deleteConversations,
             onOpenTools = { pushRoute(AppRoute.Tools) },
             onOpenSkills = { pushRoute(AppRoute.Skills) },
             onOpenCharacters = { pushRoute(AppRoute.Characters) },

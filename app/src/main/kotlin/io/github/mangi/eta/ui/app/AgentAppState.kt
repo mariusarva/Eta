@@ -152,6 +152,10 @@ internal class AgentAppState(
     private var conversationTitles: Map<String, String> = initialConversations.titles
     private var conversationUpdatedAt: Map<String, Long> = initialConversations.updatedAt
     private var conversationPinnedIds: Set<String> = initialConversations.pinnedIds
+    /** 会话 → 分类 id；没有条目表示未分类。 */
+    private var conversationCategoryIds: Map<String, String> = initialConversations.categoryIds
+    private var conversationCategoryList: List<io.github.mangi.eta.data.db.ConversationCategoryEntity> =
+        initialConversations.categories
 
     var homeState by mutableStateOf(
         selectedConversationId?.let(conversationsById::get) ?: emptyChatState(defaultReasoningEffort(null))
@@ -401,6 +405,8 @@ internal class AgentAppState(
             conversationTitles = snapshot.titles
             conversationUpdatedAt = snapshot.updatedAt
             conversationPinnedIds = snapshot.pinnedIds
+            conversationCategoryIds = snapshot.categoryIds
+            conversationCategoryList = snapshot.categories
             conversationPersistence = AgentConversationPersistence(snapshot)
             fileAttachmentOwnerVersion += 1
             currentDraftReasoningCustomized = false
@@ -1304,6 +1310,92 @@ internal class AgentAppState(
         }
         refreshConversationSummaries()
         persistConversations()
+    }
+
+    // ---- 会话分类 ----
+
+    private fun conversationDao() = io.github.mangi.eta.data.db.EtaDatabase.get(appContext).conversationDao()
+
+    private fun reloadConversationCategories() {
+        scope.launch {
+            val dao = conversationDao()
+            val categories = withContext(Dispatchers.IO) { runCatching { dao.categories() }.getOrDefault(emptyList()) }
+            val index = withContext(Dispatchers.IO) { runCatching { dao.conversationIndex() }.getOrDefault(emptyList()) }
+            conversationCategoryList = categories
+            conversationCategoryIds = index.mapNotNull { row ->
+                row.categoryId?.takeIf { it.isNotBlank() }?.let { row.id to it }
+            }.toMap()
+            refreshConversationSummaries()
+        }
+    }
+
+    fun createConversationCategory(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        scope.launch {
+            val dao = conversationDao()
+            withContext(Dispatchers.IO) {
+                val order = runCatching { dao.maxCategorySortOrder() }.getOrDefault(0) + 1
+                dao.upsertCategory(
+                    io.github.mangi.eta.data.db.ConversationCategoryEntity(
+                        id = "cat-" + java.util.UUID.randomUUID(),
+                        name = trimmed,
+                        sortOrder = order,
+                        createdAt = System.currentTimeMillis(),
+                    )
+                )
+            }
+            reloadConversationCategories()
+        }
+    }
+
+    fun renameConversationCategory(categoryId: String, name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        scope.launch {
+            val dao = conversationDao()
+            withContext(Dispatchers.IO) {
+                val existing = dao.categories().firstOrNull { it.id == categoryId } ?: return@withContext
+                dao.upsertCategory(existing.copy(name = trimmed))
+            }
+            reloadConversationCategories()
+        }
+    }
+
+    fun deleteConversationCategory(categoryId: String) {
+        scope.launch {
+            val dao = conversationDao()
+            withContext(Dispatchers.IO) {
+                dao.clearCategoryMembers(categoryId)
+                dao.deleteCategory(categoryId)
+            }
+            if (conversationPaneState.categoryFilterId == categoryId) {
+                conversationPaneState = conversationPaneState.copy(categoryFilterId = null)
+            }
+            reloadConversationCategories()
+        }
+    }
+
+    fun moveConversationsToCategory(conversationIds: Collection<String>, categoryId: String?) {
+        if (conversationIds.isEmpty()) return
+        scope.launch {
+            val dao = conversationDao()
+            withContext(Dispatchers.IO) {
+                dao.assignCategory(conversationIds.toList(), categoryId)
+            }
+            reloadConversationCategories()
+        }
+    }
+
+    fun setConversationCategoryFilter(categoryId: String?) {
+        conversationPaneState = conversationPaneState.copy(categoryFilterId = categoryId)
+        refreshConversationSummaries()
+    }
+
+    /** 批量删除：逐个走单条删除链路（运行中的会先停再删），最后统一刷新一次侧栏。 */
+    fun deleteConversations(conversationIds: Collection<String>) {
+        conversationIds.filter { it in conversationsById }.forEach { deleteConversation(it) }
+        refreshConversationSummaries()
     }
 
     suspend fun exportConversationMarkdown(conversationId: String): String? {
@@ -2897,6 +2989,7 @@ internal class AgentAppState(
                     updatedAtMillis = conversationUpdatedAt[id] ?: 0L,
                     mode = ConversationModeUi.Chat,
                     isPinned = id in conversationPinnedIds,
+                    categoryId = conversationCategoryIds[id],
                     characterName = state.roleplay?.characterName ?: state.conversationCharacterName,
                     characterAvatarPath = state.roleplay?.avatarPath ?: state.conversationCharacterAvatarPath,
                     isActiveRun = state.isStreaming,
@@ -2908,13 +3001,25 @@ internal class AgentAppState(
                 )
             }
         val query = conversationPaneState.searchQuery.trim()
+        val filterId = conversationPaneState.categoryFilterId
+            ?.takeIf { id -> conversationCategoryList.any { it.id == id } }
+        val summariesInFilter = if (filterId == null) summaries else summaries.filter { it.categoryId == filterId }
         conversationPaneState = conversationPaneState.copy(
             selectedConversationId = selectedConversationId,
+            categoryFilterId = filterId,
+            categories = conversationCategoryList.map { category ->
+                io.github.mangi.eta.ui.model.ConversationCategoryUi(
+                    id = category.id,
+                    name = category.name,
+                    sortOrder = category.sortOrder,
+                    conversationCount = summaries.count { it.categoryId == category.id },
+                )
+            },
             conversations = if (query.isBlank()) {
-                summaries
+                summariesInFilter
             } else {
                 contentMatchCache.keys.retainAll(conversationsById.keys)
-                summaries.filter { summary ->
+                summariesInFilter.filter { summary ->
                     summary.title.contains(query, ignoreCase = true) ||
                         summary.preview.contains(query, ignoreCase = true) ||
                         summary.id in persistedSearchMatches || conversationContentMatches(summary.id, query)

@@ -54,6 +54,9 @@ internal object AgentConversationStore {
         val titles: Map<String, String>,
         val updatedAt: Map<String, Long>,
         val pinnedIds: Set<String> = emptySet(),
+        /** 会话 → 分类 id（只含已分类的会话）。 */
+        val categoryIds: Map<String, String> = emptyMap(),
+        val categories: List<io.github.mangi.eta.data.db.ConversationCategoryEntity> = emptyList(),
         /**
          * 加载后列表下标与库中 sort_index 不一致的会话。流式占位等未入库消息会在排序中留下空洞，
          * 重启后列表被压紧；增量保存按下标截断后缀，这些会话必须先整段重写一次。
@@ -194,6 +197,8 @@ internal object AgentConversationStore {
                 conversationsById = emptyMap(),
                 titles = emptyMap(),
                 updatedAt = emptyMap(),
+                categoryIds = emptyMap(),
+                categories = emptyList(),
             )
         }
 
@@ -201,6 +206,7 @@ internal object AgentConversationStore {
         val titles = mutableMapOf<String, String>()
         val updatedAt = mutableMapOf<String, Long>()
         val pinnedIds = mutableSetOf<String>()
+        val categoryIds = mutableMapOf<String, String>()
         conversations.forEach { conversation ->
             val effort = ReasoningEffort.fromWireValue(conversation.reasoningEffort) ?: ReasoningEffort.DEFAULT
             val character = if (conversation.hasRoleplay) loadCharacterSummary(dao, conversation.id) else null
@@ -219,7 +225,9 @@ internal object AgentConversationStore {
             titles[conversation.id] = conversation.title.takeUnless { it == LEGACY_UNNAMED_TITLE }.orEmpty()
             updatedAt[conversation.id] = conversation.updatedAt
             if (conversation.isPinned) pinnedIds += conversation.id
+            conversation.categoryId?.takeIf { it.isNotBlank() }?.let { categoryIds[conversation.id] = it }
         }
+        val categories = runCatching { dao.categories() }.getOrDefault(emptyList())
 
         val selected = dao.state()?.selectedConversationId
             ?.takeIf { it in states }
@@ -236,6 +244,8 @@ internal object AgentConversationStore {
             titles = titles,
             updatedAt = updatedAt,
             pinnedIds = pinnedIds,
+            categoryIds = categoryIds,
+            categories = categories,
             unalignedConversationIds = unaligned,
         )
     }
