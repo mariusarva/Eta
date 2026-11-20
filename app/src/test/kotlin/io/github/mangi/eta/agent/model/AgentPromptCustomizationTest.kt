@@ -50,6 +50,20 @@ class AgentPromptCustomizationTest {
         assertTrue(contents.any { it.contains("内置提供方提示") })
     }
 
+    @Test
+    fun replaceWithEmptyBaseSuppressesBuiltInRules() {
+        val customization = PromptCustomization(
+            enabled = true,
+            mode = PromptCustomizationMode.REPLACE,
+            baseSystemPrompt = "",
+            appendInstructions = "只保留这一条。",
+        )
+        val contents = build(customization, providerPrompt = "内置提供方提示").systemContents()
+        assertFalse(contents.any { it.contains("当前配置的模型：") })
+        assertFalse(contents.any { it.contains("内置提供方提示") })
+        assertTrue(contents.any { it.contains("只保留这一条。") })
+    }
+
     private fun build(customization: PromptCustomization, providerPrompt: String): JSONArray =
         AgentPromptBuilder.buildSystemMessages(
             config = AgentModelClient.ModelConfig(
