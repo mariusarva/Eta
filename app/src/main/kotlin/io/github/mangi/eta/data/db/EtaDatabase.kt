@@ -1,6 +1,10 @@
 package io.github.mangi.eta.data.db
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import io.github.mangi.eta.core.AndroidAgentLogger
+import io.github.mangi.eta.core.safeLogType
+import java.io.File
 import androidx.annotation.VisibleForTesting
 import androidx.room.Database
 import androidx.room.Room
@@ -43,6 +47,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
 
         fun get(context: Context): EtaDatabase =
             instance ?: synchronized(this) {
+                if (instance == null) snapshotBeforeOpen(context.applicationContext)
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     EtaDatabase::class.java,
@@ -81,6 +86,54 @@ internal abstract class EtaDatabase : RoomDatabase() {
                     .build()
                     .also { instance = it }
             }
+
+        /** 当前 schema 版本，与 [EtaDatabase.version] 必须同步。 */
+        private const val DB_VERSION = 29
+
+        /** 迁移前快照保留份数。 */
+        private const val SNAPSHOT_KEEP = 3
+
+        /**
+         * 打开前兜底：库版本与当前 schema 不一致时，先把原库复制一份再交给 Room。
+         *
+         * 为什么需要：这里用的是 [RoomDatabase.Builder.fallbackToDestructiveMigration]，
+         * 版本对不上又没有可用迁移时会**直接清空所有表**且没有任何提示。
+         * 先留一份原始库，出事后还能把文件换回去，不至于一次性丢光会话。
+         *
+         * 只在真要迁移时拷贝（拷 100MB+ 不宜每次启动都做），复制前先 checkpoint WAL，
+         * 否则刚到 wal 里还没合并的数据不会进快照。
+         */
+        private fun snapshotBeforeOpen(context: Context) {
+            runCatching {
+                val dbFile = context.getDatabasePath("eta.db")
+                if (!dbFile.exists() || dbFile.length() == 0L) return
+                val version = SQLiteDatabase.openDatabase(
+                    dbFile.path,
+                    null,
+                    SQLiteDatabase.OPEN_READWRITE,
+                ).use { database ->
+                    val current = database.version
+                    runCatching { database.execSQL("PRAGMA wal_checkpoint(TRUNCATE)") }
+                    current
+                }
+                if (version == DB_VERSION) return
+                val dir = File(context.filesDir, "db-snapshot").apply { mkdirs() }
+                val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+                    .format(java.util.Date())
+                val target = File(dir, "eta-v$version-$stamp.db")
+                dbFile.copyTo(target, overwrite = false)
+                AndroidAgentLogger.info(
+                    "Database snapshot before migration: v$version -> v$DB_VERSION, " +
+                        "size=~" + (target.length() / 1024 / 1024) + "MB"
+                )
+                dir.listFiles { file -> file.isFile && file.name.startsWith("eta-v") && file.name.endsWith(".db") }
+                    ?.sortedByDescending { it.name }
+                    ?.drop(SNAPSHOT_KEEP)
+                    ?.forEach { it.delete() }
+            }.onFailure { error ->
+                AndroidAgentLogger.warn("Database snapshot skipped: type=${error.safeLogType()}")
+            }
+        }
 
         @VisibleForTesting
         internal fun closeForTests() {
