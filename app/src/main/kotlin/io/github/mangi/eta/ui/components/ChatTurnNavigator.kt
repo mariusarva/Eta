@@ -126,6 +126,8 @@ internal fun ChatTurnNavigator(
         if (allTurns.isNotEmpty()) allTurns else messages.toChatTurns()
     }
     var expanded by remember { mutableStateOf(false) }
+    // 删除会连带这一轮之后的所有轮次（与消息菜单里的「删除本轮」同一语义），所以先确认。
+    var pendingDeleteTurn by remember { mutableStateOf<ChatTurnEntry?>(null) }
     val haptics = LocalHapticFeedback.current
     val listState = rememberLazyListState()
 
@@ -233,7 +235,7 @@ internal fun ChatTurnNavigator(
                             Box(
                                 modifier = Modifier
                                     .padding(start = 8.dp)
-                                    .clickable(role = Role.Button) { onDeleteTurn(turn.firstMessageId) },
+                                    .clickable(role = Role.Button) { pendingDeleteTurn = turn },
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
@@ -286,5 +288,66 @@ internal fun ChatTurnNavigator(
                     .background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.28f)),
             )
         }
+    }
+
+    pendingDeleteTurn?.let { turn ->
+        val remaining = (turns.size - (turns.indexOfFirst { it.firstMessageId == turn.firstMessageId } + 1))
+            .coerceAtLeast(0)
+        EtaWindowDialog(
+            show = true,
+            title = "删除第 " + (turns.indexOfFirst { it.firstMessageId == turn.firstMessageId } + 1) + " 轮",
+            onDismissRequest = { pendingDeleteTurn = null },
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = if (remaining > 0) {
+                        "这一轮连同它之后的 " + remaining + " 轮都会被删除，不可撤销。"
+                    } else {
+                        "这一轮会被删除，不可撤销。"
+                    },
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TurnChip(text = "取消", onClick = { pendingDeleteTurn = null })
+                    Spacer(Modifier.width(8.dp))
+                    TurnChip(
+                        text = "删除",
+                        onClick = {
+                            val id = turn.firstMessageId
+                            pendingDeleteTurn = null
+                            expanded = false
+                            onDeleteTurn(id)
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 确认框里的紧凑胶囊按钮。 */
+@Composable
+private fun TurnChip(
+    text: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    ) {
+        Text(
+            text = text,
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.onSurface.copy(alpha = if (enabled) 0.92f else 0.35f),
+        )
     }
 }

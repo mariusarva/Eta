@@ -989,6 +989,26 @@ internal fun AgentConversationMessages(
             ChatTurnNavigator(
                 messages = visibleMessages,
                 allTurns = allTurns,
+                // 删除整轮：目标可能还没加载（消息是分页的），先按页往前加载到它出现再删，
+                // 否则 deleteMessageTurn 找不到边界会直接返回，表现为「点了没反应」。
+                onDeleteTurn = { messageId ->
+                    val latestHasEarlier = hasEarlierState
+                    val latestEntries = timelineState
+                    fun present(): Boolean = latestEntries.value.any { entry ->
+                        when (entry) {
+                            is AgentTimelineEntry.Message -> entry.message.id == messageId
+                            is AgentTimelineEntry.WorkProcess -> entry.messages.any { it.id == messageId }
+                        }
+                    }
+                    scope.launch {
+                        var guard = 0
+                        while (!present() && latestHasEarlier.value && guard++ < 80) {
+                            onLoadEarlierMessages()
+                            delay(250)
+                        }
+                        if (present()) onDeleteMessage(messageId)
+                    }
+                },
                 onJumpToMessage = { messageId ->
                     // 目标可能在还没加载的历史里：先按页往前加载，直到这条消息出现。
                     val latestHasEarlier = hasEarlierState
