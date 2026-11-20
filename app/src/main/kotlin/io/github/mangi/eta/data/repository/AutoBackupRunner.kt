@@ -300,7 +300,7 @@ internal object AutoBackupRunner {
         }.getOrDefault(false)
     }
 
-    private fun failLogged(settings: AutoBackupSettings, now: Long, error: Throwable): AutoBackupResult {
+    private suspend fun failLogged(settings: AutoBackupSettings, now: Long, error: Throwable): AutoBackupResult {
         AndroidAgentLogger.warn("Auto backup failed: type=${error.safeLogType()}")
         return fail(
             settings,
