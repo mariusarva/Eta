@@ -40,6 +40,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.mutableStateOf
@@ -351,48 +353,57 @@ internal fun ConversationPanePanel(
             title = "会话分类",
             onDismissRequest = { showCategoryDialog = false },
         ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().imePadding()) {
                 Text(
                     text = "点分类筛选侧栏；删除只解散归属，不删会话",
                     style = MiuixTheme.textStyles.footnote1,
                     color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                     modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 10.dp),
                 )
-                EtaPreferenceGroup {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                // 分类一多就会超出弹窗高度，这里给列表单独的可滚动区域。
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    EtaPreferenceGroup(modifier = Modifier.fillMaxWidth()) {
                         EtaPreference(
                             title = "全部会话",
                             summary = state.conversations.size.toString() + " 个会话",
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxWidth(),
                             onClick = {
                                 onFilterCategory(null)
                                 showCategoryDialog = false
                             },
                         )
-                    }
-                    state.categories.forEach { category ->
-                        EtaPreferenceDivider()
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            EtaPreference(
-                                title = category.name,
-                                summary = category.conversationCount.toString() + " 个会话" +
-                                    if (state.categoryFilterId == category.id) " · 筛选中" else "",
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    onFilterCategory(category.id)
-                                    showCategoryDialog = false
-                                },
-                            )
-                            Box(modifier = Modifier.padding(end = 8.dp)) {
-                                BulkActionChip(
-                                    text = "×",
-                                    onClick = { onDeleteCategory(category.id) },
+                        state.categories.forEach { category ->
+                            EtaPreferenceDivider()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                EtaPreference(
+                                    title = category.name,
+                                    summary = category.conversationCount.toString() + " 个会话" +
+                                        if (state.categoryFilterId == category.id) " · 筛选中" else "",
+                                    modifier = Modifier.weight(1f),
+                                    onClick = {
+                                        onFilterCategory(category.id)
+                                        showCategoryDialog = false
+                                    },
                                 )
+                                Box(modifier = Modifier.padding(end = 10.dp)) {
+                                    BulkActionChip(
+                                        text = "×",
+                                        onClick = { onDeleteCategory(category.id) },
+                                    )
+                                }
                             }
                         }
                     }
                 }
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -450,27 +461,36 @@ internal fun ConversationPanePanel(
                     color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                     modifier = Modifier.padding(start = 2.dp, bottom = 10.dp),
                 )
-                EtaPreferenceGroup {
-                    EtaPreference(
-                        title = "未分类",
-                        onClick = {
-                            onMoveConversationsToCategory(ids, null)
-                            showMoveDialog = false
-                            selectedConversationIds.clear()
-                            selecting = false
-                        },
-                    )
-                    state.categories.forEach { category ->
-                        EtaPreferenceDivider()
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    EtaPreferenceGroup(modifier = Modifier.fillMaxWidth()) {
                         EtaPreference(
-                            title = category.name,
+                            title = "未分类",
+                            modifier = Modifier.fillMaxWidth(),
                             onClick = {
-                                onMoveConversationsToCategory(ids, category.id)
+                                onMoveConversationsToCategory(ids, null)
                                 showMoveDialog = false
                                 selectedConversationIds.clear()
                                 selecting = false
                             },
                         )
+                        state.categories.forEach { category ->
+                            EtaPreferenceDivider()
+                            EtaPreference(
+                                title = category.name,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    onMoveConversationsToCategory(ids, category.id)
+                                    showMoveDialog = false
+                                    selectedConversationIds.clear()
+                                    selecting = false
+                                },
+                            )
+                        }
                     }
                 }
             }
