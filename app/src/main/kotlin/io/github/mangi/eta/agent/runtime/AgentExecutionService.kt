@@ -152,7 +152,7 @@ internal class AgentExecutionService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             builder.addAction(
-                Notification.Action.Builder(null, "插入对话", supplement).build(),
+                Notification.Action.Builder(null, "插入", supplement).build(),
             )
         }
         builder.addAction(Notification.Action.Builder(null, getString(R.string.execution_stop), stop).build())
