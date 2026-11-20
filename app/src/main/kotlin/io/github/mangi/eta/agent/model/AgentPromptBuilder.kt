@@ -48,7 +48,9 @@ internal object AgentPromptBuilder {
         val messages = JSONArray()
         // 用户自定义提示词优先于 provider 上的 systemPrompt；未启用时行为与之前完全一致。
         val custom = customization.takeIf { it.active }
-        val basePrompt = custom?.baseSystemPrompt?.takeIf { it.isNotBlank() } ?: config.systemPrompt
+        // 自定义启用后不再回落到 provider 的 systemPrompt：base 留空本身就代表"不注入身份段"，
+        // 回落会把用户显式清空的身份悄悄换成内置提示，表现为"预设应用了但没生效"。
+        val basePrompt = custom?.baseSystemPrompt ?: config.systemPrompt
         if (roleplayContext == null && basePrompt.isNotBlank()) {
             val identity = custom?.let { value -> customIdentityMessage(value, basePrompt) }
             messages.put(identity ?: systemMessage(basePrompt))
@@ -270,7 +272,7 @@ internal object AgentPromptBuilder {
                     appendLine("<custom_identity version=\"${customization.version}\" revision=\"${customization.revision}\">")
                     appendLine(base)
                     appendLine("</custom_identity>")
-                    append("以上是用户自定义的身份设定，优先级高于后文的内置身份描述；工具、设备与屏幕规则仍然有效，按其执行。")
+                    append("以上是用户自定义的身份设定，优先级高于后文的内置身份描述；身份、语气与表达方式以上文为准，工具、设备与屏幕规则仍按后文执行。")
                 }
             )
         }
