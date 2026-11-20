@@ -848,7 +848,6 @@ internal fun AgentConversationMessages(
                     // 单次 30KB+ 的大事务走主线程，直接表现为滑动掉帧。
                     // 这里把整段对话合并成少量语义节点，事务体量降到几 KB。
                     .chatMessagesSemantics(visibleMessages),
-            )
                 contentPadding = PaddingValues(
                     top = topInset + if (assistantOverlay) 8.dp else 10.dp,
                     bottom = bottomInset + 14.dp,
@@ -1500,6 +1499,13 @@ private fun SuggestionCard(
         )
     }
 
+
+private data class SuggestionItem(
+    val title: String,
+    val icon: ImageVector,
+    val prompt: String,
+)
+
 /**
  * 对话列表的无障碍合并：把整段消息合成一个语义节点，只保留一条紧凑描述。
  *
@@ -1514,10 +1520,3 @@ private fun Modifier.chatMessagesSemantics(messages: List<AgentChatMessageUi>): 
     this.semantics(mergeDescendants = true) {
         contentDescription = "当前对话，共 " + messages.size + " 条消息"
     }
-}
-
-private data class SuggestionItem(
-    val title: String,
-    val icon: ImageVector,
-    val prompt: String,
-)
