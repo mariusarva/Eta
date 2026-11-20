@@ -292,7 +292,8 @@ internal fun AgentChatBody(
         ) {
             CustomContinueDialogs(customContinue)
                     AgentChatScaffold(
-            visibleMessages = visibleMessages,
+                        allTurns = allTurns,
+                        visibleMessages = visibleMessages,
             hasMessages = visibleMessages.isNotEmpty() || hasEarlierMessages,
             scrollState = scrollState,
             input = input,
@@ -427,6 +428,7 @@ private fun AgentChatScaffold(
     onHistoryViewportChanged: (Boolean) -> Unit,
     topInset: Dp,
     modifier: Modifier = Modifier,
+    allTurns: List<ChatTurnEntry> = emptyList(),
 ) {
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val chatBackdrop = if (isCoui) null else rememberGlassBackdrop()
