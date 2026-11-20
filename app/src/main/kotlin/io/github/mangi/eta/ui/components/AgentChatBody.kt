@@ -843,11 +843,14 @@ internal fun AgentConversationMessages(
                 modifier = Modifier
                     .fillMaxSize()
                     .captureGlassBackdrop(messagesBackdrop)
-                    // 无障碍查询是按节点树序列化的：正文流式时每帧内容都在变，
-                    // 外部服务（如 GKD 订阅 WINDOW_CONTENT_CHANGED）会反复抓整棵树，
-                    // 单次 30KB+ 的大事务走主线程，直接表现为滑动掉帧。
-                    // 这里把整段对话合并成少量语义节点，事务体量降到几 KB。
-                    .chatMessagesSemantics(visibleMessages),
+                    // 无障碍查询按节点树序列化：正文流式时每帧内容都在变，外部服务
+                    //（实测 GKD-Plus 订阅了 WINDOW_CONTENT_CHANGED）会反复抓整棵树，
+                    // 单次 30KB+ 且在主线程同步发送，表现为滑动掉帧。
+                    // 合并成一个语义节点后事务体量降到几 KB。
+                    .chatMessagesSemantics(visibleMessages)
+                    .scrollEndHaptic()
+                    .nestedScroll(historyPaging.scrollConnection)
+                    .overScrollVertical(),
                 contentPadding = PaddingValues(
                     top = topInset + if (assistantOverlay) 8.dp else 10.dp,
                     bottom = bottomInset + 14.dp,
@@ -1498,25 +1501,20 @@ private fun SuggestionCard(
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
 
+/**
+ * 对话列表的无障碍合并：把整段消息合成一个语义节点，只保留一条紧凑描述。
+ *
+ * TalkBack 仍能念出「当前对话共 N 条消息」，而不是面对几百个零散节点。
+ */
+private fun Modifier.chatMessagesSemantics(messages: List<AgentChatMessageUi>): Modifier =
+    this.semantics(mergeDescendants = true) {
+        contentDescription = "当前对话，共 " + messages.size + " 条消息"
+    }
 
 private data class SuggestionItem(
     val title: String,
     val icon: ImageVector,
     val prompt: String,
 )
-
-/**
- * 对话列表的无障碍合并：把整段消息合成一个语义节点，只保留一条紧凑描述。
- *
- * 起因：正文流式输出时内容每帧都在变，外部无障碍服务（实测是 GKD-Plus 订阅了
- * `TYPE_WINDOW_CONTENT_CHANGED`）会反复抓取整棵节点树，单次序列化 30KB+ 且在主线程同步发送，
- * 表现为滑动掉帧（日志里 `Large outgoing transaction ... IAccessibilityInteractionConnectionCallback`）。
- *
- * 合并后外部查询只拿到一个节点，事务体量降到几 KB；同时保留可读描述，
- * TalkBack 仍能念出「当前对话共 N 条消息」而不是一片空白。
- */
-private fun Modifier.chatMessagesSemantics(messages: List<AgentChatMessageUi>): Modifier =
-    this.semantics(mergeDescendants = true) {
-        contentDescription = "当前对话，共 " + messages.size + " 条消息"
-    }
