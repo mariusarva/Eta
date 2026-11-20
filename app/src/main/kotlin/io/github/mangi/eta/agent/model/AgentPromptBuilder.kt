@@ -51,10 +51,16 @@ internal object AgentPromptBuilder {
         // 自定义启用后不再回落到 provider 的 systemPrompt：base 留空本身就代表"不注入身份段"，
         // 回落会把用户显式清空的身份悄悄换成内置提示，表现为"预设应用了但没生效"。
         val basePrompt = custom?.baseSystemPrompt ?: config.systemPrompt
+        // REPLACE + 空 base 代表用户显式要求"不注入任何内置身份与行为规范"：
+        // 此时整段内置规则（身份、语气、格式、GUI 与屏幕引导）都不下发，只保留后面的工具说明段。
+        val suppressBuiltInRules = roleplayContext == null &&
+            custom != null && custom.mode == PromptCustomizationMode.REPLACE &&
+            custom.baseSystemPrompt.isBlank()
         if (roleplayContext == null && basePrompt.isNotBlank()) {
             val identity = custom?.let { value -> customIdentityMessage(value, basePrompt) }
             messages.put(identity ?: systemMessage(basePrompt))
         }
+        if (!suppressBuiltInRules) {
         messages.put(
             systemMessage(
                 (if (roleplayContext == null) {
@@ -123,7 +129,8 @@ internal object AgentPromptBuilder {
                     "若工具返回 ACCESSIBILITY_UNAVAILABLE、ACCESSIBILITY_PROTECTION_UNAVAILABLE 或 ACCESSIBILITY_REPAIR_TIMEOUT，说明动作未执行，" +
                     "不要改用坐标或 Shell 重放 GUI 动作。"
             )
-        )
+            )
+        }
         if (config.terminalTools) {
             messages.put(systemMessage(
                 "Eta 内置文件与终端工具。文件和命令共用本次运行的默认身份与工作区；已知路径可直接读取或写入，不必先查目录。" +
