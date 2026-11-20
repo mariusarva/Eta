@@ -211,7 +211,7 @@ internal fun AgentChatBody(
     val context = LocalContext.current.applicationContext
     var allTurns by remember(conversationId) { mutableStateOf<List<ChatTurnEntry>>(emptyList()) }
     LaunchedEffect(conversationId, isStreaming) {
-        if (conversationId.isBlank() || isStreaming) return@LaunchedEffect
+        if (conversationId.isBlank()) return@LaunchedEffect
         val digests = withContext(Dispatchers.IO) {
             runCatching {
                 EtaDatabase.get(context).conversationDao().userMessageDigests(conversationId)

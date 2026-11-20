@@ -172,13 +172,13 @@ internal fun ChatTurnNavigator(
                     modifier = Modifier.heightIn(max = 360.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    itemsIndexed(turns, key = { _, item -> item.firstMessageId }) { _, turn ->
+                    itemsIndexed(turns, key = { position, item -> "$position:${item.firstMessageId}" }) { position, turn ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable(
-                                    onClickLabel = "跳到第 ${turn.index} 轮",
+                                    onClickLabel = "跳到第 ${position + 1} 轮",
                                 ) {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onJumpToMessage(turn.firstMessageId)
@@ -195,7 +195,7 @@ internal fun ChatTurnNavigator(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
-                                    text = turn.index.toString(),
+                                    text = (position + 1).toString(),
                                     style = MiuixTheme.textStyles.footnote1,
                                     color = MiuixTheme.colorScheme.primary,
                                 )
