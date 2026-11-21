@@ -187,55 +187,68 @@ internal fun ChatTurnNavigator(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .clickable(
-                                    onClickLabel = "跳到第 ${position + 1} 轮",
-                                ) {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onJumpToMessage(turn.firstMessageId)
-                                    expanded = false
-                                }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Box(
+                            // 点击区只覆盖「序号 + 标题 + 时间」，删除按钮在它外面，
+                            // 否则两者嵌套 clickable 会抢事件，表现为删除点了没反应。
+                            Row(
                                 modifier = Modifier
-                                    .size(22.dp)
-                                    .clip(CircleShape)
-                                    .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.14f)),
-                                contentAlignment = Alignment.Center,
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable(onClickLabel = "跳到第 ${position + 1} 轮") {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onJumpToMessage(turn.firstMessageId)
+                                        expanded = false
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    text = (position + 1).toString(),
-                                    style = MiuixTheme.textStyles.footnote1,
-                                    color = MiuixTheme.colorScheme.primary,
-                                )
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            // 时间放标题下面一行：同行会挤压标题宽度，长标题直接被截断。
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = turn.preview.ifBlank { "（无内容）" },
-                                    style = MiuixTheme.textStyles.body2,
-                                    color = MiuixTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                if (turn.timestampMillis > 0L) {
-                                    Spacer(Modifier.height(2.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clip(CircleShape)
+                                        .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
                                     Text(
-                                        text = remember(turn.timestampMillis) {
-                                            ConversationTimeLabels.rowLabel(turn.timestampMillis)
-                                        },
+                                        text = (position + 1).toString(),
                                         style = MiuixTheme.textStyles.footnote1,
-                                        color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-                                        maxLines = 1,
+                                        color = MiuixTheme.colorScheme.primary,
                                     )
                                 }
+                                Spacer(Modifier.width(10.dp))
+                                // 时间放标题下面一行：同行会挤压标题宽度，长标题直接被截断。
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = turn.preview.ifBlank { "（无内容）" },
+                                        style = MiuixTheme.textStyles.body2,
+                                        color = MiuixTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    if (turn.timestampMillis > 0L) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = remember(turn.timestampMillis) {
+                                                ConversationTimeLabels.rowLabel(turn.timestampMillis)
+                                            },
+                                            style = MiuixTheme.textStyles.footnote1,
+                                            color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
                             }
+                            // 独立命中区：36dp 触摸目标，不与整行点击重叠。
                             Box(
                                 modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .clickable(role = Role.Button) { pendingDeleteTurn = turn },
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .clickable(role = Role.Button) {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        pendingDeleteTurn = turn
+                                    },
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
