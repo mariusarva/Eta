@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.horizontalScroll
@@ -54,6 +55,7 @@ import io.github.mangi.eta.ui.components.EtaWindowDialog
 import io.github.mangi.eta.ui.model.ConversationCategoryUi
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -181,8 +183,18 @@ internal fun ConversationPanePanel(
     val selectedConversationIds = remember { mutableStateMapOf<String, Boolean>() }
     val containerColor = conversationPaneContainerColor()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
-    val couiBackdrop = if (isCoui) rememberCouiBackdrop() else null
-    val miuixBackdrop = if (!isCoui) rememberGlassBackdrop(containerColor) else null
+    // 玻璃离屏层（RenderNode + RuntimeShader）首次创建要现编译 pipeline，是首次展开卡顿的主因。
+    // 侧栏从未展开过之前不创建；展开一次后置位并一直复用，后续展开零成本。
+    var glassReady by remember { mutableStateOf(isRevealed) }
+    LaunchedEffect(isRevealed) {
+        if (isRevealed && !glassReady) {
+            // 让当前帧先完成展开动画的第一帧，再建离屏层，避免和动画抢同一个帧。
+            withFrameNanos { }
+            glassReady = true
+        }
+    }
+    val couiBackdrop = if (isCoui && glassReady) rememberCouiBackdrop() else null
+    val miuixBackdrop = if (!isCoui && glassReady) rememberGlassBackdrop(containerColor) else null
     val barInsets = remember { PaneBarInsets() }
     val bodyCaptureModifier = when {
         isCoui && couiBackdrop != null -> Modifier.couiBackdrop(couiBackdrop)
@@ -1076,7 +1088,14 @@ private fun ConversationHistoryRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = ConversationPanelMetrics.RowMinHeight)
-                .onGloballyPositioned { rowBounds = it.boundsInWindow() }
+                // 只在菜单真正打开时才需要窗口坐标；未展开时跳过，省掉每行一次坐标换算。
+                .then(
+                    if (showActionMenu) {
+                        Modifier.onGloballyPositioned { rowBounds = it.boundsInWindow() }
+                    } else {
+                        Modifier
+                    }
+                )
                 .couiMenuAnchor(anchor)
                 .then(rowModifier)
                 .combinedClickable(
@@ -1178,7 +1197,13 @@ private fun ConversationHistoryRow(
                     modifier = Modifier
                         .padding(start = 4.dp)
                         .size(28.dp)
-                        .onGloballyPositioned { moreButtonBounds = it.boundsInWindow() }
+                        .then(
+                            if (showActionMenu) {
+                                Modifier.onGloballyPositioned { moreButtonBounds = it.boundsInWindow() }
+                            } else {
+                                Modifier
+                            }
+                        )
                         .clip(CircleShape)
                         .clickable(
                             role = Role.Button,
