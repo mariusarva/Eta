@@ -8,6 +8,33 @@
 
 ---
 
+## fork.26（2026-11-21）移动到分类 + 轮次删除修复
+
+**现象**：会话移进分类后自己跑出来，或者根本移不进去；轮次表里的删除按钮点了没反应。
+
+**定位**：
+
+1. `AgentConversationStore.saveChanges` 用整行 `@Upsert` 写 `ConversationEntity`，
+   `category_id` 未赋值即被默认值 NULL 覆盖 —— 任何一次保存（发消息、改标题、置顶、切会话）
+   都会抹掉归属。DB 实证：`SELECT COUNT(*) FROM conversations WHERE category_id IS NOT NULL` = 0。
+2. `moveConversationsToCategory` 只写库，等 `reloadConversationCategories()` 重查才更新内存，
+   中间侧栏按旧映射重绘，看起来"移不进去"。
+3. 轮次行把 `clickable`（跳转）挂在 `Row` 上，删除按钮嵌套其内，事件被外层消费。
+
+**改动**：
+
+- `ConversationIdentity` 查询带 `category_id`，构造实体时 `categoryId = stored[id]?.categoryId` 回填；
+- 移动时先更新 `conversationCategoryIds` 内存映射再落库；删会话时同步清理映射；
+- 长按菜单加「移动到分类」（COUI + MIUIX，简繁英文案）；
+- 轮次行把跳转点击区缩到左侧（序号+标题+时间），删除按钮独立 36dp 命中区。
+
+**踩坑**：`Icons.Outlined.DriveFileMove` 在 Material outlined 里不存在、
+`MiuixIcons.Glass.FolderOutline` 漏导入，第一次构建失败；改用 `CreateNewFolder` 并补导入。
+
+**遗留**：修复前所有移动都没留住，装好后需要重新移一次分类。
+
+---
+
 ## fork.24（2026-11-21）侧栏首次展开不卡顿
 
 **现象**：第一次点左侧会话列表会顿一下，之后再点就正常。
