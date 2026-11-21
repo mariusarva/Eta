@@ -1286,6 +1286,7 @@ internal class AgentAppState(
         conversationTitles = conversationTitles - conversationId
         conversationUpdatedAt = conversationUpdatedAt - conversationId
         conversationPinnedIds = conversationPinnedIds - conversationId
+        conversationCategoryIds = conversationCategoryIds - conversationId
         if (wasSelected) {
             conversationSelectionVersion += 1
             cancelHistoryPageLoad()
@@ -1405,10 +1406,18 @@ internal class AgentAppState(
 
     fun moveConversationsToCategory(conversationIds: Collection<String>, categoryId: String?) {
         if (conversationIds.isEmpty()) return
+        val target = categoryId?.takeIf { it.isNotBlank() }
+        // 先更新内存再落库：侧栏在写库返回前就会刷新，不先置位会看到"移进去又弹回来"。
+        conversationCategoryIds = if (target == null) {
+            conversationCategoryIds - conversationIds.toSet()
+        } else {
+            conversationCategoryIds + conversationIds.associateWith { target }
+        }
+        refreshConversationSummaries()
         scope.launch {
             val dao = conversationDao()
             withContext(Dispatchers.IO) {
-                dao.assignCategory(conversationIds.toList(), categoryId)
+                dao.assignCategory(conversationIds.toList(), target)
             }
             reloadConversationCategories()
         }

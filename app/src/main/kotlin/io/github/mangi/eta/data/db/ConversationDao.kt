@@ -23,7 +23,7 @@ internal interface ConversationDao : ChunkedTextDao {
     )
     suspend fun conversationIndex(): List<ConversationIndexRow>
 
-    @Query("SELECT id, title, created_at, updated_at, is_pinned FROM conversations")
+    @Query("SELECT id, title, created_at, updated_at, is_pinned, category_id FROM conversations")
     suspend fun conversationIdentities(): List<ConversationIdentity>
 
     // ---- 会话分类 ----

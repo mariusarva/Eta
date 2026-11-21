@@ -69,6 +69,8 @@ internal data class ConversationIdentity(
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
     @ColumnInfo(name = "is_pinned") val isPinned: Boolean = false,
+    /** 保存会话时用来回填分类归属：整行 upsert 会把没带上的列写成默认值。 */
+    @ColumnInfo(name = "category_id") val categoryId: String? = null,
 )
 
 internal data class ConversationMessageContent(val id: String, val content: String)

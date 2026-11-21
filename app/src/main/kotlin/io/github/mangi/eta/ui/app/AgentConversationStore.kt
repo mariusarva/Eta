@@ -121,6 +121,9 @@ internal object AgentConversationStore {
                                     updatedAt = state.updatedAt.takeIf { it != 0L } ?: System.currentTimeMillis(),
                                     modelId = state.modelId,
                                     isPinned = state.isPinned,
+                                    // 整行 upsert 会用默认值覆盖未赋值的列，分类必须从库里带回来，
+                                    // 否则每次保存（发消息、改标题、置顶）都会把归属清空。
+                                    categoryId = stored[id]?.categoryId,
                                 )
                                 phase = "write_metadata"
                                 dao.insertConversations(listOf(row))
