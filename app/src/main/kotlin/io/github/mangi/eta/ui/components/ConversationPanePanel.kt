@@ -113,6 +113,7 @@ import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.glass.GlassPopup
 import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
 import top.yukonga.miuix.kmp.glass.GlassPopupItem
+import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Edit
@@ -121,6 +122,7 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.Delete
 import top.yukonga.miuix.kmp.icon.glass.Download
 import top.yukonga.miuix.kmp.icon.glass.Edit
+import top.yukonga.miuix.kmp.icon.glass.FolderOutline
 import top.yukonga.miuix.kmp.icon.glass.More
 import top.yukonga.miuix.kmp.icon.glass.Pin
 import top.yukonga.miuix.kmp.icon.glass.Search
@@ -1265,7 +1267,7 @@ private fun ConversationHistoryRow(
                         CouiMenuItem(
                             value = 4,
                             text = moveText,
-                            icon = Icons.Outlined.DriveFileMove,
+                            icon = Icons.Outlined.CreateNewFolder,
                         ),
                         CouiMenuItem(
                             value = 3,
