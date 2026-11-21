@@ -180,6 +180,15 @@ internal fun CustomMessageActionsHost(
                 if (enabled && actionText.isNotBlank()) share(actionText) else notice("没有可分享的文字")
             })
         }
+        // 删除这一轮：与长按菜单同一个回调（用户消息删整轮，助手消息删单条）。
+        TooltipBox(text = if (onDelete == null) "当前消息不能删除" else "删除这一轮") {
+            AnswerActionButton(
+                Icons.Rounded.Delete,
+                "删除这一轮",
+                { if (onDelete == null) notice("当前消息不能删除") else onDelete.invoke() },
+                enabled = enabled && onDelete != null,
+            )
+        }
     }
     Column {
         key(composer, messageId, text) {
