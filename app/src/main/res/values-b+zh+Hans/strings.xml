@@ -47,6 +47,7 @@
   <string name="action_unpin_conversation">取消置顶</string>
   <string name="action_rename">重命名</string>
   <string name="action_export">导出</string>
+  <string name="action_move_to_category">移动到分类</string>
   <string name="action_done">完成</string>
   <string name="action_add">添加</string>
   <string name="action_remove">移除</string>
@@ -1836,4 +1837,5 @@
     <string name="speech_system_tts_settings_missing">无法打开文字转语音设置，请在系统设置中搜索“文字转语音”并安装离线语言包</string>
     <string name="speech_asr_local_engine">本机离线</string>
     <string name="speech_tts_system">系统朗读（离线）</string>
+  <string name="conversation_category_none">移出分类</string>
 </resources>

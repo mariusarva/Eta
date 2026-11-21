@@ -304,6 +304,8 @@ internal fun ConversationPanePanel(
                                             onRename = { onConversationRename(conversation) },
                                             onExport = { onConversationExport(conversation) },
                                             onDelete = { onConversationDelete(conversation) },
+                                            categories = state.categories,
+                                            onMove = { id -> onMoveConversationsToCategory(listOf(conversation.id), id) },
                                         )
                                     }
                                 }
@@ -996,8 +998,12 @@ private fun ConversationHistoryRow(
     onRename: () -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit,
+    /// 这个会话能移到的分类，以及移过去以后做什么（null 是移出分类）。
+    categories: List<ConversationCategoryUi> = emptyList(),
+    onMove: (String?) -> Unit = {},
 ) {
     var showActionMenu by remember { mutableStateOf(false) }
+    var showMoveMenu by remember { mutableStateOf(false) }
     var rowBounds by remember { mutableStateOf(Rect.Zero) }
     var moreButtonBounds by remember { mutableStateOf(Rect.Zero) }
     var popupAnchorBounds by remember { mutableStateOf(Rect.Zero) }
@@ -1246,6 +1252,7 @@ private fun ConversationHistoryRow(
         )
         val renameText = stringResource(R.string.action_rename)
         val exportText = stringResource(R.string.action_export)
+        val moveText = stringResource(R.string.action_move_to_category)
         val deleteText = stringResource(R.string.action_delete)
         when (LocalUiStyle.current) {
             AppearanceUiStyle.COUI -> {
@@ -1255,6 +1262,11 @@ private fun ConversationHistoryRow(
                         CouiMenuItem(value = 0, text = pinText, icon = Icons.Outlined.PushPin),
                         CouiMenuItem(value = 1, text = renameText, icon = Icons.Outlined.Edit),
                         CouiMenuItem(value = 2, text = exportText, icon = Icons.Outlined.Download),
+                        CouiMenuItem(
+                            value = 4,
+                            text = moveText,
+                            icon = Icons.Outlined.DriveFileMove,
+                        ),
                         CouiMenuItem(
                             value = 3,
                             text = deleteText,
@@ -1275,6 +1287,7 @@ private fun ConversationHistoryRow(
                             1 -> onRename()
                             2 -> onExport()
                             3 -> onDelete()
+                            4 -> showMoveMenu = true
                         }
                     },
                     anchor = anchor,
@@ -1313,6 +1326,14 @@ private fun ConversationHistoryRow(
                                 onExport()
                             },
                         )
+                        GlassPopupItem(
+                            text = moveText,
+                            icon = MiuixIcons.Glass.FolderOutline,
+                            onClick = {
+                                showActionMenu = false
+                                showMoveMenu = true
+                            },
+                        )
                         HorizontalDivider(
                             modifier = Modifier.padding(
                                 horizontal = GlassPopupDefaults.DividerPaddingHorizontal,
@@ -1333,8 +1354,40 @@ private fun ConversationHistoryRow(
                 }
             }
         }
+        // 选一个分类搬过去；「移出分类」把它变回未分类。
+        if (showMoveMenu) {
+            val moveTitle = stringResource(R.string.action_move_to_category)
+            val noneText = stringResource(R.string.conversation_category_none)
+            EtaWindowDialog(
+                show = true,
+                title = moveTitle,
+                onDismissRequest = { showMoveMenu = false },
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    moveTargets(categories, noneText).forEach { (id, label) ->
+                        Text(
+                            text = label,
+                            style = MiuixTheme.textStyles.body1,
+                            color = MiuixTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable {
+                                    showMoveMenu = false
+                                    onMove(id)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
+
+/// 移动目标：先是「移出分类」，然后是各分类。
+private fun moveTargets(categories: List<ConversationCategoryUi>, none: String): List<Pair<String?, String>> =
+    listOf<Pair<String?, String>>(null to none) + categories.map { it.id to it.name }
 
 @Composable
 private fun EmptyConversations(isSearching: Boolean) {

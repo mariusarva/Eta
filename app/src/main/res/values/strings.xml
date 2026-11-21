@@ -44,6 +44,7 @@
   <string name="action_unpin_conversation">Unpin</string>
   <string name="action_rename">Rename</string>
   <string name="action_export">Export</string>
+  <string name="action_move_to_category">Move to category</string>
   <string name="action_done">Done</string>
   <string name="action_add">Add</string>
   <string name="action_remove">Remove</string>
@@ -1890,4 +1891,5 @@
     <string name="usage_times">%1$d 次</string>
     <string name="usage_trend_title">近 30 天每日用量</string>
     <string name="usage_unknown_model">未记录模型</string>
+  <string name="conversation_category_none">No category</string>
 </resources>
