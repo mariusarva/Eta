@@ -450,9 +450,8 @@ fun AgentAppRoot(
                                         is AgentHomeAction.EditMessage -> agentState.beginMessageEdit(action.id)
                                         AgentHomeAction.CancelMessageEdit -> agentState.cancelMessageEdit()
                                         is AgentHomeAction.DeleteMessage -> {
-                                            agentState.messageRevisionImpact(action.id)?.let { impact ->
-                                                messageDeleteTarget = MessageMutationTarget(action.id, impact.laterTurnCount)
-                                            }
+                                            // 只删这一条：不再按轮次边界计算影响，后面的对话保持不动。
+                                            messageDeleteTarget = MessageMutationTarget(action.id, 0)
                                         }
                                         is AgentHomeAction.RegenerateMessage -> {
                                             val impact = agentState.messageRevisionImpact(action.id)
@@ -941,15 +940,7 @@ fun AgentAppRoot(
             }
 
             messageDeleteTarget?.let { target ->
-                val summary = if (target.laterTurnCount == 0) {
-                    stringResource(R.string.conversation_delete_message_body)
-                } else {
-                    pluralStringResource(
-                        R.plurals.conversation_delete_later_turns,
-                        target.laterTurnCount,
-                        target.laterTurnCount,
-                    )
-                }
+                val summary = "只删除这一条消息，后面的对话会保留。"
                 CouiConfirmDialog(
                     visible = true,
                     title = stringResource(R.string.conversation_delete_message_title),
@@ -957,7 +948,7 @@ fun AgentAppRoot(
                     confirmText = stringResource(R.string.action_delete),
                     destructive = true,
                     onConfirm = {
-                        agentState.deleteMessageTurn(target.messageId)
+                        agentState.deleteSingleMessage(target.messageId)
                         messageDeleteTarget = null
                     },
                     onDismissRequest = { messageDeleteTarget = null },
@@ -1092,17 +1083,7 @@ fun AgentAppRoot(
 
             var retainedDeleteMessage by remember { mutableStateOf<MessageMutationTarget?>(null) }
             messageDeleteTarget?.let { retainedDeleteMessage = it }
-            val deleteMessageSummary = retainedDeleteMessage?.let { target ->
-                if (target.laterTurnCount == 0) {
-                    stringResource(R.string.conversation_delete_message_body)
-                } else {
-                    pluralStringResource(
-                        R.plurals.conversation_delete_later_turns,
-                        target.laterTurnCount,
-                        target.laterTurnCount,
-                    )
-                }
-            }
+            val deleteMessageSummary = "只删除这一条消息，后面的对话会保留。"
             GlassDialog(
                 show = messageDeleteTarget != null,
                 backdrop = sceneBackdrop,
@@ -1117,7 +1098,7 @@ fun AgentAppRoot(
                     onCancel = { messageDeleteTarget = null },
                     onConfirm = {
                         retainedDeleteMessage?.let { target ->
-                            agentState.deleteMessageTurn(target.messageId)
+                            agentState.deleteSingleMessage(target.messageId)
                         }
                         messageDeleteTarget = null
                     },

@@ -102,6 +102,42 @@ internal object AgentConversationRevisionReducer {
         )
     }
 
+    /**
+     * 只删除指定的那一条消息，不动它后面的一轮。
+     *
+     * 与 [deleteFromTurn]（以用户轮次为边界截断）不同：这里只从展示列表里移除目标消息，
+     * 并在模型上下文里同步移除同 id 的条目。若移除后留下没有对应 assistant tool_calls 的
+     * tool 结果（协议上非法），一并清掉这些孤立条目，避免下一次请求被服务端拒绝。
+     */
+    fun deleteSingle(state: AgentChatUiState, targetMessageId: String): AgentChatUiState? {
+        if (state.messages.none { it.id == targetMessageId }) return null
+        val messages = state.messages.filterNot { it.id == targetMessageId }
+        val history = pruneContext(state.history, targetMessageId)
+        val journal = if (state.journal.isEmpty()) state.journal else pruneContext(state.journal, targetMessageId)
+        return state.copy(messages = messages, history = history, journal = journal, messageEdit = null)
+    }
+
+    /** 移除目标消息，并清掉失去 tool_calls 归属的 tool 结果。 */
+    private fun pruneContext(
+        source: List<AgentModelClient.ConversationMessage>,
+        removedMessageId: String,
+    ): List<AgentModelClient.ConversationMessage> {
+        val trimmed = source.filterNot { it.messageId == removedMessageId }
+        val callIds = trimmed
+            .filter { it.role == "assistant" && it.toolCallsJson.isNotBlank() }
+            .flatMap { extractToolCallIds(it.toolCallsJson) }
+            .toSet()
+        return trimmed.filterNot { it.role == "tool" && it.toolCallId.isNotBlank() && it.toolCallId !in callIds }
+    }
+
+    /** 从 tool_calls JSON 里取出 id 字段；解析失败按空处理（宁可不裁剪，也不误删）。 */
+    private fun extractToolCallIds(json: String): List<String> = runCatching {
+        val array = org.json.JSONArray(json)
+        (0 until array.length()).mapNotNull { index ->
+            array.optJSONObject(index)?.optString("id")?.takeIf { it.isNotBlank() }
+        }
+    }.getOrDefault(emptyList())
+
     fun visibleMessagesForEdit(
         messages: List<AgentChatMessageUi>,
         targetMessageId: String?,
