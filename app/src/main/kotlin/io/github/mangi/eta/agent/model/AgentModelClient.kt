@@ -3,6 +3,7 @@ package io.github.mangi.eta.agent.model
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentRunController
+import io.github.mangi.eta.agent.prompt.AgentToolPolicyStore
 import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.skill.SkillContext
 import io.github.mangi.eta.agent.roleplay.RoleplayRunContext
@@ -178,7 +179,9 @@ internal object AgentModelClient {
             for (index in 0 until additionalTools.length()) {
                 tools.put(additionalTools.opt(index))
             }
-            return toolFilter?.invoke(tools) ?: tools
+            // 工具白名单在请求侧生效：设置里关掉的工具不进 tools 数组，模型看不到也调不动。
+            val policyFiltered = AgentToolPolicyStore.load().filterTools(tools)
+            return toolFilter?.invoke(policyFiltered) ?: policyFiltered
         }
         val tools = toolsFor(initialCapabilities)
         onEvent(

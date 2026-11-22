@@ -648,6 +648,19 @@ private fun titleForRoute(route: AppRoute?): String = when (route) {
         if (route.taskId.isNullOrBlank()) R.string.route_scheduled_task_new else R.string.route_scheduled_task_edit,
     )
     is AppRoute.Subagents -> stringResource(R.string.ui_misc_route_subagents)
+    is AppRoute.PromptPresets -> "提示词预设"
+    is AppRoute.PromptStudio -> "提示词 Studio"
+    is AppRoute.PromptEditor -> "编辑提示词"
+    is AppRoute.PromptVersions -> "版本历史"
+    is AppRoute.PromptTools -> "工具范围"
+    is AppRoute.PromptSnapshots -> "提示词快照"
+    is AppRoute.PromptSnapshotDetail -> "快照详情"
+    is AppRoute.PromptPresetEditor -> "编辑预设"
+    is AppRoute.PromptIntegrity -> "提示词完整性"
+    is AppRoute.PromptEffective -> "实际生效内容"
+    is AppRoute.PromptEffectiveItem -> "分段详情"
+    is AppRoute.PromptToolGroups -> "工具分组"
+    is AppRoute.GitHubAccount -> "GitHub 账号"
     is AppRoute.ConversationTitleSettings -> stringResource(R.string.conversation_title_settings_title)
     is AppRoute.AssistantOverlaySettings -> stringResource(R.string.assistant_overlay_settings_title)
     is AppRoute.Characters -> stringResource(R.string.conversation_dock_characters)

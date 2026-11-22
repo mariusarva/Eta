@@ -1,6 +1,9 @@
 package io.github.mangi.eta.agent.model
 
 import io.github.mangi.eta.agent.memory.AgentMemoryContext
+import io.github.mangi.eta.agent.prompt.PromptCustomization
+import io.github.mangi.eta.agent.prompt.PromptCustomizationStore
+import io.github.mangi.eta.agent.prompt.PromptCustomizationMode
 import io.github.mangi.eta.agent.skill.SkillContext
 import io.github.mangi.eta.agent.roleplay.RoleplayRunContext
 import io.github.mangi.eta.agent.terminal.TerminalExecutionContext
@@ -20,6 +23,7 @@ internal object AgentPromptBuilder {
         roleplayContext: RoleplayRunContext? = null,
         executionContext: TerminalExecutionContext? = null,
         extraSystemContext: String = "",
+        customization: PromptCustomization = PromptCustomizationStore.load(),
     ): JSONArray {
         val messages = buildSystemMessages(
             config,
@@ -29,6 +33,7 @@ internal object AgentPromptBuilder {
             roleplayContext,
             executionContext,
             extraSystemContext,
+            customization,
         )
         history.forEach { item ->
             runCatching { AgentConversationCodec.toJsonObject(item) }.getOrNull()?.let(messages::put)
@@ -50,11 +55,23 @@ internal object AgentPromptBuilder {
         roleplayContext: RoleplayRunContext? = null,
         executionContext: TerminalExecutionContext? = null,
         extraSystemContext: String = "",
+        customization: PromptCustomization = PromptCustomizationStore.load(),
     ): JSONArray {
         val messages = JSONArray()
-        if (roleplayContext == null && config.systemPrompt.isNotBlank()) {
-            messages.put(systemMessage(config.systemPrompt))
+        // 用户自定义提示词优先于 provider 上的 systemPrompt；未启用时行为与之前完全一致。
+        val custom = customization.takeIf { it.active }
+        // 自定义启用后不再回落到 provider 的 systemPrompt：base 留空本身就代表「不注入身份段」，
+        // 回落会把用户显式清空的身份悄悄换成内置提示，表现为「预设应用了但没生效」。
+        val basePrompt = custom?.baseSystemPrompt ?: config.systemPrompt
+        // REPLACE + 空 base 代表用户显式要求「不注入任何内置身份与行为规范」。
+        val suppressBuiltInRules = roleplayContext == null &&
+            custom != null && custom.mode == PromptCustomizationMode.REPLACE &&
+            custom.baseSystemPrompt.isBlank()
+        if (roleplayContext == null && basePrompt.isNotBlank()) {
+            val identity = custom?.let { value -> customIdentityMessage(value, basePrompt) }
+            messages.put(identity ?: systemMessage(basePrompt))
         }
+        if (!suppressBuiltInRules) {
         messages.put(
             systemMessage(
                 (if (roleplayContext == null) {
@@ -124,6 +141,7 @@ internal object AgentPromptBuilder {
                     "不要改用坐标或 Shell 重放 GUI 动作。"
             )
         )
+        }
         if (config.terminalTools) {
             messages.put(systemMessage(
                 "Eta 内置文件与终端工具。文件和命令共用本次运行的默认身份与工作区；已知路径可直接读取或写入，不必先查目录。" +
@@ -184,10 +202,51 @@ internal object AgentPromptBuilder {
         roleplayContext?.personaMessage()?.let(messages::put)
         buildMemorySystemMessage(memoryContext, writable = roleplayContext == null)?.let(messages::put)
         buildSkillSystemMessage(skillContext)?.let(messages::put)
+        custom?.let { value -> customPersonaMessage(value) }?.let(messages::put)
+        custom?.let { value -> customInstructionsMessage(value) }?.let(messages::put)
         if (extraSystemContext.isNotBlank()) {
             messages.put(systemMessage(extraSystemContext))
         }
         return messages
+    }
+
+    private fun customIdentityMessage(customization: PromptCustomization, base: String): JSONObject =
+        if (customization.mode == PromptCustomizationMode.APPEND) {
+            systemMessage(base)
+        } else {
+            systemMessage(
+                buildString {
+                    appendLine("<custom_identity version=\"${customization.version}\" revision=\"${customization.revision}\">")
+                    appendLine(base)
+                    appendLine("</custom_identity>")
+                    append("以上是用户自定义的身份设定，优先级高于后文的内置身份描述；身份、语气与表达方式以上文为准，工具、设备与屏幕规则仍按后文执行。")
+                }
+            )
+        }
+
+    private fun customPersonaMessage(customization: PromptCustomization): JSONObject? {
+        val name = customization.personaName.trim()
+        val style = customization.personaStyle.trim()
+        if (name.isEmpty() && style.isEmpty()) return null
+        return systemMessage(
+            buildString {
+                appendLine("<custom_persona version=\"${customization.version}\">")
+                if (name.isNotEmpty()) appendLine("名称：$name")
+                if (style.isNotEmpty()) appendLine(style)
+                appendLine("</custom_persona>")
+                append("用户已设定人格：按上面的名称与风格交流；事实、证据与工具结果的表述不因人格改写。")
+            }
+        )
+    }
+
+    private fun customInstructionsMessage(customization: PromptCustomization): JSONObject? {
+        val instruction = customization.appendInstructions.trim()
+        if (instruction.isEmpty()) return null
+        return systemMessage(
+            "<custom_instructions version=\"${customization.version}\" revision=\"${customization.revision}\">\n" +
+                instruction +
+                "\n</custom_instructions>\n以上是用户追加的长期要求；与工具、设备、权限规则冲突时以后者为准。",
+        )
     }
 
     private fun rootInstructions(available: Boolean): String =

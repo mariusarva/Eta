@@ -101,6 +101,17 @@ import io.github.mangi.eta.ui.screens.settings.AssistantOverlaySettingsScreen
 import io.github.mangi.eta.ui.screens.settings.ConversationTitleSettingsScreen
 import io.github.mangi.eta.ui.screens.skills.AgentSkillsScreen
 import io.github.mangi.eta.ui.screens.subagent.SubagentSettingsScreen
+import io.github.mangi.eta.ui.screens.github.GitHubAccountScreen
+import io.github.mangi.eta.ui.screens.prompts.PromptEditorScreen
+import io.github.mangi.eta.ui.screens.prompts.PromptEffectiveScreen
+import io.github.mangi.eta.ui.screens.prompts.PromptIntegrityScreen
+import io.github.mangi.eta.ui.screens.prompts.PromptPresetsScreen
+import io.github.mangi.eta.ui.screens.prompts.PromptSnapshotDetailScreen
+import io.github.mangi.eta.ui.screens.prompts.PromptSnapshotsScreen
+import io.github.mangi.eta.ui.screens.prompts.PromptStudioScreen
+import io.github.mangi.eta.ui.screens.prompts.PromptToolGroupsScreen
+import io.github.mangi.eta.ui.screens.prompts.PromptToolsScreen
+import io.github.mangi.eta.ui.screens.prompts.PromptVersionsScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxEnvironmentScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxFilesScreen
 import io.github.mangi.eta.ui.screens.terminal.SharedFoldersScreen
@@ -532,6 +543,57 @@ fun AgentAppRoot(
                     }
                     entry<AppRoute.Subagents>(swipeDismiss = activeSwipeDismiss) {
                         SubagentSettingsScreen(onBack = ::popRoute)
+                    }
+                    entry<AppRoute.GitHubAccount>(swipeDismiss = activeSwipeDismiss) {
+                        GitHubAccountScreen(onBack = ::popRoute)
+                    }
+                    entry<AppRoute.PromptPresets>(swipeDismiss = activeSwipeDismiss) {
+                        PromptPresetsScreen(
+                            onBack = ::popRoute,
+                            onEditPreset = { pushRoute(AppRoute.PromptPresetEditor(it)) },
+                        )
+                    }
+                    entry<AppRoute.PromptStudio>(swipeDismiss = activeSwipeDismiss) {
+                        PromptStudioScreen(onBack = ::popRoute, onNavigate = { pushRoute(it) })
+                    }
+                    entry<AppRoute.PromptEditor>(swipeDismiss = activeSwipeDismiss) {
+                        PromptEditorScreen(onBack = ::popRoute)
+                    }
+                    entry<AppRoute.PromptVersions>(swipeDismiss = activeSwipeDismiss) {
+                        PromptVersionsScreen(onBack = ::popRoute)
+                    }
+                    entry<AppRoute.PromptTools>(swipeDismiss = activeSwipeDismiss) {
+                        PromptToolsScreen(
+                            onBack = ::popRoute,
+                            onManageGroups = { pushRoute(AppRoute.PromptToolGroups) },
+                        )
+                    }
+                    entry<AppRoute.PromptSnapshots>(swipeDismiss = activeSwipeDismiss) {
+                        PromptSnapshotsScreen(
+                            onBack = ::popRoute,
+                            onOpen = { pushRoute(AppRoute.PromptSnapshotDetail(it)) },
+                        )
+                    }
+                    entry<AppRoute.PromptSnapshotDetail>(swipeDismiss = activeSwipeDismiss) { route ->
+                        PromptSnapshotDetailScreen(fileName = route.fileName, onBack = ::popRoute)
+                    }
+                    entry<AppRoute.PromptPresetEditor>(swipeDismiss = activeSwipeDismiss) {
+                        PromptEditorScreen(onBack = ::popRoute)
+                    }
+                    entry<AppRoute.PromptIntegrity>(swipeDismiss = activeSwipeDismiss) {
+                        PromptIntegrityScreen(onBack = ::popRoute)
+                    }
+                    entry<AppRoute.PromptEffective>(swipeDismiss = activeSwipeDismiss) {
+                        PromptEffectiveScreen(
+                            onBack = ::popRoute,
+                            onOpenSegment = { pushRoute(AppRoute.PromptEffectiveItem(it)) },
+                        )
+                    }
+                    entry<AppRoute.PromptEffectiveItem>(swipeDismiss = activeSwipeDismiss) {
+                        PromptEffectiveScreen(onBack = ::popRoute, onOpenSegment = {})
+                    }
+                    entry<AppRoute.PromptToolGroups>(swipeDismiss = activeSwipeDismiss) {
+                        PromptToolGroupsScreen(onBack = ::popRoute)
                     }
                     entry<AppRoute.ConversationTitleSettings>(swipeDismiss = activeSwipeDismiss) {
                         ConversationTitleSettingsScreen(onBack = ::popRoute)

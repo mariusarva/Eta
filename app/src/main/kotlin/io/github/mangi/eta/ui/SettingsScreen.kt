@@ -17,6 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.BugReport
@@ -691,6 +693,20 @@ private fun SettingsPageContent(
                     }
                     item {
                         CouiPreference(
+                            title = "GitHub 账号",
+                            icon = { CouiSettingsIcon(Icons.Rounded.AccountCircle, SettingsIconColors.Blue) },
+                            onClick = { onNavigate(AppRoute.GitHubAccount) },
+                        )
+                    }
+                    item {
+                        CouiPreference(
+                            title = "提示词预设",
+                            icon = { CouiSettingsIcon(Icons.Rounded.TextFields, SettingsIconColors.Yellow) },
+                            onClick = { onNavigate(AppRoute.PromptPresets) },
+                        )
+                    }
+                    item {
+                        CouiPreference(
                             title = stringResource(R.string.route_skills),
                             icon = {
                                 CouiSettingsIcon(
@@ -1164,6 +1180,16 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.ui_misc_route_subagents),
                             startAction = { SettingsIcon(Icons.Rounded.JoinLeft) },
                             onClick = { onNavigate(AppRoute.Subagents) },
+                        )
+                        ArrowPreference(
+                            title = "GitHub 账号",
+                            startAction = { SettingsIcon(Icons.Rounded.AccountCircle) },
+                            onClick = { onNavigate(AppRoute.GitHubAccount) },
+                        )
+                        ArrowPreference(
+                            title = "提示词预设",
+                            startAction = { SettingsIcon(Icons.Rounded.TextFields) },
+                            onClick = { onNavigate(AppRoute.PromptPresets) },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.route_skills),
