@@ -172,6 +172,17 @@ internal object CharacterRepository {
         dao().upsertPersona(UserPersonaEntity(name = persona.name.trim(), description = persona.description))
     }
 
+    /**
+     * 新建会话自动绑定的目标：未归档角色里只有一张就是它，多张取列表第一位。
+     * 角色列表本身按 updated_at DESC 排序，所以"第一位"与角色库界面的首个卡一致。
+     */
+    suspend fun autoBindTargetId(): String? = withContext(Dispatchers.IO) {
+        autoBindCandidate(dao().characters())
+    }
+
+    internal fun autoBindCandidate(rows: List<CharacterEntity>): String? =
+        rows.firstOrNull { !it.archived }?.id
+
     suspend fun binding(id: String): RoleplayBinding {
         val profile = get(id) ?: throw IllegalArgumentException(
             AppStrings.get(R.string.character_repo_not_found, "角色已不存在"),

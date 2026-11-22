@@ -1204,6 +1204,31 @@ internal class AgentAppState(
         }
     }
 
+    /** 新建会话自动绑定角色卡时的去重闸门，避免连点新建触发多次查询。 */
+    private var roleplayAutoBindInFlight = false
+
+    /**
+     * 新建会话时自动绑定角色卡：角色库为空、当前已有绑定、或会话已开始时不介入。
+     * 目标卡由 [CharacterRepository.autoBindTargetId] 决定（未归档里的第一张）。
+     */
+    private fun bindDefaultCharacterIfNeeded() {
+        if (homeState.roleplay != null || homeState.messages.isNotEmpty()) return
+        if (roleplayAutoBindInFlight) return
+        roleplayAutoBindInFlight = true
+        scope.launch {
+            try {
+                CharacterRepository.initialize(appContext)
+                val targetId = runCatching { CharacterRepository.autoBindTargetId() }.getOrNull() ?: return@launch
+                val binding = runCatching { CharacterRepository.binding(targetId) }.getOrNull() ?: return@launch
+                if (selectedConversationId != null || homeState.roleplay != null) return@launch
+                homeState = homeState.copy(roleplay = binding)
+                AndroidAgentLogger.info("new chat auto-bound character: id=$targetId")
+            } finally {
+                roleplayAutoBindInFlight = false
+            }
+        }
+    }
+
     /** 侧栏「新建会话」绑定的角色（id to 名称）；非空时新建即进入该角色剧情。 */
     var characterForNewChat by mutableStateOf<Pair<String, String>?>(loadCharacterForNewChat())
         private set
@@ -1259,6 +1284,7 @@ internal class AgentAppState(
         )
         refreshConversationSummaries()
         persistConversations()
+        bindDefaultCharacterIfNeeded()
     }
 
     fun branchConversation(conversationId: String, messageId: String, draftText: String = homeState.input) {
