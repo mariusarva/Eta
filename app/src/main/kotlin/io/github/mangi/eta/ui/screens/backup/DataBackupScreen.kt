@@ -85,6 +85,7 @@ internal fun DataBackupScreen(
     var showIntervalDialog by remember { mutableStateOf(false) }
     var showKeepDialog by remember { mutableStateOf(false) }
     var showHistoryDialog by remember { mutableStateOf(false) }
+    var showFormatDialog by remember { mutableStateOf(false) }
     var autoBackups by remember { mutableStateOf<List<AutoBackupFile>>(emptyList()) }
     fun applyAuto(transform: (AutoBackupSettings) -> AutoBackupSettings) {
         scope.launch {
@@ -307,6 +308,13 @@ internal fun DataBackupScreen(
                     }
                     item {
                         CouiPreference(
+                            title = "备份格式",
+                            value = if (autoSettings.format == AutoBackupSettings.FORMAT_FULL) "全量 zip" else "仅数据 JSON",
+                            onClick = { showFormatDialog = true },
+                        )
+                    }
+                    item {
+                        CouiPreference(
                             title = "保存位置",
                             summary = autoLocation,
                             onClick = { directoryPicker.launch(null) },
@@ -429,6 +437,15 @@ internal fun DataBackupScreen(
                             onClick = { showKeepDialog = true },
                         )
                         ArrowPreference(
+                            title = "备份格式",
+                            endActions = {
+                                Text(
+                                    if (autoSettings.format == AutoBackupSettings.FORMAT_FULL) "全量 zip" else "仅数据 JSON"
+                                )
+                            },
+                            onClick = { showFormatDialog = true },
+                        )
+                        ArrowPreference(
                             title = "保存位置",
                             summary = autoLocation,
                             onClick = { directoryPicker.launch(null) },
@@ -472,6 +489,45 @@ internal fun DataBackupScreen(
             applyAuto { it.copy(keepCount = value) }
         },
     )
+    GlassDialog(
+        show = showFormatDialog,
+        backdrop = currentGlassOverlayBackdrop(),
+        title = "备份格式",
+        summary = "全量 zip 会一并打包私有文件（模型、日志、技能），体积更大。",
+        onDismissRequest = { showFormatDialog = false },
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            listOf(
+                AutoBackupSettings.FORMAT_JSON to "仅数据 JSON",
+                AutoBackupSettings.FORMAT_FULL to "全量 zip",
+            ).forEach { (value, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showFormatDialog = false
+                            applyAuto { it.copy(format = value) }
+                        }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = label,
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (autoSettings.format == value) {
+                        Text(
+                            text = "已选",
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+        }
+    }
     GlassDialog(
         show = showHistoryDialog,
         backdrop = currentGlassOverlayBackdrop(),
