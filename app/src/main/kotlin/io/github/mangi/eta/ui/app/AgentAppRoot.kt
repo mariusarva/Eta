@@ -218,6 +218,18 @@ fun AgentAppRoot(
     var conversationPaneOpen by rememberSaveable { mutableStateOf(false) }
     var conversationRenameTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     var conversationDeleteTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
+    // 「用角色新建对话」：侧栏顶栏按钮触发，这里拉一次角色列表再弹选择框。
+    var showCharacterPicker by remember { mutableStateOf(false) }
+    var characterOptions by remember { mutableStateOf<List<io.github.mangi.eta.data.model.CharacterProfile>>(emptyList()) }
+    var characterPickerLoading by remember { mutableStateOf(false) }
+    LaunchedEffect(showCharacterPicker) {
+        if (!showCharacterPicker) return@LaunchedEffect
+        characterPickerLoading = true
+        characterOptions = runCatching {
+            io.github.mangi.eta.data.repository.CharacterRepository.list()
+        }.getOrDefault(emptyList())
+        characterPickerLoading = false
+    }
     var conversationExportTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     var messageDeleteTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
     var messageRegenerateTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
@@ -400,6 +412,7 @@ fun AgentAppRoot(
             onOpenMemory = { pushRoute(AppRoute.Memory) },
             onOpenMcpServers = { pushRoute(AppRoute.McpServers) },
             onOpenCharacters = { pushRoute(AppRoute.Characters) },
+            onPickCharacterForNewConversation = { showCharacterPicker = true },
             onOpenPermissions = { pushRoute(AppRoute.Permissions) },
             onOpenSettings = { pushRoute(AppRoute.Settings) },
             onOpenModelProviders = { pushRoute(AppRoute.ModelProviders) },
@@ -1025,6 +1038,47 @@ fun AgentAppRoot(
             )
 
             var retainedDelete by remember { mutableStateOf<ConversationSummaryUi?>(null) }
+            GlassDialog(
+                show = showCharacterPicker,
+                backdrop = currentGlassOverlayBackdrop(),
+                title = "用角色新建对话",
+                summary = if (characterOptions.isEmpty()) {
+                    if (characterPickerLoading) "正在读取角色…" else "还没有角色卡。"
+                } else {
+                    "选择一个角色，新建的会话直接进入该角色的剧情。"
+                },
+                onDismissRequest = { showCharacterPicker = false },
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    characterOptions.take(12).forEach { profile ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showCharacterPicker = false
+                                    agentState.newConversationWithCharacter(profile.id)
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = profile.card.name,
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                            )
+                            Text(
+                                text = profile.card.firstMessage.take(18),
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            }
+
             conversationDeleteTarget?.let { retainedDelete = it }
             val activeDelete = conversationDeleteTarget ?: retainedDelete
             val deleteMessage = activeDelete?.let { conversation ->

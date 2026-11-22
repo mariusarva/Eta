@@ -1279,6 +1279,19 @@ internal class AgentAppState(
         }
     }
 
+    /**
+     * 用指定角色新建一轮对话：侧栏「新建会话」时选角色走的就是这条路。
+     *
+     * 与角色详情页的「开始对话」等价，只是入口在侧栏，不需要先打开角色卡。
+     */
+    fun newConversationWithCharacter(characterId: String) {
+        scope.launch {
+            val profile = runCatching { CharacterRepository.get(characterId) }.getOrNull() ?: return@launch
+            val binding = runCatching { CharacterRepository.binding(characterId) }.getOrNull() ?: return@launch
+            startCharacterConversation(binding, profile.card.firstMessage)
+        }
+    }
+
     fun startCharacterConversation(binding: RoleplayBinding, greeting: String) {
         createConversation()
         val id = newConversationId()

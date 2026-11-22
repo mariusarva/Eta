@@ -172,6 +172,7 @@ internal fun ConversationPanePanel(
     onOpenMemory: () -> Unit = {},
     onOpenMcpServers: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
+    onPickCharacterForNewConversation: (() -> Unit)? = null,
 
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -346,6 +347,7 @@ internal fun ConversationPanePanel(
                             if (!selecting) selectedConversationIds.clear()
                         },
                         onManageCategories = { showManageCategory = true },
+                        onPickCharacterForNewConversation = onPickCharacterForNewConversation,
                     )
                     if (selecting) {
                         ConversationBulkBar(

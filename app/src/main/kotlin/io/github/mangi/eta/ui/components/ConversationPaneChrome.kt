@@ -109,6 +109,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.rounded.Person
 
 internal object ConversationPanelMetrics {
     val PaneHorizontalPadding = 16.dp
@@ -191,6 +192,7 @@ internal fun ConversationPaneTopBar(
     isSelecting: Boolean = false,
     onToggleSelecting: () -> Unit = {},
     onManageCategories: () -> Unit = {},
+    onPickCharacterForNewConversation: (() -> Unit)? = null,
 ) {
     val barContent: @Composable () -> Unit = {
         Row(
@@ -211,6 +213,14 @@ internal fun ConversationPaneTopBar(
                 onClick = onToggleSelecting,
             )
             Spacer(Modifier.width(6.dp))
+            if (onPickCharacterForNewConversation != null) {
+                PaneTopBarActionButton(
+                    icon = Icons.Rounded.Person,
+                    description = "用角色新建对话",
+                    onClick = onPickCharacterForNewConversation,
+                )
+                Spacer(Modifier.width(6.dp))
+            }
             PaneNewChatButton(
                 hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
                 miuixBackdrop = miuixBackdrop,
@@ -362,6 +372,7 @@ private fun PaneNewChatButton(
     hasCouiToolbarBackdrop: Boolean,
     miuixBackdrop: Backdrop?,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val description = stringResource(R.string.action_new_conversation)
     when (LocalUiStyle.current) {

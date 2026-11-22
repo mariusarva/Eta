@@ -94,6 +94,7 @@ fun ConversationSidePaneScaffold(
     onOpenMemory: () -> Unit = {},
     onOpenMcpServers: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
+    onPickCharacterForNewConversation: (() -> Unit)? = null,
     onOpenCharacters: () -> Unit,
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -259,6 +260,7 @@ fun ConversationSidePaneScaffold(
                         onOpenMemory = onOpenMemory,
                         onOpenMcpServers = onOpenMcpServers,
                         onOpenCategories = onOpenCategories,
+                        onPickCharacterForNewConversation = onPickCharacterForNewConversation,
                         onOpenCharacters = onOpenCharacters,
                         onOpenPermissions = onOpenPermissions,
                         modifier = Modifier
