@@ -1205,12 +1205,30 @@ internal class AgentAppState(
     }
 
     /** 侧栏「新建会话」绑定的角色（id to 名称）；非空时新建即进入该角色剧情。 */
-    var characterForNewChat by mutableStateOf<Pair<String, String>?>(null)
+    var characterForNewChat by mutableStateOf<Pair<String, String>?>(loadCharacterForNewChat())
         private set
 
     fun setCharacterForNewChat(id: String?, name: String?) {
-        characterForNewChat = if (id.isNullOrBlank()) null else id to name.orEmpty()
+        val next = if (id.isNullOrBlank()) null else id to name.orEmpty()
+        characterForNewChat = next
+        runCatching {
+            val editor = Prefs.localAgentPreferences()?.edit() ?: return@runCatching
+            if (next == null) editor.remove(CHARACTER_FOR_NEW_CHAT_KEY)
+            else editor.putString(CHARACTER_FOR_NEW_CHAT_KEY, next.first + "|" + next.second)
+            editor.apply()
+        }
+        AndroidAgentLogger.info(
+            "new chat character set: id=" + (next?.first ?: "none") + ", name=" + (next?.second ?: "none")
+        )
     }
+
+    /** 绑定角色落 Prefs：重组、切会话或重进 App 都不该丢掉这个选择。 */
+    private fun loadCharacterForNewChat(): Pair<String, String>? = runCatching {
+        val raw = Prefs.localAgentPreferences()?.getString(CHARACTER_FOR_NEW_CHAT_KEY, null) ?: return null
+        val id = raw.substringBefore('|')
+        if (id.isBlank()) return null
+        id to raw.substringAfter('|', "")
+    }.getOrNull()
 
     fun createConversation() {
         // 选定了角色就按角色开会话；这里必须跳过，否则 startCharacterConversation 内部
@@ -1305,8 +1323,19 @@ internal class AgentAppState(
      */
     fun newConversationWithCharacter(characterId: String) {
         scope.launch {
-            val profile = runCatching { CharacterRepository.get(characterId) }.getOrNull() ?: return@launch
-            val binding = runCatching { CharacterRepository.binding(characterId) }.getOrNull() ?: return@launch
+            val profile = runCatching { CharacterRepository.get(characterId) }.getOrNull()
+            if (profile == null) {
+                AndroidAgentLogger.warn("new chat character missing: id=$characterId")
+                createPlainConversation()
+                return@launch
+            }
+            val binding = runCatching { CharacterRepository.binding(characterId) }.getOrNull()
+            if (binding == null) {
+                AndroidAgentLogger.warn("new chat character binding missing: id=$characterId")
+                createPlainConversation()
+                return@launch
+            }
+            AndroidAgentLogger.info("new chat with character: id=$characterId name=${profile.card.name}")
             startCharacterConversation(binding, profile.card.firstMessage)
         }
     }
@@ -3361,3 +3390,6 @@ private fun String.isReadOnlyExternalArchiveConversation(): Boolean =
 private fun agentBooleanForUi(key: String): Boolean {
     return Prefs.isEnabled(key)
 }
+
+/** 侧栏「新建会话」绑定角色的 Prefs 键。 */
+private const val CHARACTER_FOR_NEW_CHAT_KEY = "character_for_new_chat"
