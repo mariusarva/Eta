@@ -106,6 +106,7 @@ import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.material.icons.rounded.Checklist
 
 internal object ConversationPanelMetrics {
     val PaneHorizontalPadding = 16.dp
@@ -185,6 +186,8 @@ internal fun ConversationPaneTopBar(
     miuixBackdrop: LayerBackdrop?,
     onNewConversation: () -> Unit,
     modifier: Modifier = Modifier,
+    isSelecting: Boolean = false,
+    onToggleSelecting: () -> Unit = {},
 ) {
     val barContent: @Composable () -> Unit = {
         Row(
@@ -198,6 +201,7 @@ internal fun ConversationPaneTopBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PaneBrandHeader(modifier = Modifier.weight(1f))
+            PaneSelectionButton(active = isSelecting, onClick = onToggleSelecting)
             PaneNewChatButton(
                 hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
                 miuixBackdrop = miuixBackdrop,
@@ -276,6 +280,39 @@ private fun PaneBrandHeader(modifier: Modifier = Modifier) {
                 color = MiuixTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** 顶栏的多选入口：进入后可批量移动分类或删除会话。 */
+@Composable
+private fun PaneSelectionButton(active: Boolean, onClick: () -> Unit) {
+    val description = if (active) "退出多选" else "多选会话"
+    val colors = CouiPageDefaults.themeColors()
+    if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+        CouiIconButton(
+            onClick = onClick,
+            modifier = Modifier.semantics { contentDescription = description },
+            material = false,
+            backgroundColor = CouiTheme.colorScheme.surface,
+            minWidth = 40.dp,
+            minHeight = 40.dp,
+        ) {
+            CouiIcon(
+                imageVector = Icons.Rounded.Checklist,
+                contentDescription = description,
+                modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
+                tint = if (active) colors.accent else colors.title,
+            )
+        }
+    } else {
+        IconButton(onClick = onClick, minWidth = 40.dp, minHeight = 40.dp) {
+            Icon(
+                imageVector = Icons.Rounded.Checklist,
+                contentDescription = description,
+                modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
+                tint = if (active) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
             )
         }
     }

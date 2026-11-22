@@ -390,6 +390,10 @@ fun AgentAppRoot(
             onRenameCategory = { id, name -> agentState.renameConversationCategory(id, name) },
             onDeleteCategory = { agentState.deleteConversationCategory(it) },
             onMoveCategory = { id, delta -> agentState.moveConversationCategory(id, delta) },
+            onDeleteConversations = { ids -> agentState.deleteConversations(ids) },
+            onMoveConversationsToCategory = { ids, categoryId ->
+                agentState.moveConversationsToCategory(ids, categoryId)
+            },
             onOpenCharacters = { pushRoute(AppRoute.Characters) },
             onOpenPermissions = { pushRoute(AppRoute.Permissions) },
             onOpenSettings = { pushRoute(AppRoute.Settings) },

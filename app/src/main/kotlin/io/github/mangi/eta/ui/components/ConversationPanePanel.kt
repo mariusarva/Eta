@@ -124,6 +124,7 @@ import io.github.mangi.eta.ui.components.MiuixDialogActions
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import io.github.mangi.eta.ui.app.ConversationTimeLabels
+import androidx.compose.runtime.mutableStateMapOf
 
 @Stable
 private class PaneBarInsets {
@@ -157,6 +158,8 @@ internal fun ConversationPanePanel(
     onRenameCategory: (String, String) -> Unit = { _, _ -> },
     onDeleteCategory: (String) -> Unit = {},
     onMoveCategory: (String, Int) -> Unit = { _, _ -> },
+    onDeleteConversations: (List<String>) -> Unit = {},
+    onMoveConversationsToCategory: (List<String>, String?) -> Unit = { _, _ -> },
 
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -166,6 +169,9 @@ internal fun ConversationPanePanel(
     val isSearching = query.isNotBlank()
     var showCreateCategory by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
+    var selecting by remember { mutableStateOf(false) }
+    val selectedConversationIds = remember { mutableStateMapOf<String, Boolean>() }
+    var showMoveDialog by remember { mutableStateOf(false) }
     var showManageCategory by remember { mutableStateOf(false) }
     var renamingCategoryId by remember { mutableStateOf<String?>(null) }
     var renameCategoryText by remember { mutableStateOf("") }
@@ -279,9 +285,23 @@ internal fun ConversationPanePanel(
                                     ) { conversation ->
                                         ConversationHistoryRow(
                                             conversation = conversation,
-                                            selected = conversation.id == state.selectedConversationId,
+                                            selected = if (selecting) {
+                                                selectedConversationIds[conversation.id] == true
+                                            } else {
+                                                conversation.id == state.selectedConversationId
+                                            },
                                             miuixBackdrop = miuixBackdrop,
-                                            onClick = { onConversationSelected(conversation.id) },
+                                            onClick = {
+                                                if (selecting) {
+                                                    if (selectedConversationIds[conversation.id] == true) {
+                                                        selectedConversationIds.remove(conversation.id)
+                                                    } else {
+                                                        selectedConversationIds[conversation.id] = true
+                                                    }
+                                                } else {
+                                                    onConversationSelected(conversation.id)
+                                                }
+                                            },
                                             onTogglePin = { onConversationTogglePin(conversation) },
                                             onRename = { onConversationRename(conversation) },
                                             onExport = { onConversationExport(conversation) },
@@ -297,8 +317,30 @@ internal fun ConversationPanePanel(
                         couiBackdrop = couiBackdrop,
                         miuixBackdrop = miuixBackdrop,
                         onNewConversation = onNewConversation,
+                        isSelecting = selecting,
+                        onToggleSelecting = {
+                            selecting = !selecting
+                            if (!selecting) selectedConversationIds.clear()
+                        },
                     )
-                    ConversationPaneBottomDock(
+                    if (selecting) {
+                        ConversationBulkBar(
+                            selectedCount = selectedConversationIds.size,
+                            onMove = { if (selectedConversationIds.isNotEmpty()) showMoveDialog = true },
+                            onDelete = {
+                                val ids = selectedConversationIds.keys.toList()
+                                if (ids.isNotEmpty()) {
+                                    onDeleteConversations(ids)
+                                    selectedConversationIds.clear()
+                                    selecting = false
+                                }
+                            },
+                            onClear = {
+                                selectedConversationIds.clear()
+                                selecting = false
+                            },
+                        )
+                    } else ConversationPaneBottomDock(
                         query = state.searchQuery,
                         isRevealed = isRevealed,
                         hasPermissionAttention = hasPermissionAttention,
@@ -437,6 +479,41 @@ internal fun ConversationPanePanel(
                 }
             }
 
+            GlassDialog(
+                show = showMoveDialog,
+                title = "移到分类",
+                summary = "已选 ${selectedConversationIds.size} 项",
+                backdrop = currentGlassOverlayBackdrop(),
+                onDismissRequest = { showMoveDialog = false },
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    val ids = selectedConversationIds.keys.toList()
+                    val targets = listOf<Pair<String?, String>>(null to "未分类") +
+                        state.categories.map { it.id to it.name }
+                    targets.forEach { (id, name) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showMoveDialog = false
+                                    onMoveConversationsToCategory(ids, id)
+                                    selectedConversationIds.clear()
+                                    selecting = false
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = name,
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+            }
+
             // 侧栏物理右侧细微收边，保证浅/深/纯黑模式下与右侧聊天舞台始终保持利落边界。
             Box(
                 modifier = Modifier
@@ -446,6 +523,68 @@ internal fun ConversationPanePanel(
                     .background(conversationPaneEdgeBorderColor()),
             )
         }
+    }
+}
+
+/** 多选时的底部批量条：移动分类 / 删除 / 取消。 */
+@Composable
+private fun ConversationBulkBar(
+    selectedCount: Int,
+    onMove: () -> Unit,
+    onDelete: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (selectedCount == 0) "点会话开始多选" else "已选 " + selectedCount + " 项",
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.onSurface,
+            maxLines = 1,
+            softWrap = false,
+        )
+        Spacer(Modifier.weight(1f))
+        BulkActionChip(text = "移到分类", enabled = selectedCount > 0, onClick = onMove)
+        Spacer(Modifier.width(6.dp))
+        BulkActionChip(text = "删除", enabled = selectedCount > 0, onClick = onDelete)
+        Spacer(Modifier.width(6.dp))
+        BulkActionChip(text = "取消", onClick = onClear)
+    }
+}
+
+/** 批量条的紧凑按钮：侧栏宽度有限，用自绘小胶囊代替带最小宽度的 TextButton。 */
+@Composable
+private fun BulkActionChip(
+    text: String,
+    enabled: Boolean = true,
+    compact: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(9.dp))
+            .background(
+                MiuixTheme.colorScheme.surfaceContainer,
+                RoundedCornerShape(9.dp),
+            )
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = if (compact) 7.dp else 9.dp, vertical = if (compact) 4.dp else 5.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.onSurface.copy(alpha = if (enabled) 0.92f else 0.35f),
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
 
