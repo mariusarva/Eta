@@ -700,9 +700,9 @@ private fun SettingsPageContent(
                     }
                     item {
                         CouiPreference(
-                            title = "提示词预设",
+                            title = "提示词与工具边界",
                             icon = { CouiSettingsIcon(Icons.Rounded.TextFields, SettingsIconColors.Yellow) },
-                            onClick = { onNavigate(AppRoute.PromptPresets) },
+                            onClick = { onNavigate(AppRoute.PromptStudio) },
                         )
                     }
                     item {
@@ -1187,9 +1187,9 @@ private fun SettingsPageContent(
                             onClick = { onNavigate(AppRoute.GitHubAccount) },
                         )
                         ArrowPreference(
-                            title = "提示词预设",
+                            title = "提示词与工具边界",
                             startAction = { SettingsIcon(Icons.Rounded.TextFields) },
-                            onClick = { onNavigate(AppRoute.PromptPresets) },
+                            onClick = { onNavigate(AppRoute.PromptStudio) },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.route_skills),
