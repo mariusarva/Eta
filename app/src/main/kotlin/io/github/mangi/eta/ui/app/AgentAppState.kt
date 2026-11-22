@@ -1204,7 +1204,26 @@ internal class AgentAppState(
         }
     }
 
+    /** 侧栏「新建会话」绑定的角色（id to 名称）；非空时新建即进入该角色剧情。 */
+    var characterForNewChat by mutableStateOf<Pair<String, String>?>(null)
+        private set
+
+    fun setCharacterForNewChat(id: String?, name: String?) {
+        characterForNewChat = if (id.isNullOrBlank()) null else id to name.orEmpty()
+    }
+
     fun createConversation() {
+        // 选定了角色就按角色开会话；这里必须跳过，否则 startCharacterConversation 内部
+        // 再调 createConversation 会无限递归。
+        val bound = characterForNewChat
+        if (bound != null) {
+            newConversationWithCharacter(bound.first)
+            return
+        }
+        createPlainConversation()
+    }
+
+    private fun createPlainConversation() {
         conversationSelectionVersion += 1
         cancelHistoryPageLoad()
         conversationSelectionJob?.cancel()
@@ -1293,7 +1312,7 @@ internal class AgentAppState(
     }
 
     fun startCharacterConversation(binding: RoleplayBinding, greeting: String) {
-        createConversation()
+        createPlainConversation()
         val id = newConversationId()
         val greetingId = "greeting-$id"
         val text = CharacterMacros.expand(

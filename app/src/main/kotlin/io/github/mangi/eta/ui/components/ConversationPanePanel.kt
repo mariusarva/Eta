@@ -691,7 +691,7 @@ private fun PaneDialog(
                 .fillMaxSize()
                 // 自己压一层遮罩：系统 Dialog 的 scrim 很淡，弹窗后面的会话列表会显得透，
                 // 加上这层后卡片与列表的对比才够。
-                .background(Color.Black.copy(alpha = 0.42f))
+                .background(Color.Black.copy(alpha = 0.62f))
                 .clickable(
                     interactionSource = null,
                     indication = null,
@@ -1532,7 +1532,7 @@ private sealed interface ConversationDrawerSection {
 @Composable
 private fun paneOpaqueDialogColor(): Color {
     val light = MiuixTheme.colorScheme.surface.luminance() >= 0.5f
-    return if (light) Color(0xFFF7F7FA) else Color(0xFF1C1C1E)
+    return if (light) Color(0xFFFFFFFF) else Color(0xFF2A2A2E)
 }
 
 private fun ConversationDrawerSection.key(): String = when (this) {

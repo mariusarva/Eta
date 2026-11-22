@@ -216,7 +216,7 @@ internal fun ConversationPaneTopBar(
             if (onPickCharacterForNewConversation != null) {
                 PaneTopBarActionButton(
                     icon = Icons.Rounded.Person,
-                    description = "用角色新建对话",
+                    description = "选择新建对话的角色",
                     onClick = onPickCharacterForNewConversation,
                 )
                 Spacer(Modifier.width(6.dp))
