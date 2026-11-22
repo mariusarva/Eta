@@ -762,7 +762,12 @@ private fun MiuixWorkbenchRow(entry: WorkbenchEntry) {
 }
 
 
-/** 分类筛选条：全部 + 各分类，点一下切换筛选。 */
+/**
+ * 分类筛选条：左侧「全部 + 各分类」横向滚动，右侧固定「＋新建」「⋯管理」。
+ *
+ * 之前 ＋ / ⋯ 也放在滚动容器里，侧栏宽度只有 200dp 出头，分类一多它们就被挤出可视区，
+ * 只能看到被裁掉的边缘，点上去落在滚动容器上，表现为「按钮无效」。
+ */
 @Composable
 private fun ConversationCategoryFilterRow(
     categories: List<ConversationCategoryUi>,
@@ -781,83 +786,67 @@ private fun ConversationCategoryFilterRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(start = horizontalInset, end = horizontalInset, top = 4.dp, bottom = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(start = horizontalInset, end = horizontalInset, top = 2.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        entries.forEach { (id, label) ->
-            val active = id == selectedId
-            val container = when {
-                isCoui && active -> CouiPageDefaults.themeColors().accent
-                isCoui -> CouiPageDefaults.themeColors().card
-                active -> MiuixTheme.colorScheme.onSurface
-                else -> MiuixTheme.colorScheme.surfaceContainerHigh
-            }
-            val content = when {
-                isCoui && active -> CouiPageDefaults.themeColors().card
-                isCoui -> CouiPageDefaults.themeColors().summary
-                active -> MiuixTheme.colorScheme.surface
-                else -> MiuixTheme.colorScheme.onSurface
-            }
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(container)
-                    .clickable(role = Role.Button) { onSelect(id) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (isCoui) {
-                    CouiText(
-                        text = label,
-                        kind = CouiTextKind.ItemSummary,
-                        color = content,
-                        maxLines = 1,
-                    )
-                } else {
-                    Text(
-                        text = label,
-                        style = MiuixTheme.textStyles.footnote1,
-                        color = content,
-                        maxLines = 1,
-                    )
-                }
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            entries.forEach { (id, label) ->
+                CategoryChip(
+                    label = label,
+                    active = id == selectedId,
+                    isCoui = isCoui,
+                    onClick = { onSelect(id) },
+                )
             }
         }
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(
-                    if (isCoui) CouiPageDefaults.themeColors().card
-                    else MiuixTheme.colorScheme.surfaceContainerHigh
-                )
-                .clickable(role = Role.Button, onClickLabel = "新建分类", onClick = onCreate)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            contentAlignment = Alignment.Center,
-        ) {
+        CategoryChip(label = "＋", active = false, isCoui = isCoui, onClick = onCreate)
+        Spacer(Modifier.width(4.dp))
+        CategoryChip(label = "⋯", active = false, isCoui = isCoui, onClick = onManage)
+    }
+}
+
+/** 分类胶囊：筛选与操作共用同一外形，保证一行内视觉齐整。 */
+@Composable
+private fun CategoryChip(
+    label: String,
+    active: Boolean,
+    isCoui: Boolean,
+    onClick: () -> Unit,
+) {
+    val container = when {
+        isCoui && active -> CouiPageDefaults.themeColors().accent
+        isCoui -> CouiPageDefaults.themeColors().card
+        active -> MiuixTheme.colorScheme.onSurface
+        else -> MiuixTheme.colorScheme.surfaceContainerHigh
+    }
+    val content = when {
+        isCoui && active -> CouiPageDefaults.themeColors().card
+        isCoui -> CouiPageDefaults.themeColors().summary
+        active -> MiuixTheme.colorScheme.surface
+        else -> MiuixTheme.colorScheme.onSurface
+    }
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(container)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isCoui) {
+            CouiText(text = label, kind = CouiTextKind.ItemSummary, color = content, maxLines = 1)
+        } else {
             Text(
-                text = "＋",
-                style = MiuixTheme.textStyles.footnote1,
-                color = if (isCoui) CouiPageDefaults.themeColors().summary
-                else MiuixTheme.colorScheme.onSurface,
-            )
-        }
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(
-                    if (isCoui) CouiPageDefaults.themeColors().card
-                    else MiuixTheme.colorScheme.surfaceContainerHigh
-                )
-                .clickable(role = Role.Button, onClickLabel = "管理分类", onClick = onManage)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "⋯",
-                style = MiuixTheme.textStyles.footnote1,
-                color = if (isCoui) CouiPageDefaults.themeColors().summary
-                else MiuixTheme.colorScheme.onSurface,
+                text = label,
+                style = MiuixTheme.textStyles.footnote2.copy(fontSize = 12.sp),
+                color = content,
+                maxLines = 1,
             )
         }
     }

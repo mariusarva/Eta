@@ -143,14 +143,19 @@ import androidx.compose.material.icons.rounded.Reply
 private val SendButtonVisualSize = ChatInputActionIconSize
 private val SendIconSize = 16.dp
 private val StopIconSize = 10.dp
-/** 字形放大倍数：Material 图标留白多，1.35 倍后视觉大小才与按钮圆匹配。 */
-private val StopGlyphScale = 1.35f
-/** 暂停/继续/注入按钮的图标尺寸，与停止图标同档。 */
-private val ActionIconSize = 16.dp
-/** 运行中暂停/注入按钮：比常规动作键小一档，且不被 Row 压缩。 */
-private val RunActionButtonSize = 36.dp
-/** 运行操作按钮（麦克风/暂停/插入/停止）之间的统一间距。 */
-private val RunActionGap = 12.dp
+/**
+ * 暂停 / 插入按钮的视觉圆直径。
+ *
+ * 必须与输入条主键（发送 / 停止）的实心圆一致：上游主键是 32dp，
+ * 之前这三键按 24dp 画，暂停与插入明显比停止小一圈。
+ */
+private val RunActionVisualSize = 32.dp
+/** 命中区比视觉圆大一档，保证可点面积符合最小触控尺寸。 */
+private val RunActionButtonSize = 40.dp
+/** 图标尺寸：32dp 圆内留 7dp 边距，比 24dp 圆里的同比例更大更清晰。 */
+private val ActionIconSize = 18.dp
+/** 运行操作按钮（暂停 / 插入 / 停止）之间的统一间距。 */
+private val RunActionGap = 8.dp
 
 /**
  * 运行中操作键（暂停/继续、注入）的统一外形。
@@ -176,7 +181,7 @@ private fun RunActionButton(
     ) {
         Box(
             modifier = Modifier
-                .size(SendButtonVisualSize)
+                .size(RunActionVisualSize)
                 .clip(CircleShape)
                 .background(MiuixTheme.colorScheme.surfaceContainerHigh),
             contentAlignment = Alignment.Center,
@@ -621,7 +626,7 @@ internal fun AgentChatInputBar(
                                 Icon(
                                     imageVector = if (isRunPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
                                     contentDescription = null,
-                                    modifier = Modifier.size(ActionIconSize).scale(StopGlyphScale),
+                                    modifier = Modifier.size(ActionIconSize),
                                     tint = MiuixTheme.colorScheme.onSurface,
                                 )
                             }
@@ -633,7 +638,7 @@ internal fun AgentChatInputBar(
                                 Icon(
                                     imageVector = Icons.Rounded.Reply,
                                     contentDescription = null,
-                                    modifier = Modifier.size(ActionIconSize).scale(StopGlyphScale),
+                                    modifier = Modifier.size(ActionIconSize),
                                     tint = MiuixTheme.colorScheme.onSurface,
                                 )
                             }
@@ -665,7 +670,7 @@ internal fun AgentChatInputBar(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(SendButtonVisualSize)
+                                        .size(RunActionVisualSize)
                                         .clip(CircleShape)
                                         .background(MiuixTheme.colorScheme.surfaceContainerHigh),
                                     contentAlignment = Alignment.Center,
