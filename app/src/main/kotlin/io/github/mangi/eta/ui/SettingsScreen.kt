@@ -1057,7 +1057,7 @@ private fun SettingsPageContent(
                                     SettingsIconColors.Orange,
                                 )
                             },
-                            onClick = { openUrl("https://github.com/Mangi-11/Eta/issues") },
+                            onClick = { openUrl("https://github.com/mariusarva/Eta/issues") },
                         )
                     }
                     item {
@@ -1065,7 +1065,7 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.ui_about_github_star_title),
                             summary = stringResource(R.string.ui_about_github_star_hint),
                             icon = { CouiSettingsIcon(Icons.Rounded.Code, SettingsIconColors.Blue) },
-                            onClick = { openUrl("https://github.com/Mangi-11/Eta") },
+                            onClick = { openUrl("https://github.com/mariusarva/Eta") },
                         )
                     }
                 }
@@ -1482,13 +1482,13 @@ private fun SettingsPageContent(
                         ArrowPreference(
                             title = stringResource(R.string.ui_about_feedback_title),
                             startAction = { SettingsIcon(Icons.Rounded.BugReport) },
-                            onClick = { openUrl("https://github.com/Mangi-11/Eta/issues") },
+                            onClick = { openUrl("https://github.com/mariusarva/Eta/issues") },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.ui_about_github_star_title),
                             summary = stringResource(R.string.ui_about_github_star_hint),
                             startAction = { SettingsIcon(Icons.Rounded.Code) },
-                            onClick = { openUrl("https://github.com/Mangi-11/Eta") },
+                            onClick = { openUrl("https://github.com/mariusarva/Eta") },
                         )
                     }
                 }
