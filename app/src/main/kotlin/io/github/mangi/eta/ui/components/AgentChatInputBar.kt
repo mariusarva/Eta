@@ -570,6 +570,12 @@ internal fun AgentChatInputBar(
 
                         Spacer(modifier = Modifier.weight(1f))
 
+                        // 能力胶囊（MCP / 技能 / 内存）：只在有消息时显示，避免空白首页多一行。
+                        if (showContextUsage && !isStreaming) {
+                            CapabilityCapsule()
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+
                         // 运行中隐藏上下文用量，把宽度留给暂停/注入，避免挤压发送键。
                         if (showContextUsage && !isStreaming && contextUsage.contextTokens != null) {
                             AgentContextUsageButton(
