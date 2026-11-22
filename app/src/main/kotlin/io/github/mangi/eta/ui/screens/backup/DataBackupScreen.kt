@@ -57,7 +57,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.style.TextOverflow
-import io.github.mangi.eta.ui.app.currentGlassOverlayBackdrop
 import android.content.Intent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -89,7 +88,8 @@ internal fun DataBackupScreen(
     var autoBackups by remember { mutableStateOf<List<AutoBackupFile>>(emptyList()) }
     fun applyAuto(transform: (AutoBackupSettings) -> AutoBackupSettings) {
         scope.launch {
-            autoSettings = SettingsDataStore.updateAutoBackupSettings { transform(it).normalized() }
+            SettingsDataStore.updateAutoBackupSettings { transform(it).normalized() }
+            autoSettings = runCatching { SettingsDataStore.autoBackupSettings() }.getOrDefault(autoSettings)
             AutoBackupAlarm.refresh(context)
             autoLocation = AutoBackupRunner.locationLabel(context, autoSettings)
             autoStatusText = autoStatusLabel(autoSettings)
