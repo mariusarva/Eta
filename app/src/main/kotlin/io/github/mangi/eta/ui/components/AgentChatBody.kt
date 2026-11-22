@@ -551,6 +551,8 @@ internal fun AgentConversationMessages(
     visibleMessages: List<AgentChatMessageUi>,
     scrollState: LazyListState,
     allTurns: List<ChatTurnEntry> = emptyList(),
+    pendingJumpMessageId: String? = null,
+    onJumpHandled: () -> Unit = {},
     isStreaming: Boolean,
     bottomInset: Dp,
     keepBottomAnchored: Boolean,
