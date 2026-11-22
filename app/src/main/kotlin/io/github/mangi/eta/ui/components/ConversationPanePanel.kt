@@ -678,9 +678,9 @@ private fun PaneDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
-                // 必须不透明：surfaceContainer 带透明度时，对话框下方的会话列表会透上来，
-                // 视觉上像文字错位叠在一起。
-                .background(MiuixTheme.colorScheme.surface)
+                // 必须不透明：Miuix 的 surface / surfaceContainer 系列在深色主题下都带 alpha，
+                // 对话框下方的内容会透上来，文字直接糊在一起。这里用绝对色。
+                .background(paneOpaqueDialogColor())
                 .padding(18.dp),
         ) {
             if (!title.isNullOrBlank()) {
@@ -1466,6 +1466,13 @@ private sealed interface ConversationDrawerSection {
     data object Pinned : ConversationDrawerSection
     data object Today : ConversationDrawerSection
     data class Dated(val label: String) : ConversationDrawerSection
+}
+
+/** 对话框实色底：Miuix 的 surface 系列带透明度，弹窗会透出下层列表。 */
+@Composable
+private fun paneOpaqueDialogColor(): Color {
+    val light = MiuixTheme.colorScheme.surface.luminance() >= 0.5f
+    return if (light) Color(0xFFF7F7FA) else Color(0xFF1C1C1E)
 }
 
 private fun ConversationDrawerSection.key(): String = when (this) {
