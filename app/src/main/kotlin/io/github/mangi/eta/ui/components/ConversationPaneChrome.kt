@@ -108,6 +108,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.outlined.Folder
 
 internal object ConversationPanelMetrics {
     val PaneHorizontalPadding = 16.dp
@@ -298,24 +299,37 @@ private fun PaneBrandHeader(modifier: Modifier = Modifier) {
 
 /** 顶栏的分类管理入口：新建、改名、排序、删除都在那个对话框里。 */
 @Composable
-private fun PaneManageCategoriesButton(onClick: () -> Unit) {
+private fun PaneManageCategoriesButton(
+    hasCouiToolbarBackdrop: Boolean,
+    onClick: () -> Unit,
+) {
     val description = "管理分类"
     val colors = CouiPageDefaults.themeColors()
     if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
-        CouiIconButton(
-            onClick = onClick,
-            modifier = Modifier.semantics { contentDescription = description },
-            material = false,
-            backgroundColor = CouiTheme.colorScheme.surface,
-            minWidth = 40.dp,
-            minHeight = 40.dp,
-        ) {
-            CouiIcon(
-                imageVector = Icons.Rounded.Folder,
+        if (hasCouiToolbarBackdrop) {
+            CouiTopAppBarIconButton(
+                icon = Icons.Outlined.Folder,
                 contentDescription = description,
-                modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
-                tint = colors.title,
+                onClick = onClick,
+                colors = colors,
+                iconSize = ConversationPanelMetrics.NewChatIconSize,
             )
+        } else {
+            CouiIconButton(
+                onClick = onClick,
+                modifier = Modifier.semantics { contentDescription = description },
+                material = false,
+                backgroundColor = CouiTheme.colorScheme.surface,
+                minWidth = 40.dp,
+                minHeight = 40.dp,
+            ) {
+                CouiIcon(
+                    imageVector = Icons.Outlined.Folder,
+                    contentDescription = description,
+                    modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
+                    tint = colors.title,
+                )
+            }
         }
     } else {
         GlassIconButton(
@@ -324,7 +338,7 @@ private fun PaneManageCategoriesButton(onClick: () -> Unit) {
             size = GlassTopAppBarDefaults.ButtonSize,
         ) {
             Icon(
-                imageVector = Icons.Rounded.Folder,
+                imageVector = Icons.Outlined.Folder,
                 contentDescription = description,
                 modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
                 tint = MiuixTheme.colorScheme.onSurface,
