@@ -197,7 +197,29 @@ internal fun AgentChatBody(
     isDrawerOpen: Boolean = false,
     topInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
+    conversationId: String = "",
 ) {
+    // 轮次导航读全库用户消息：消息本身是分页加载的，按已加载消息切轮次会让长会话少算前面的轮。
+    val appContext = LocalContext.current.applicationContext
+    var allTurns by remember(conversationId) { mutableStateOf<List<ChatTurnEntry>>(emptyList()) }
+    LaunchedEffect(conversationId, isStreaming) {
+        if (conversationId.isBlank()) return@LaunchedEffect
+        val digests = withContext(Dispatchers.IO) {
+            runCatching {
+                io.github.mangi.eta.data.db.EtaDatabase.get(appContext)
+                    .conversationDao()
+                    .userMessageDigests(conversationId)
+            }.getOrDefault(emptyList())
+        }
+        allTurns = digests.mapIndexed { index, digest ->
+            ChatTurnEntry(
+                index = index + 1,
+                firstMessageId = digest.id,
+                preview = digest.content.trim(),
+                timestampMillis = digest.createdAt,
+            )
+        }
+    }
     val visibleMessages = remember(messages, messageEdit?.targetMessageId, messageEdit?.preserveFollowingMessages) {
         AgentConversationRevisionReducer.visibleMessagesForEdit(
             messages = messages,
@@ -257,6 +279,7 @@ internal fun AgentChatBody(
     SpeechPlaybackHost {
         SpeechAutoReadAloud(messages = messages, isStreaming = isStreaming)
         AgentChatScaffold(
+            allTurns = allTurns,
             visibleMessages = visibleMessages,
             hasMessages = visibleMessages.isNotEmpty() || hasEarlierMessages,
             scrollState = scrollState,
@@ -391,7 +414,9 @@ private fun AgentChatScaffold(
     onHistoryViewportChanged: (Boolean) -> Unit,
     topInset: Dp,
     modifier: Modifier = Modifier,
+    allTurns: List<ChatTurnEntry> = emptyList(),
 ) {
+    val scope = rememberCoroutineScope()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val chatBackdrop = if (isCoui) null else rememberGlassBackdrop()
     val couiChatBackdrop = if (isCoui) rememberCouiPageBackdrop(CouiTheme.colorScheme.backgroundWithCard) else null
@@ -949,6 +974,31 @@ internal fun AgentConversationMessages(
                     }
                 }
             }
+            // 底部上拉小横条：展开当前会话的轮次列表，点击跳转。
+            ChatTurnNavigator(
+                messages = visibleMessages,
+                allTurns = allTurns,
+                onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
+                onJumpToMessage = { messageId ->
+                    // 目标可能在还没加载的历史里：先按页往前加载，直到这条消息出现。
+                    scope.launch {
+                        var guard = 0
+                        fun indexOfTarget(): Int = timelineEntries.indexOfFirst { entry ->
+                            when (entry) {
+                                is AgentTimelineEntry.Message -> entry.message.id == messageId
+                                is AgentTimelineEntry.WorkProcess ->
+                                    entry.messages.any { it.id == messageId }
+                            }
+                        }
+                        while (indexOfTarget() < 0 && hasEarlierMessages && guard++ < 80) {
+                            onLoadEarlierMessages()
+                            delay(250)
+                        }
+                        val target = indexOfTarget()
+                        if (target >= 0) scrollState.animateScrollToItem(target)
+                    }
+                },
+            )
         }
     }
 }

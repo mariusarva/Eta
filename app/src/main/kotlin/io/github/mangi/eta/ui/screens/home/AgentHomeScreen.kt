@@ -57,6 +57,7 @@ internal fun AgentHomeScreen(
                 LocalAgentBrowserSession provides browser,
             ) {
                 AgentChatBody(
+                    conversationId = conversationKey.orEmpty(),
                     messages = state.messages,
                     modelPickerState = modelPickerState,
                     topInset = topInset,
