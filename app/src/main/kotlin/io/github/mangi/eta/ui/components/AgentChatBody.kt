@@ -224,6 +224,8 @@ internal fun AgentChatBody(
             )
         }
     }
+    // 轮次横条在输入栏上方，点击某一轮时把目标 id 交给消息区执行跳转。
+    var pendingJumpMessageId by remember(conversationId) { mutableStateOf<String?>(null) }
     val visibleMessages = remember(messages, messageEdit?.targetMessageId, messageEdit?.preserveFollowingMessages) {
         AgentConversationRevisionReducer.visibleMessagesForEdit(
             messages = messages,
@@ -284,6 +286,9 @@ internal fun AgentChatBody(
         SpeechAutoReadAloud(messages = messages, isStreaming = isStreaming)
         AgentChatScaffold(
             allTurns = allTurns,
+            pendingJumpMessageId = pendingJumpMessageId,
+            onJumpHandled = { pendingJumpMessageId = null },
+            onJumpRequest = { pendingJumpMessageId = it },
             visibleMessages = visibleMessages,
             hasMessages = visibleMessages.isNotEmpty() || hasEarlierMessages,
             scrollState = scrollState,
@@ -419,6 +424,9 @@ private fun AgentChatScaffold(
     topInset: Dp,
     modifier: Modifier = Modifier,
     allTurns: List<ChatTurnEntry> = emptyList(),
+    pendingJumpMessageId: String? = null,
+    onJumpHandled: () -> Unit = {},
+    onJumpRequest: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
@@ -436,6 +444,16 @@ private fun AgentChatScaffold(
             bottom = 0.dp,
         ),
         bottomBar = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+            // 轮次横条放在输入栏正上方：消息区里 align 到 Box 底部时会被输入栏吃掉，
+            // 放在 bottomBar 里则跟着输入栏一起排，任何屏幕高度都看得见。
+            ChatTurnNavigator(
+                messages = visibleMessages,
+                allTurns = allTurns,
+                onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
+                onJumpToMessage = onJumpRequest,
+                modifier = Modifier.padding(bottom = 2.dp),
+            )
             AgentChatBottomBar(
                 input = input,
                 isCompacting = isCompacting,
@@ -473,6 +491,7 @@ private fun AgentChatScaffold(
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
             )
+            }
         },
     ) { innerPadding ->
         val bottomPadding = innerPadding.calculateBottomPadding()
@@ -495,6 +514,8 @@ private fun AgentChatScaffold(
                     visibleMessages = visibleMessages,
                     scrollState = scrollState,
                     allTurns = allTurns,
+                    pendingJumpMessageId = pendingJumpMessageId,
+                    onJumpHandled = onJumpHandled,
                     isStreaming = isStreaming,
                     topInset = topInset,
                     bottomInset = bottomPadding,
@@ -561,6 +582,25 @@ internal fun AgentConversationMessages(
         visibleMessages.toTimelineEntries(previous = timelineCache.entries)
     }
     SideEffect { timelineCache.entries = timelineEntries }
+
+    // 轮次横条点某一轮：先把目标从历史里按页加载出来，再滚过去。
+    LaunchedEffect(pendingJumpMessageId) {
+        val targetId = pendingJumpMessageId ?: return@LaunchedEffect
+        fun indexOfTarget(): Int = timelineEntries.indexOfFirst { entry ->
+            when (entry) {
+                is AgentTimelineEntry.Message -> entry.message.id == targetId
+                is AgentTimelineEntry.WorkProcess -> entry.messages.any { it.id == targetId }
+            }
+        }
+        var guard = 0
+        while (indexOfTarget() < 0 && hasEarlierMessages && guard++ < 80) {
+            onLoadEarlierMessages()
+            delay(250)
+        }
+        val target = indexOfTarget()
+        if (target >= 0) scrollState.animateScrollToItem(target)
+        onJumpHandled()
+    }
     val activeWorkProcessKey = if (isStreaming) {
         (timelineEntries.lastOrNull() as? AgentTimelineEntry.WorkProcess)?.key
     } else {
@@ -982,37 +1022,6 @@ internal fun AgentConversationMessages(
                     }
                 }
             }
-            // 底部上拉小横条：展开当前会话的轮次列表，点击跳转。
-            // 必须显式 align 到底部：ChatTurnNavigator 自己只有 fillMaxWidth，
-            // 放进 Box 后默认按 TopStart 排，会被消息列表压在屏幕顶部看不见。
-            ChatTurnNavigator(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .zIndex(2f)
-                    .padding(bottom = 6.dp),
-                messages = visibleMessages,
-                allTurns = allTurns,
-                onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
-                onJumpToMessage = { messageId ->
-                    // 目标可能在还没加载的历史里：先按页往前加载，直到这条消息出现。
-                    coroutineScope.launch {
-                        var guard = 0
-                        fun indexOfTarget(): Int = timelineEntries.indexOfFirst { entry ->
-                            when (entry) {
-                                is AgentTimelineEntry.Message -> entry.message.id == messageId
-                                is AgentTimelineEntry.WorkProcess ->
-                                    entry.messages.any { it.id == messageId }
-                            }
-                        }
-                        while (indexOfTarget() < 0 && hasEarlierMessages && guard++ < 80) {
-                            onLoadEarlierMessages()
-                            delay(250)
-                        }
-                        val target = indexOfTarget()
-                        if (target >= 0) scrollState.animateScrollToItem(target)
-                    }
-                },
-            )
         }
     }
 }

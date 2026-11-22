@@ -205,11 +205,6 @@ internal fun ConversationPaneTopBar(
         ) {
             PaneBrandHeader(modifier = Modifier.weight(1f))
             val hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null
-            PaneManageCategoriesButton(
-                hasCouiToolbarBackdrop = hasCouiToolbarBackdrop,
-                onClick = onManageCategories,
-            )
-            Spacer(Modifier.width(6.dp))
             PaneSelectionButton(
                 active = isSelecting,
                 hasCouiToolbarBackdrop = hasCouiToolbarBackdrop,

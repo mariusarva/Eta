@@ -175,8 +175,8 @@ internal fun ConversationPanePanel(
     val isSearching = query.isNotBlank()
     var showCreateCategory by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
-    // null 表示用户还没动过：默认把所有分类分组收敛成标题行，避免分类一多把会话列表顶走。
-    var collapsedSections by remember { mutableStateOf<Set<String>?>(null) }
+    // 会话列表按时间分组，分组标题可手动折叠。
+    var collapsedSections by remember { mutableStateOf<Set<String>>(emptySet()) }
     var selecting by remember { mutableStateOf(false) }
     val selectedConversationIds = remember { mutableStateMapOf<String, Boolean>() }
     var showMoveDialog by remember { mutableStateOf(false) }
@@ -256,6 +256,7 @@ internal fun ConversationPanePanel(
                                         onOpenTools = onOpenTools,
                                         onOpenSkills = onOpenSkills,
                                         onOpenScheduledTasks = onOpenScheduledTasks,
+                                        onOpenCategories = { showManageCategory = true },
                                     )
                                 }
                             }
@@ -268,7 +269,6 @@ internal fun ConversationPanePanel(
                                 groups.forEachIndexed { groupIndex, group ->
                                     val sectionKey = group.section.key()
                                     val collapsedSet = collapsedSections
-                                        ?: state.categories.map { "category-" + it.id }.toSet()
                                     val collapsed = sectionKey in collapsedSet
                                     val categoryId = (group.section as? ConversationDrawerSection.Category)?.id
                                     item(key = "section-$sectionKey") {
@@ -718,6 +718,7 @@ private fun PaneWorkbenchSection(
     onOpenTools: () -> Unit,
     onOpenSkills: () -> Unit,
     onOpenScheduledTasks: () -> Unit = {},
+    onOpenCategories: () -> Unit = {},
 ) {
     val modelSummary = activeModelLabel?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.conversation_model_unconfigured)
@@ -747,6 +748,11 @@ private fun PaneWorkbenchSection(
             icon = ConversationPaneIcons.Schedule,
             title = stringResource(R.string.route_scheduled_tasks),
             onClick = onOpenScheduledTasks,
+        ),
+        WorkbenchEntry(
+            icon = Icons.Outlined.Folder,
+            title = "会话分类",
+            onClick = onOpenCategories,
         ),
     )
 
@@ -1488,21 +1494,10 @@ private fun List<ConversationSummaryUi>.groupForDrawer(
         groups += ConversationDrawerGroup(ConversationDrawerSection.Pinned, pinned)
     }
 
-    // 分类分组按 sort_order 顺序，只收非置顶会话。
-    val categorized = mutableSetOf<String>()
-    categories.forEach { category ->
-        val items = filter { !it.isPinned && it.categoryId == category.id }
-        categorized += items.map { it.id }
-        // 空分类也要出现：否则「在分类下新建」和「移到分类」都没有可落点的入口。
-        groups += ConversationDrawerGroup(
-            ConversationDrawerSection.Category(category.id, category.name),
-            items,
-        )
-    }
-
-    // 其余（未分类，或分类已被删除）沿用时间分组。
+    // 分类不再切分会话列表：它是侧栏工作台里的一行入口。
+    // 会话统一按「置顶 → 今天 → 更早」分组。
     for (conversation in this) {
-        if (conversation.isPinned || conversation.id in categorized) continue
+        if (conversation.isPinned) continue
         val section = conversation.drawerSection()
         val last = groups.lastOrNull()
         if (last?.section == section) {
