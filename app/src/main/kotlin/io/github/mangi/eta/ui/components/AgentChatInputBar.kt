@@ -412,9 +412,16 @@ internal fun AgentChatInputBar(
             label = "input_container_border_width",
         )
         val miuixInputShape = remember { GlassShape(24.dp) }
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // 能力胶囊贴在输入框右上角：框外上沿、右对齐，不遮挡输入文字。
+            if (showContextUsage && !isStreaming) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    CapabilityCapsule()
+                }
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -569,12 +576,6 @@ internal fun AgentChatInputBar(
                         }
 
                         Spacer(modifier = Modifier.weight(1f))
-
-                        // 能力胶囊（MCP / 技能 / 内存）：只在有消息时显示，避免空白首页多一行。
-                        if (showContextUsage && !isStreaming) {
-                            CapabilityCapsule()
-                            Spacer(modifier = Modifier.width(4.dp))
-                        }
 
                         // 运行中隐藏上下文用量，把宽度留给暂停/注入，避免挤压发送键。
                         if (showContextUsage && !isStreaming && contextUsage.contextTokens != null) {
