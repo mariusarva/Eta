@@ -394,6 +394,7 @@ fun AgentAppRoot(
             onMoveConversationsToCategory = { ids, categoryId ->
                 agentState.moveConversationsToCategory(ids, categoryId)
             },
+            onNewConversationInCategory = { categoryId -> agentState.createConversationInCategory(categoryId) },
             onOpenCharacters = { pushRoute(AppRoute.Characters) },
             onOpenPermissions = { pushRoute(AppRoute.Permissions) },
             onOpenSettings = { pushRoute(AppRoute.Settings) },

@@ -980,7 +980,12 @@ internal fun AgentConversationMessages(
                 }
             }
             // 底部上拉小横条：展开当前会话的轮次列表，点击跳转。
+            // 必须显式 align 到底部：ChatTurnNavigator 自己只有 fillMaxWidth，
+            // 放进 Box 后默认按 TopStart 排，会被消息列表压在屏幕顶部看不见。
             ChatTurnNavigator(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 2.dp),
                 messages = visibleMessages,
                 allTurns = allTurns,
                 onDeleteTurn = { messageId -> onDeleteMessage(messageId) },

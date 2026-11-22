@@ -90,6 +90,7 @@ fun ConversationSidePaneScaffold(
     onMoveCategory: (String, Int) -> Unit = { _, _ -> },
     onDeleteConversations: (List<String>) -> Unit = {},
     onMoveConversationsToCategory: (List<String>, String?) -> Unit = { _, _ -> },
+    onNewConversationInCategory: (String?) -> Unit = {},
     onOpenCharacters: () -> Unit,
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -251,6 +252,7 @@ fun ConversationSidePaneScaffold(
                         onMoveCategory = onMoveCategory,
                         onDeleteConversations = onDeleteConversations,
                         onMoveConversationsToCategory = onMoveConversationsToCategory,
+                        onNewConversationInCategory = onNewConversationInCategory,
                         onOpenCharacters = onOpenCharacters,
                         onOpenPermissions = onOpenPermissions,
                         modifier = Modifier

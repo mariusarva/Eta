@@ -3209,13 +3209,11 @@ internal class AgentAppState(
                 )
             }
         val query = conversationPaneState.searchQuery.trim()
-        // 筛选分类被删掉后自动退回「全部」，避免侧栏永远空着。
-        val filterId = conversationPaneState.categoryFilterId
-            ?.takeIf { id -> conversationCategoryList.any { it.id == id } }
-        val summariesInFilter = if (filterId == null) summaries else summaries.filter { it.categoryId == filterId }
+        // 侧栏改成「分类分组」后不再有筛选态：分类只决定分组，不隐藏会话。
+        val summariesInFilter = summaries
         conversationPaneState = conversationPaneState.copy(
             selectedConversationId = selectedConversationId,
-            categoryFilterId = filterId,
+            categoryFilterId = null,
             categories = conversationCategoryList.map { category ->
                 io.github.mangi.eta.ui.model.ConversationCategoryUi(
                     id = category.id,

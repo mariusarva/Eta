@@ -107,6 +107,7 @@ import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.Folder
 
 internal object ConversationPanelMetrics {
     val PaneHorizontalPadding = 16.dp
@@ -188,6 +189,7 @@ internal fun ConversationPaneTopBar(
     modifier: Modifier = Modifier,
     isSelecting: Boolean = false,
     onToggleSelecting: () -> Unit = {},
+    onManageCategories: () -> Unit = {},
 ) {
     val barContent: @Composable () -> Unit = {
         Row(
@@ -201,6 +203,7 @@ internal fun ConversationPaneTopBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PaneBrandHeader(modifier = Modifier.weight(1f))
+            PaneManageCategoriesButton(onClick = onManageCategories)
             PaneSelectionButton(active = isSelecting, onClick = onToggleSelecting)
             PaneNewChatButton(
                 hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
@@ -280,6 +283,43 @@ private fun PaneBrandHeader(modifier: Modifier = Modifier) {
                 color = MiuixTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** 顶栏的分类管理入口：新建、改名、排序、删除都在那个对话框里。 */
+@Composable
+private fun PaneManageCategoriesButton(onClick: () -> Unit) {
+    val description = "管理分类"
+    val colors = CouiPageDefaults.themeColors()
+    if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+        CouiIconButton(
+            onClick = onClick,
+            modifier = Modifier.semantics { contentDescription = description },
+            material = false,
+            backgroundColor = CouiTheme.colorScheme.surface,
+            minWidth = 40.dp,
+            minHeight = 40.dp,
+        ) {
+            CouiIcon(
+                imageVector = Icons.Rounded.Folder,
+                contentDescription = description,
+                modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
+                tint = colors.title,
+            )
+        }
+    } else {
+        GlassIconButton(
+            onClick = onClick,
+            backdrop = currentGlassOverlayBackdrop(),
+            size = GlassTopAppBarDefaults.ButtonSize,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Folder,
+                contentDescription = description,
+                modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
+                tint = MiuixTheme.colorScheme.onSurface,
             )
         }
     }

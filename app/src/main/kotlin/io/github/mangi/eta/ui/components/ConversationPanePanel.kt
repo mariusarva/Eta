@@ -160,6 +160,7 @@ internal fun ConversationPanePanel(
     onMoveCategory: (String, Int) -> Unit = { _, _ -> },
     onDeleteConversations: (List<String>) -> Unit = {},
     onMoveConversationsToCategory: (List<String>, String?) -> Unit = { _, _ -> },
+    onNewConversationInCategory: (String?) -> Unit = {},
 
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -169,9 +170,11 @@ internal fun ConversationPanePanel(
     val isSearching = query.isNotBlank()
     var showCreateCategory by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
+    var collapsedSections by remember { mutableStateOf<Set<String>>(emptySet()) }
     var selecting by remember { mutableStateOf(false) }
     val selectedConversationIds = remember { mutableStateMapOf<String, Boolean>() }
     var showMoveDialog by remember { mutableStateOf(false) }
+    var moveConversationTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     var showManageCategory by remember { mutableStateOf(false) }
     var renamingCategoryId by remember { mutableStateOf<String?>(null) }
     var renameCategoryText by remember { mutableStateOf("") }
@@ -251,34 +254,35 @@ internal fun ConversationPanePanel(
                                 }
                             }
 
-                            if (!isSearching && state.categories.isNotEmpty()) {
-                                item(key = "pane_category_filter") {
-                                    ConversationCategoryFilterRow(
-                                        categories = state.categories,
-                                        selectedId = state.categoryFilterId,
-                                        onSelect = onFilterCategory,
-                                        onCreate = {
-                                            newCategoryName = ""
-                                            showCreateCategory = true
-                                        },
-                                        onManage = { showManageCategory = true },
-                                    )
-                                }
-                            }
-
                             if (state.conversations.isEmpty()) {
                                 item(key = "pane_empty_conversations") {
                                     EmptyConversations(isSearching = isSearching)
                                 }
                             } else {
                                 groups.forEachIndexed { groupIndex, group ->
-                                    item(key = "section-${group.section}") {
+                                    val sectionKey = group.section.key()
+                                    val collapsed = sectionKey in collapsedSections
+                                    val categoryId = (group.section as? ConversationDrawerSection.Category)?.id
+                                    item(key = "section-$sectionKey") {
                                         ConversationSectionHeader(
                                             group = group,
                                             isFirstSection = groupIndex == 0,
                                             hasWorkbenchAbove = !isSearching,
+                                            collapsed = collapsed,
+                                            collapsible = true,
+                                            onToggleCollapse = {
+                                                collapsedSections = if (collapsed) {
+                                                    collapsedSections - sectionKey
+                                                } else {
+                                                    collapsedSections + sectionKey
+                                                }
+                                            },
+                                            onNewConversationInSection = categoryId?.let { id ->
+                                                { onNewConversationInCategory(id) }
+                                            },
                                         )
                                     }
+                                    if (collapsed) return@forEachIndexed
                                     items(
                                         items = group.items,
                                         key = { it.id },
@@ -306,6 +310,7 @@ internal fun ConversationPanePanel(
                                             onRename = { onConversationRename(conversation) },
                                             onExport = { onConversationExport(conversation) },
                                             onDelete = { onConversationDelete(conversation) },
+                                            onMoveToCategory = { moveConversationTarget = conversation },
                                         )
                                     }
                                 }
@@ -322,6 +327,7 @@ internal fun ConversationPanePanel(
                             selecting = !selecting
                             if (!selecting) selectedConversationIds.clear()
                         },
+                        onManageCategories = { showManageCategory = true },
                     )
                     if (selecting) {
                         ConversationBulkBar(
@@ -403,6 +409,24 @@ internal fun ConversationPanePanel(
                 onDismissRequest = { showManageCategory = false; renamingCategoryId = null },
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showManageCategory = false
+                                newCategoryName = ""
+                                showCreateCategory = true
+                            }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "＋ 新建分类",
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     val current = state.categories
                     if (current.isEmpty()) {
                         Text(
@@ -509,6 +533,41 @@ internal fun ConversationPanePanel(
                                 color = MiuixTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f),
                             )
+                        }
+                    }
+                }
+            }
+
+            // 单条会话「移到分类」：与批量条走同一条链路。
+            moveConversationTarget?.let { target ->
+                GlassDialog(
+                    show = true,
+                    title = "移到分类",
+                    summary = target.title,
+                    backdrop = currentGlassOverlayBackdrop(),
+                    onDismissRequest = { moveConversationTarget = null },
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        val targets = listOf<Pair<String?, String>>(null to "未分类") +
+                            state.categories.map { it.id to it.name }
+                        targets.forEach { (id, name) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        moveConversationTarget = null
+                                        onMoveConversationsToCategory(listOf(target.id), id)
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = name,
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
                 }
@@ -857,6 +916,10 @@ private fun ConversationSectionHeader(
     group: ConversationDrawerGroup,
     isFirstSection: Boolean,
     hasWorkbenchAbove: Boolean,
+    collapsed: Boolean,
+    collapsible: Boolean,
+    onToggleCollapse: () -> Unit,
+    onNewConversationInSection: (() -> Unit)?,
 ) {
     val label = group.localizedLabel()
     val topPadding = when {
@@ -866,41 +929,66 @@ private fun ConversationSectionHeader(
     }
     val horizontalInset = ConversationPanelMetrics.PaneHorizontalPadding +
         ConversationPanelMetrics.RowHorizontalPadding
-
-    when (LocalUiStyle.current) {
-        AppearanceUiStyle.COUI -> {
-            val colors = CouiPageDefaults.themeColors()
+    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val titleColor = if (isCoui) CouiPageDefaults.themeColors().summary
+    else MiuixTheme.colorScheme.onBackgroundVariant
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = horizontalInset,
+                top = topPadding,
+                end = horizontalInset,
+                bottom = ConversationPanelMetrics.SectionBottomPadding,
+            )
+            .then(
+                if (collapsible) {
+                    Modifier.clickable(role = Role.Button, onClick = onToggleCollapse)
+                } else {
+                    Modifier
+                },
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (collapsible) {
+            Icon(
+                imageVector = if (collapsed) Icons.Rounded.KeyboardArrowRight else Icons.Rounded.KeyboardArrowDown,
+                contentDescription = if (collapsed) "展开" else "收起",
+                modifier = Modifier.size(14.dp),
+                tint = titleColor,
+            )
+        }
+        if (isCoui) {
             CouiText(
-                text = label,
+                text = label + if (group.items.isNotEmpty()) "  " + group.items.size else "",
                 kind = CouiTextKind.GroupTitle,
-                color = colors.summary,
+                color = titleColor,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = horizontalInset,
-                        top = topPadding,
-                        end = horizontalInset,
-                        bottom = ConversationPanelMetrics.SectionBottomPadding,
-                    )
+                    .weight(1f)
+                    .padding(start = if (collapsible) 2.dp else 0.dp)
                     .semantics { heading() },
                 textAlign = TextAlign.Start,
             )
-        }
-        AppearanceUiStyle.MIUIX -> {
+        } else {
             Text(
-                text = label,
+                text = label + if (group.items.isNotEmpty()) "  " + group.items.size else "",
                 style = MiuixTheme.textStyles.footnote1,
                 fontWeight = FontWeight.Medium,
-                color = MiuixTheme.colorScheme.onBackgroundVariant,
+                color = titleColor,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = horizontalInset,
-                        top = topPadding,
-                        end = horizontalInset,
-                        bottom = ConversationPanelMetrics.SectionBottomPadding,
-                    )
+                    .weight(1f)
+                    .padding(start = if (collapsible) 2.dp else 0.dp)
                     .semantics { heading() },
+            )
+        }
+        if (onNewConversationInSection != null) {
+            Icon(
+                imageVector = Icons.Rounded.Add,
+                contentDescription = "在此分类下新建会话",
+                modifier = Modifier
+                    .size(18.dp)
+                    .clickable(role = Role.Button, onClick = onNewConversationInSection),
+                tint = titleColor,
             )
         }
     }
@@ -917,6 +1005,7 @@ private fun ConversationHistoryRow(
     onRename: () -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit,
+    onMoveToCategory: () -> Unit = {},
 ) {
     var showActionMenu by remember { mutableStateOf(false) }
     var rowBounds by remember { mutableStateOf(Rect.Zero) }
@@ -1149,7 +1238,8 @@ private fun ConversationHistoryRow(
                     listOf(
                         CouiMenuItem(value = 0, text = pinText, icon = Icons.Outlined.PushPin),
                         CouiMenuItem(value = 1, text = renameText, icon = Icons.Outlined.Edit),
-                        CouiMenuItem(value = 2, text = exportText, icon = Icons.Outlined.Download),
+                        CouiMenuItem(value = 2, text = "移到分类", icon = Icons.Outlined.Folder),
+                        CouiMenuItem(value = 4, text = exportText, icon = Icons.Outlined.Download),
                         CouiMenuItem(
                             value = 3,
                             text = deleteText,
@@ -1168,7 +1258,8 @@ private fun ConversationHistoryRow(
                         when (item.value) {
                             0 -> onTogglePin()
                             1 -> onRename()
-                            2 -> onExport()
+                            2 -> onMoveToCategory()
+                            4 -> onExport()
                             3 -> onDelete()
                         }
                     },
@@ -1198,6 +1289,14 @@ private fun ConversationHistoryRow(
                             onClick = {
                                 showActionMenu = false
                                 onRename()
+                            },
+                        )
+                        GlassPopupItem(
+                            text = "移到分类",
+                            icon = MiuixIcons.Glass.Folder,
+                            onClick = {
+                                showActionMenu = false
+                                onMoveToCategory()
                             },
                         )
                         GlassPopupItem(
@@ -1307,6 +1406,13 @@ private sealed interface ConversationDrawerSection {
 }
 
 @Composable
+private fun ConversationDrawerSection.key(): String = when (this) {
+    is ConversationDrawerSection.Category -> "category-" + id
+    ConversationDrawerSection.Pinned -> "pinned"
+    ConversationDrawerSection.Today -> "today"
+    is ConversationDrawerSection.Dated -> "dated-" + label
+}
+
 private fun ConversationDrawerGroup.localizedLabel(): String = when (val value = section) {
     is ConversationDrawerSection.Category -> value.name
     ConversationDrawerSection.Pinned -> stringResource(R.string.conversation_section_pinned)
@@ -1330,13 +1436,12 @@ private fun List<ConversationSummaryUi>.groupForDrawer(
     val categorized = mutableSetOf<String>()
     categories.forEach { category ->
         val items = filter { !it.isPinned && it.categoryId == category.id }
-        if (items.isNotEmpty()) {
-            categorized += items.map { it.id }
-            groups += ConversationDrawerGroup(
-                ConversationDrawerSection.Category(category.id, category.name),
-                items,
-            )
-        }
+        categorized += items.map { it.id }
+        // 空分类也要出现：否则「在分类下新建」和「移到分类」都没有可落点的入口。
+        groups += ConversationDrawerGroup(
+            ConversationDrawerSection.Category(category.id, category.name),
+            items,
+        )
     }
 
     // 其余（未分类，或分类已被删除）沿用时间分组。
