@@ -366,6 +366,15 @@ internal fun AgentChatInputBar(
         )
         val miuixInputShape = remember { GlassShape(24.dp) }
         var inputContainerTopPx by remember { mutableFloatStateOf(0f) }
+        // 能力胶囊：输入框右上角（框外上沿、右对齐），不遮挡输入文字。
+        if (showContextUsage && !isStreaming) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(end = 4.dp, bottom = 3.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                CapabilityCapsule()
+            }
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
