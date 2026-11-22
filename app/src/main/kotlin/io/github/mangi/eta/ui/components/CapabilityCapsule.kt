@@ -57,9 +57,18 @@ internal fun CapabilityCapsule(
             delay(CAPSULE_MEMORY_REFRESH_MILLIS)
         }
     }
-    // MCP 与技能数量变化不频繁，进页面读一次即可；失败就显示 0，不阻塞输入框。
+    // 数量变化不频繁，但用户随时可能在设置里开关：定时重读一次，失败就保留旧值。
     LaunchedEffect(context) {
-        counts = runCatching { readCapabilityCounts(context) }.getOrDefault(CapabilityCounts())
+        while (true) {
+            counts = runCatching { readCapabilityCounts(context) }.getOrDefault(counts)
+            delay(CAPSULE_COUNTS_REFRESH_MILLIS)
+        }
+    }
+    // 打开明细时再强制读一次，避免刚改完配置点进来还是旧数字。
+    LaunchedEffect(showDetail) {
+        if (showDetail) {
+            counts = runCatching { readCapabilityCounts(context) }.getOrDefault(counts)
+        }
     }
     val mcpEnabled = counts.mcpEnabled
     val mcpTotal = counts.mcpTotal
@@ -189,6 +198,7 @@ internal fun formatMegabytes(bytes: Long): String =
     String.format(Locale.US, "%.0f MB", bytes.toDouble() / (1024.0 * 1024.0))
 
 private const val CAPSULE_MEMORY_REFRESH_MILLIS = 5000L
+private const val CAPSULE_COUNTS_REFRESH_MILLIS = 15000L
 
 /** 能力胶囊上的三个计数：MCP 与技能的启用数 / 总数。 */
 internal data class CapabilityCounts(
@@ -203,8 +213,11 @@ private suspend fun readCapabilityCounts(context: Context): CapabilityCounts {
         io.github.mangi.eta.data.repository.McpServerRepository.init(context)
         io.github.mangi.eta.data.repository.McpServerRepository.servers()
     }.getOrDefault(emptyList())
+    // 技能必须读「管理视图」：listInstalledSkills 已经过滤掉未启用的，拿它统计会永远 N/N。
     val skills = runCatching {
-        io.github.mangi.eta.agent.skill.SkillRuntime.createIndexService(context).listInstalledSkills()
+        io.github.mangi.eta.agent.skill.SkillRuntime.createIndexService(context)
+            .listSkillsForManagement()
+            .filter { it.installed }
     }.getOrDefault(emptyList())
     return CapabilityCounts(
         mcpEnabled = servers.count { it.enabled },
