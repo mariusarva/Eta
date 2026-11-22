@@ -125,6 +125,10 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import io.github.mangi.eta.ui.app.ConversationTimeLabels
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Add
 
 @Stable
 private class PaneBarInsets {
@@ -277,8 +281,10 @@ internal fun ConversationPanePanel(
                                                     collapsedSections + sectionKey
                                                 }
                                             },
-                                            onNewConversationInSection = categoryId?.let { id ->
-                                                { onNewConversationInCategory(id) }
+                                            onNewConversationInSection = if (categoryId != null) {
+                                                { onNewConversationInCategory(categoryId) }
+                                            } else {
+                                                null
                                             },
                                         )
                                     }
@@ -1405,7 +1411,6 @@ private sealed interface ConversationDrawerSection {
     data class Dated(val label: String) : ConversationDrawerSection
 }
 
-@Composable
 private fun ConversationDrawerSection.key(): String = when (this) {
     is ConversationDrawerSection.Category -> "category-" + id
     ConversationDrawerSection.Pinned -> "pinned"
