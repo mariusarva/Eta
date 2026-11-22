@@ -35,8 +35,12 @@ internal object AgentPromptBuilder {
             extraSystemContext,
             customization,
         )
+        val chatOnly = LocalToolProfileStore.current(config.providerId, config.model) == LocalToolProfile.CHAT
         history.forEach { item ->
-            runCatching { AgentConversationCodec.toJsonObject(item) }.getOrNull()?.let(messages::put)
+            val json = runCatching { AgentConversationCodec.toJsonObject(item) }.getOrNull() ?: return@forEach
+            // 纯聊天档不声明工具，历史里的工具调用记录必须一并跳过，否则部分服务商会拒绝请求。
+            if (chatOnly && (json.optString("role") == "tool" || json.has("tool_calls"))) return@forEach
+            messages.put(json)
         }
         messages.put(AgentConversationCodec.userMessage(prompt, images))
         return messages
@@ -60,6 +64,7 @@ internal object AgentPromptBuilder {
         val messages = JSONArray()
         // 用户自定义提示词优先于 provider 上的 systemPrompt；未启用时行为与之前完全一致。
         val custom = customization.takeIf { it.active }
+        val chatOnly = LocalToolProfileStore.current(config.providerId, config.model) == LocalToolProfile.CHAT
         // 自定义启用后不再回落到 provider 的 systemPrompt：base 留空本身就代表「不注入身份段」，
         // 回落会把用户显式清空的身份悄悄换成内置提示，表现为「预设应用了但没生效」。
         val basePrompt = custom?.baseSystemPrompt ?: config.systemPrompt
@@ -70,6 +75,23 @@ internal object AgentPromptBuilder {
         if (roleplayContext == null && basePrompt.isNotBlank()) {
             val identity = custom?.let { value -> customIdentityMessage(value, basePrompt) }
             messages.put(identity ?: systemMessage(basePrompt))
+        }
+        if (chatOnly) {
+            // 纯聊天档：不声明工具、不注入记忆与技能索引，避免模型去调用不存在的工具。
+            messages.put(
+                systemMessage(
+                    "当前配置的模型：${JSONObject.quote(config.model)}。询问所用模型时按当前配置的模型回答。\n" +
+                        "当前是纯聊天模式：本轮不提供任何工具，也不要尝试调用、模拟或描述工具调用，" +
+                        "不要输出 tool_calls、<tool_call> 或工具参数的 JSON。" +
+                        "直接自然对话，回答日常问题；用户发来的图片可以正常阅读并回应其中的内容。" +
+                        "遇到必须读取手机数据、联网查询或实际执行操作才能回答的问题时，" +
+                        "直接说明当前模式下无法获取，不要编造结果，也不要假装已经查到。"
+                )
+            )
+            custom?.let { value -> customPersonaMessage(value) }?.let(messages::put)
+            custom?.let { value -> customInstructionsMessage(value) }?.let(messages::put)
+            if (extraSystemContext.isNotBlank()) messages.put(systemMessage(extraSystemContext))
+            return messages
         }
         if (!suppressBuiltInRules) {
         messages.put(
@@ -201,7 +223,11 @@ internal object AgentPromptBuilder {
         }
         roleplayContext?.personaMessage()?.let(messages::put)
         buildMemorySystemMessage(memoryContext, writable = roleplayContext == null)?.let(messages::put)
-        buildSkillSystemMessage(skillContext)?.let(messages::put)
+        // 技能索引只在真正带 skills_list / skills_read 的「正常」档注入：否则模型看得到目录
+        // 却读不到正文，既白占上下文，又会诱使它编造技能内容。
+        if (LocalToolProfileStore.current(config.providerId, config.model) == LocalToolProfile.FULL) {
+            buildSkillSystemMessage(skillContext)?.let(messages::put)
+        }
         custom?.let { value -> customPersonaMessage(value) }?.let(messages::put)
         custom?.let { value -> customInstructionsMessage(value) }?.let(messages::put)
         if (extraSystemContext.isNotBlank()) {

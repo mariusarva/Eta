@@ -122,6 +122,8 @@ internal object AgentModelClient {
         onEvent: (AgentEvent) -> Unit = {}
     ): ModelResponse.Text {
         config.validate()
+        // 工具白名单是正式配置：每次 run 开始读一次，避免轮内改动让请求前缀反复失效。
+        val toolPolicy = AgentToolPolicyStore.load()
         val initialCapabilities = capabilitiesProvider()
         val messages = AgentPromptBuilder.buildInitialMessages(
             config,
@@ -180,7 +182,7 @@ internal object AgentModelClient {
                 tools.put(additionalTools.opt(index))
             }
             // 工具白名单在请求侧生效：设置里关掉的工具不进 tools 数组，模型看不到也调不动。
-            val policyFiltered = AgentToolPolicyStore.load().filterTools(tools)
+            val policyFiltered = toolPolicy.filterTools(tools)
             return toolFilter?.invoke(policyFiltered) ?: policyFiltered
         }
         val tools = toolsFor(initialCapabilities)
@@ -238,6 +240,15 @@ internal object AgentModelClient {
             // 目录在运行内只增不减，可见不再等于可用：执行前用同一规则复核，
             // 中途失去的能力返回与目录过滤一致的错误码，而不是让底层接口给出含糊的失败。
             toolExecutor = AgentModelClient.ToolExecutor { call ->
+                // 执行侧再复核一次白名单：模型可能从历史或复述里拼出未授权工具调用，
+                // 仅靠请求侧过滤挡不住。
+                if (!toolPolicy.allows(call.name)) {
+                    ToolResult(
+                        JSONObject().put("ok", false)
+                            .put("code", "TOOL_NOT_ALLOWED_BY_POLICY")
+                            .put("message", "该工具不在本次工具白名单中，未执行").toString(),
+                    )
+                } else {
                 val unavailable = AgentToolRequirements.find(call.name)
                     ?.let { capabilitiesProvider().unavailableCode(call.name) }
                 if (unavailable == null) {
@@ -247,6 +258,7 @@ internal object AgentModelClient {
                         JSONObject().put("ok", false).put("code", unavailable)
                             .put("message", "该工具当前不可用（$unavailable），本次未执行").toString(),
                     )
+                }
                 }
             },
             runController = runController,
