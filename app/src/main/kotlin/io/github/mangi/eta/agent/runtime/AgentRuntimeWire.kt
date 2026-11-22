@@ -98,6 +98,11 @@ internal object AgentRuntimeWire {
 
     /** service -> client：返回 steering 是否已被当前活跃 run 接纳及分配的补充序号。 */
     const val MSG_STEER_RESPONSE = 19
+    /** client -> service：暂停当前运行（工作线程在检查点挂起，可恢复）。 */
+    const val MSG_PAUSE = 20
+
+    /** client -> service：恢复被暂停的运行。 */
+    const val MSG_RESUME = 21
 
     private const val MODULE_PACKAGE = "io.github.mangi.eta"
     private const val SERVICE_CLASS = "io.github.mangi.eta.agent.runtime.AgentRuntimeService"

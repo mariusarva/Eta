@@ -168,6 +168,9 @@ internal class AgentLoop(
                         onEvent(event)
                     },
                     onProviderEvent = { attemptRound, providerEvent ->
+                        // 流式期间也要能暂停：每个 provider 事件到达时先检查，
+                        // 暂停后新的 token 不再被消费，直到恢复或取消。
+                        runController.awaitIfPaused()
                         if (!purpose.allowsTools && (providerEvent is ProviderEvent.HostedToolStarted ||
                                 providerEvent is ProviderEvent.SearchSuggestions ||
                                 providerEvent is ProviderEvent.BlockStart && providerEvent.kind == AssistantBlockKind.TOOL_CALL)) {

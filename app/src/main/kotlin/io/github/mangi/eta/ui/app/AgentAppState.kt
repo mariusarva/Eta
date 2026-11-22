@@ -1426,6 +1426,50 @@ internal class AgentAppState(
         },
     )
 
+    /** 把输入框内容立刻插入正在运行的对话（steer），没有运行中任务时退化为普通发送。 */
+    fun injectIntoRun() {
+        if (!homeState.isConversationLoaded || homeState.isCompacting) return
+        if (!homeState.isStreaming) {
+            // 没有运行中任务时退化为普通发送，避免按钮点了没反应。
+            sendCurrentMessage()
+            return
+        }
+        val prompt = homeState.input.trim()
+        if (prompt.isBlank()) return
+        val fileReferences = homeState.pendingFileReferences.map { it.reference }
+        if (
+            !AgentFileReferencePolicy.canSend(
+                references = fileReferences,
+                terminalToolsEnabled = agentBooleanForUi(Prefs.Keys.AGENT_TERMINAL_TOOLS) &&
+                    (Prefs.isToolEnabled("read_file") || Prefs.isToolEnabled("terminal")),
+            )
+        ) {
+            Toast.makeText(
+                appContext,
+                appContext.getString(R.string.state_ui_file_path_reference_requires_opening_the_termina_deca4c),
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        val item = QueuedMessageUi(
+            id = "inject-${UUID.randomUUID()}",
+            content = prompt,
+            pendingImages = emptyList(),
+            pendingFileReferences = homeState.pendingFileReferences,
+            immediateInterrupt = true,
+        )
+        updateCurrentConversation(
+            state = homeState.copy(
+                input = "",
+                pendingImages = emptyList(),
+                pendingFileReferences = emptyList(),
+                inputSyncVersion = homeState.inputSyncVersion + 1,
+            ),
+            updateTimestamp = false,
+        )
+        steerToActiveRun(selectedConversationId, item)
+    }
+
     fun sendCurrentMessage(submittedText: String? = null) {
         submitOrQueueCurrentMessage(submittedText = submittedText, immediateInterrupt = false)
     }
@@ -2494,6 +2538,34 @@ internal class AgentAppState(
     fun stopCurrentRun() {
         val runId = runStore.activeRunId(selectedConversationId) ?: return
         stopRun(runId)
+    }
+
+    /** 暂停当前会话的运行。 */
+    fun pauseCurrentRun() {
+        val runId = runStore.activeRunId(selectedConversationId) ?: return
+        // 本地立刻置位：服务端只在没有活跃动作时才回推 GuiControlChanged，
+        // 工具执行期间等不到事件，按钮会一直停在暂停态导致无法再点。
+        setRunPaused(runId, paused = true)
+        scope.launch(Dispatchers.IO) {
+            AgentRuntimeClient(appContext, AndroidAgentLogger).pauseRun(runId)
+        }
+    }
+
+    /** 继续被暂停的运行。 */
+    fun resumeCurrentRun() {
+        val runId = runStore.activeRunId(selectedConversationId) ?: return
+        setRunPaused(runId, paused = false)
+        scope.launch(Dispatchers.IO) {
+            AgentRuntimeClient(appContext, AndroidAgentLogger).resumeRun()
+        }
+    }
+
+    /** 把暂停标记写到 run 所属会话的 UI 状态上。 */
+    private fun setRunPaused(runId: String, paused: Boolean) {
+        val conversationId = conversationIdForRun(runId) ?: return
+        val state = conversationsById[conversationId] ?: return
+        if (state.isRunPaused == paused) return
+        updateConversation(conversationId, state.copy(isRunPaused = paused), updateTimestamp = false)
     }
 
     private fun stopRun(runId: String) {

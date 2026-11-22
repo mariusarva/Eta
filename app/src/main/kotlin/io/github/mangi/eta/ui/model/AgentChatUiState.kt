@@ -17,6 +17,8 @@ internal data class AgentChatUiState(
     val input: String,
     val isStreaming: Boolean,
     val isCompacting: Boolean = false,
+    /** 当前会话的运行被用户暂停（本地先置位，服务端确认后才真正挂起）。 */
+    val isRunPaused: Boolean = false,
     val thinkingEnabled: Boolean,
     val reasoningEffort: ReasoningEffort = ReasoningEffort.fromLegacy(thinkingEnabled),
     val availableReasoningEfforts: List<ReasoningEffort> = emptyList(),

@@ -293,6 +293,15 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                     steerRun(msg.data, msg.replyTo)
                 }
 
+                AgentRuntimeWire.MSG_PAUSE -> {
+                    val runId = msg.data?.let(AgentRuntimeWire::runIdFromBundle).orEmpty()
+                    if (runId.isNotBlank()) pauseRun(runId)
+                }
+
+                AgentRuntimeWire.MSG_RESUME -> {
+                    resumeRun()
+                }
+
                 AgentRuntimeWire.MSG_ACK_RESULT -> {
                     val runId = AgentRuntimeWire.runIdFromBundle(msg.data ?: return)
                     dispatchResultIo { AgentRuntimeResultStore.remove(this@AgentRuntimeService, runId) }
@@ -980,6 +989,41 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 "Agent runtime steer response failed: type=${throwable.safeLogType()}"
             }
         }
+    }
+
+    /** client（聊天页）请求暂停：无 GUI 所有者时直接操作控制器，纯后台运行也能停住。 */
+    private fun pauseRun(runId: String) {
+        val run = runs.get(runId)
+        AndroidAgentLogger.info(
+            "Agent runtime pause requested: runId=$runId, found=${run != null}, terminal=${run?.session?.isTerminal}"
+        )
+        if (run == null || run.session.isTerminal) return
+        if (!guiControl.pauseForUser(runId)) {
+            run.session.controller.pause()
+        }
+        run.overlayState = run.overlayState.copy(status = AgentOverlayStatus.Paused)
+        if (displayedRun === run) state.value = run.overlayState
+        updateKeepScreenOn()
+        publishExecutionState()
+    }
+
+    /** 恢复被暂停的运行。 */
+    private fun resumeRun() {
+        if (!guiControl.resumeForUser()) {
+            runs.all().forEach { run ->
+                if (!run.session.isTerminal && run.session.controller.isPaused) {
+                    run.session.controller.resume()
+                }
+            }
+        }
+        displayedRun?.let { run ->
+            if (!run.session.isTerminal) {
+                run.overlayState = run.overlayState.copy(status = AgentOverlayStatus.Reasoning)
+                state.value = run.overlayState
+            }
+        }
+        updateKeepScreenOn()
+        publishExecutionState()
     }
 
     private fun requestPause(runId: String?) {

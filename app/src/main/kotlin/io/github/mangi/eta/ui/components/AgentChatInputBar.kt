@@ -134,10 +134,57 @@ import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.ui.draw.scale
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Reply
 
 private val SendButtonVisualSize = ChatInputActionIconSize
 private val SendIconSize = 16.dp
 private val StopIconSize = 10.dp
+/** 字形放大倍数：Material 图标留白多，1.35 倍后视觉大小才与按钮圆匹配。 */
+private val StopGlyphScale = 1.35f
+/** 暂停/继续/注入按钮的图标尺寸，与停止图标同档。 */
+private val ActionIconSize = 16.dp
+/** 运行中暂停/注入按钮：比常规动作键小一档，且不被 Row 压缩。 */
+private val RunActionButtonSize = 36.dp
+/** 运行操作按钮（麦克风/暂停/插入/停止）之间的统一间距。 */
+private val RunActionGap = 12.dp
+
+/**
+ * 运行中操作键（暂停/继续、注入）的统一外形。
+ *
+ * 命中区固定 [RunActionButtonSize]，视觉圆固定 [SendButtonVisualSize]；
+ * 视觉圆直接画在固定 Box 里，不经 IconButton 的内部内边距二次压缩，
+ * 这样几个键的圆直径与相互间距才完全一致。
+ */
+@Composable
+private fun RunActionButton(
+    onClick: () -> Unit,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .requiredSize(RunActionButtonSize)
+            .clip(CircleShape)
+            .clickable(role = Role.Button, onClickLabel = contentDescription, onClick = onClick)
+            .semantics { this.contentDescription = contentDescription },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(SendButtonVisualSize)
+                .clip(CircleShape)
+                .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
+    }
+}
 
 /**
  * Agent 输入器始终保持同一空间结构，聚焦、输入和执行过程只改变状态，不搬动操作入口。
@@ -169,6 +216,10 @@ internal fun AgentChatInputBar(
     onRecallQueuedMessage: (String, String) -> Unit = { _, _ -> },
     onRemoveQueuedMessage: (String) -> Unit = {},
     onStop: () -> Unit,
+    onPause: () -> Unit = {},
+    onResume: () -> Unit = {},
+    isRunPaused: Boolean = false,
+    onInject: () -> Unit = {},
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
     onAttachFiles: (List<String>) -> Unit,
@@ -559,6 +610,33 @@ internal fun AgentChatInputBar(
                                 onHoldCancellingChange = { holdCancelling = it },
                             )
                             Spacer(modifier = Modifier.width(2.dp))
+                        }
+
+                        if (isStreaming && !isCompacting) {
+                            Spacer(modifier = Modifier.width(RunActionGap))
+                            RunActionButton(
+                                onClick = { if (isRunPaused) onResume() else onPause() },
+                                contentDescription = if (isRunPaused) "继续" else "暂停",
+                            ) {
+                                Icon(
+                                    imageVector = if (isRunPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(ActionIconSize).scale(StopGlyphScale),
+                                    tint = MiuixTheme.colorScheme.onSurface,
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(RunActionGap))
+                            RunActionButton(
+                                onClick = { if (canSend) onInject() },
+                                contentDescription = "插入",
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Reply,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(ActionIconSize).scale(StopGlyphScale),
+                                    tint = MiuixTheme.colorScheme.onSurface,
+                                )
+                            }
                         }
 
                         val showStreamingSend = isStreaming && !isCompacting && canSend
