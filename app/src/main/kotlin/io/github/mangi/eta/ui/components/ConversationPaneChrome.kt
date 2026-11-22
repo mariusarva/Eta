@@ -307,7 +307,11 @@ private fun PaneSelectionButton(active: Boolean, onClick: () -> Unit) {
             )
         }
     } else {
-        IconButton(onClick = onClick, minWidth = 40.dp, minHeight = 40.dp) {
+        GlassIconButton(
+            onClick = onClick,
+            backdrop = currentGlassOverlayBackdrop(),
+            size = GlassTopAppBarDefaults.ButtonSize,
+        ) {
             Icon(
                 imageVector = Icons.Rounded.Checklist,
                 contentDescription = description,
