@@ -8,6 +8,37 @@
 
 ---
 
+## fork.29 – fork.37（2026-11-22）底包重建收尾：fork 特性全部对齐
+
+**背景**：`rebase` 分支换到上游 `36b1c77` 后只搬了数据层与部分 UI，侧栏、运行时、通知、备份
+都是空的。这一段把 fork 特性逐项搬回并逐一验证编译。
+
+| 版本 | 内容 | 关键改动 |
+|---|---|---|
+| fork.29 | 暂停 / 继续 + 运行中插入 | `MSG_PAUSE`/`MSG_RESUME`；`AgentRunController.awaitIfPaused()` 插到 `onProviderEvent` 入口，流式 token 到达即停；三层 UI 透传与输入框两个键 |
+| fork.30 | 会话分类 | 数据链路 9 个方法 + 分组（置顶→分类→未分类按时间）+ 筛选条 + 新建；修掉整行 upsert 丢 `category_id` |
+| fork.31 | 分类管理 + 通知按钮 | 改名 / 上下移 / 删除对话框；通知动作 打开 → 暂停/继续 → 插入 → 停止 |
+| fork.32 | 时间戳带日期 | `rowLabel`（M月d日 HH:mm，跨年补年份）；会话行、消息气泡、轮次列表同源 |
+| fork.33 | 自动备份 UI | 开关 / 间隔 / 份数 / SAF 目录 / 立即备份 / 历史删除 |
+| fork.34–35 | 轮次列表 | 搬回 `ChatTurnNavigator`，轮次改读全库 `userMessageDigests`，跳转前按页加载 |
+| fork.36 | 备份格式 | 自动备份可选仅数据 JSON 或全量 zip |
+| fork.37 | 多选批量 | 顶栏多选入口、底部批量条、移动到分类 / 批量删除 |
+
+**踩到的坑**：
+
+- `CouiPreferenceGroup` 的 content 是 `CardListScope.()`，子项必须包 `item {}`，否则报
+  「@Composable invocations can only happen from the context of a @Composable function」。
+- `SettingsIconColors` 在 `SettingsScreen.kt` 是 `private`，跨文件要自带颜色常量。
+- 上游 `AgentExecutionService` 通知已重构成 headline + 打开/停止，暂停按钮要插在中间而不是
+  重建整个 action 列表。
+- `updateAutoBackupSettings` 返回 `Unit`，写入后要重新读取状态，不能直接赋值。
+- `ConversationPaneTopBar` 的 MIUIX 分支没有 `IconButton`，要用 `GlassIconButton`。
+- 稀疏检出要显式 `git sparse-checkout add app/src/main/jniLibs docs app/src/test`，
+  否则大文件 commit 会静默丢路径。
+- CI 的 `ref` 必须是已推送的完整 40 位 SHA；push 未完成就触发会报 `not our ref`。
+
+---
+
 ## fork.28 补充（2026-11-22）离线语音搬回 + 体积回归
 
 **现象**：fork.28 首个成功产物只有 9.7MB，`lib/` 只剩 7 个 so、共 1.5MB；旧底座同版本是 26MB。
