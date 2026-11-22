@@ -8,6 +8,62 @@
 
 ---
 
+## fork.38 – fork.61（2026-11-22）UI 对齐、上游同步、PR 与外部仓库对齐
+
+**背景**：fork.37 之后是按真机反馈逐条修 UI 的过程，中间夹了上游同步与两次外部代码对齐。
+
+### UI 与交互（fork.38–52）
+
+| 版本 | 现象 | 定位与改动 |
+|---|---|---|
+| fork.38 | 通知卡按钮压住图标与标题、没有停止键 | 通知只渲染前 3 个 action，加了暂停/插入变成 4 个，停止被裁；改为 暂停·继续 / 插入 / 停止，打开交给 contentIntent |
+| fork.38 | 暂停与插入比停止小一圈 | 两者按 24dp 画、主键是 32dp；统一 32dp 视觉圆 / 40dp 命中 / 18dp 图标 |
+| fork.39 | 分类条最右两个按钮无效 | ＋/⋯ 与 chip 同在横向滚动容器末尾，分类一多被挤出可视区；改为左侧滚动、右侧固定 |
+| fork.39 | 离线语音模型无法下载 | `assets/local_speech/catalog.json` 没随搬运进仓库，`LocalSpeechRegistry` 读不到清单 → 列表为空 |
+| fork.39–52 | 分类布局反复调整 | 最终形态：不再是顶部 chip 条，改为侧栏工作台一行「会话分类」入口 + 独立整页管理 |
+| fork.40 | 底部轮次横条看不到 | 它只有 `fillMaxWidth`，放进 Box 按 TopStart 排在消息区下方被盖住；最终移进 Scaffold bottomBar、输入框正上方 |
+| fork.41 | 无法新建分类 | 侧栏 4 个对话框用 GlassDialog 叠在 200dp 侧栏内被裁切；改用真正的 Dialog 窗口 |
+| fork.42 | 弹窗/轮次面板文字糊在一起 | Miuix 的 surface 系列深色下带 alpha，透出下层；改用绝对色（深 `#2A2A2E` / 浅 `#FFFFFF`） |
+| fork.43 | 分类默认展开把会话列表顶走 | 分组默认折叠（后因改成工作台入口，此逻辑随之移除） |
+| fork.44 | 排队条与输入框糊在一起 | 圆角胶囊 → 方角 → 最终 14dp 圆角 + 0.5dp 描边 |
+| fork.45–46 | 分类对话框偏右 | `usePlatformDefaultWidth=false` 后内容按自身宽度排；最终改回满屏窗口 + 居中 + 左右对称 14dp |
+| fork.47–48 | 轮次横条要求去背景并下移 | 把手去掉底色块、26→18dp、offset(y=10dp) 贴输入框 |
+| fork.50 | 能力胶囊闪烁 | 去掉「有消息且非流式」条件，常驻显示；弹窗加右上角关闭键 + 42% 黑遮罩 |
+| fork.51 | 每轮消息找不到删除入口 | 时间行右侧加 26dp 删除键，走同一条 `onDeleteMessage` |
+| fork.52 | 会话分类点开是弹窗，要求整页 | 新增 `AppRoute.ConversationCategories` + `ConversationCategoriesScreen`，新建/改名/上移/下移/删除都在页内 |
+
+### 功能（fork.53–61）
+
+| 版本 | 内容 |
+|---|---|
+| fork.53–55 | 「先选定角色，之后新建都用」：`characterForNewChat` 落 Prefs，`createConversation` 检测到绑定就走 `startCharacterConversation`；内部拆 `createPlainConversation` 打断递归 |
+| fork.56 | 移植 PR #3（`4bc209f`）：新建会话自动绑定角色卡。未归档取列表第一张，`roleplayAutoBindInFlight` 防连点，补 4 条单测。与「先选定」共存：显式选定优先 |
+| fork.57 | 同步上游 `36b1c77 → 05086d3`：AGP 9.5.2、compose-window-size 1.5.0、lifecycle 2.11.1、Gradle wrapper 升级、miuix 主题修复、定时任务编辑页改 COUI TimePicker。冲突只有三处纯 import 段 |
+| fork.58 | 关于页与反馈链接、模型目录 UA 全部由 `Mangi-11/Eta` 改为 `mariusarva/Eta` |
+| fork.59 | 对齐 Oo0520/Eta-por 的提示词与工具边界（详见下节） |
+| fork.60 | 设置页「提示词预设」改为「提示词与工具边界」并跳概览页 |
+| fork.61 | 能力胶囊计数：技能改用 `listSkillsForManagement()`（`listInstalledSkills()` 已过滤 enabled，导致永远 N/N）；计数改 15 秒轮询 + 打开明细强制重读 |
+
+### 与 Oo0520/Eta-por 的逐文件对比结果
+
+`agent/prompt/` 8 个文件字节级一致，`ui/screens/prompts/` 仅 `PromptPresetsScreen.kt` 多一个图标，预设目录仅 `default.json` 不同。真正差异四处，全部补齐：
+
+1. **工具边界执行侧兜底**：run 起点读一次 `AgentToolPolicy`，请求侧按它过滤 tools，执行侧再用同一份 `allows()` 复核，未授权调用返回 `TOOL_NOT_ALLOWED_BY_POLICY`。此前只有请求侧过滤，模型从历史里拼出的调用能绕过。
+2. **纯聊天档（`LocalToolProfile.CHAT`）**：系统提示走独立分支，只留身份/人格/追加指令 + 「本轮不提供任何工具」说明，不注入记忆与技能索引；历史里的 `role=tool` 与 `tool_calls` 一并跳过。
+3. **技能索引只在 FULL 档注入**：否则模型看得到目录却读不到正文。
+4. **`default.json` 预设**改回 `APPEND` + 空 base（原为 `REPLACE` + 一句身份，会抑制整段内置规则）。
+
+未搬：`AgentHistoryTrimmer` / `AgentContextComposition`。它们依赖 `TokenUsageUi` 的 `systemPromptTokens` / `toolDefinitionTokens` / `conversationTokens` 三字段，属于「上下文构成面板」配套；本仓库 `ChatStatsPopover` 已有完整的 Token 用量面板（字段为 `llmMs`/`ttftMs`/`decodeMs`/`stepCount`），搬过来要改数据库列与所有 provider 的用量构造，收益仅为外观，故放弃。
+
+**这一段踩到的坑**：
+
+- `listInstalledSkills()` 内部已 `filter { installed && enabled }`，拿它统计启用数会永远 N/N。
+- `MiuixIcons.Glass.FolderOutline` 在本仓库的 miuix 版本不存在，菜单图标要用 `Glass.Import` 或 `Icons.Outlined.Folder`。
+- 稀疏检出对 `app/src/test/...`、`app/src/main/assets/local_speech`、`app/src/main/jniLibs`、`docs` 都要显式 `sparse-checkout add`，否则 `git add` 静默跳过。
+- push 偶发 `Recv failure` / `not our ref`：要循环 push 并用 `git ls-remote` 校验远端 SHA 再触发 CI。
+
+---
+
 ## fork.29 – fork.37（2026-11-22）底包重建收尾：fork 特性全部对齐
 
 **背景**：`rebase` 分支换到上游 `36b1c77` 后只搬了数据层与部分 UI，侧栏、运行时、通知、备份

@@ -1,114 +1,188 @@
-# fork 补丁与发版流程
+# fork 补丁与构建流程
 
-本文件是操作手册：每次改动如何落日志、如何出包、如何发 Release。
+本文件记录本 fork 相对上游 `Mangi-11/Eta` 的改动范围、构建发版流程与常见坑。
+配合 `docs/CHANGELOG-FORK.md`（逐版本开发日志）使用。
+
+版本号规则：`versionName = 3.4.4-fork.N`，`versionCode = 2026112100 + N`，
+由 CI 的 `-Peta.forkVersion=N` 传入。
 
 ---
 
-## 1. 改动落地
+## 一、改动范围
+
+### 新增文件（不受上游同步影响）
+
+```
+app/src/main/kotlin/io/github/mangi/eta/agent/prompt/            提示词与工具边界（8 文件）
+app/src/main/kotlin/io/github/mangi/eta/agent/github/            GitHub 账号（3 文件）
+app/src/main/kotlin/io/github/mangi/eta/agent/security/          PromptIntegrityGuard
+app/src/main/kotlin/io/github/mangi/eta/agent/automation/        自动备份（3 文件）
+app/src/main/kotlin/io/github/mangi/eta/agent/voice/local/       离线语音引擎（22 文件）
+app/src/main/kotlin/io/github/mangi/eta/agent/voice/qwen/        WarmCachePolicy
+app/src/main/kotlin/io/github/mangi/eta/agent/voice/SystemSpeechPlayback.kt
+app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentToolDirectory.kt
+app/src/main/kotlin/io/github/mangi/eta/agent/model/LocalToolProfile(Store).kt
+app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentRequestSnapshot.kt
+app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentSnapshotAnalysis.kt
+app/src/main/kotlin/io/github/mangi/eta/agent/tool/AgentToolNaming.kt
+app/src/main/kotlin/io/github/mangi/eta/data/repository/GitHubAccountStore.kt
+app/src/main/kotlin/io/github/mangi/eta/data/repository/AutoBackupRunner.kt
+app/src/main/kotlin/io/github/mangi/eta/data/repository/EtaFullBackup*.kt
+app/src/main/kotlin/io/github/mangi/eta/data/model/AutoBackupSettings.kt
+app/src/main/kotlin/io/github/mangi/eta/ui/screens/prompts/       提示词 Studio（16 文件）
+app/src/main/kotlin/io/github/mangi/eta/ui/screens/github/        GitHub 账号页
+app/src/main/kotlin/io/github/mangi/eta/ui/screens/categories/    会话分类整页
+app/src/main/kotlin/io/github/mangi/eta/ui/components/Eta*.kt     8 个偏好组件
+app/src/main/kotlin/io/github/mangi/eta/ui/components/CapabilityCapsule.kt
+app/src/main/kotlin/io/github/mangi/eta/ui/components/ChatTurnNavigator.kt
+app/src/main/assets/prompt_presets/                              7 个预设
+app/src/main/assets/local_speech/                                模型清单 + 许可证
+app/src/main/jniLibs/arm64-v8a/                                  7 个离线语音 so
+app/src/main/kotlin/com/k2fsa/sherpa/onnx/                       sherpa-onnx binding（5 文件）
+```
+
+### 修改文件（上游同步时会冲突，重点看这几处）
+
+| 文件 | 改动要点 |
+|---|---|
+| `AgentRuntimeWire.kt` | 新增 `MSG_PAUSE` / `MSG_RESUME` |
+| `AgentRuntimeService.kt` | 处理暂停/恢复消息；发布执行状态时带主运行 id 与暂停态 |
+| `AgentRuntimeClient.kt` | `pauseRun` / `resumeRun` |
+| `AgentRunController.kt` | `awaitIfPaused()`（只在暂停时阻塞，不抛异常） |
+| `AgentLoop.kt` | `onProviderEvent` 入口调 `awaitIfPaused()`，流式期间也能停 |
+| `AgentModelClient.kt` | run 起点读一次 `AgentToolPolicy`；请求侧过滤 + 执行侧 `allows()` 兜底 |
+| `AgentPromptBuilder.kt` | 融合 `PromptCustomization`；纯聊天档独立分支；技能索引只在 FULL 档 |
+| `AgentExecutionService.kt` | 通知动作：暂停·继续 / 插入 / 停止（最多 3 个） |
+| `AgentAppState.kt` | 暂停/恢复/插入、会话分类 9 个方法、单条删除、角色新建、自动绑卡 |
+| `AgentConversationStore.kt` | 整行 upsert 回填 `category_id`；消息 `created_at` 读写 |
+| `AgentConversationRevisionReducer.kt` | `deleteSingle`（只删目标 + 清孤立 tool 结果） |
+| `ConversationPanePanel.kt` | 工作台入口、分类管理、多选批量、时间行、对话框 |
+| `ConversationPaneChrome.kt` | 顶栏动作键、分类入口 |
+| `ConversationSidePaneScaffold.kt` / `AgentAppShell.kt` | 三层回调透传 |
+| `AgentChatBody.kt` | 轮次横条挂到 bottomBar；暂停/插入三层透传；时间戳 |
+| `AgentChatInputBar.kt` | 暂停/继续键；能力胶囊常驻 |
+| `ChatMessageItem.kt` | 每轮时间 + 删除键 |
+| `AgentChatQueueStrip.kt` | 排队条外观（14dp 圆角 + 描边） |
+| `ConversationTimeLabels.kt` | `rowLabel`（M月d日 HH:mm，跨年补年份） |
+| `ConversationUiState.kt` | `categories` / `categoryFilterId` / `categoryId` |
+| `AgentChatUiState.kt` | `isRunPaused`；`UserMessageUi.createdAtMillis` |
+| `AppRoute.kt` | 13 条提示词/GitHub 路由 + 会话分类路由 |
+| `AgentAppRoot.kt` | 对应 `entry<>` 与入口接线 |
+| `SettingsScreen.kt` | GitHub / 提示词与工具边界入口；关于页链接指向本仓库 |
+| `DataBackupScreen.kt` | 自动备份 UI（开关/间隔/份数/SAF/格式/历史） |
+| `AppUpdateChecker.kt` | 版本核心剥离 `-fork.N`/`+提交号`；同上游版本比 fork 序号；Release 指向本仓库 |
+| `SpeechSettings.kt` | `SystemTtsConfig`；`AsrProvider` 补 LOCAL 系；`TtsProvider` 补 SYSTEM |
+| `build.gradle.kts` | `vosk-android`；`versionName`/`versionCode` 走 forkVersion |
+| `AndroidManifest.xml` | `:local_speech` 独立进程 |
+| `gradle/libs.versions.toml` | 与上游一致（同步时不要覆盖成旧值） |
+
+---
+
+## 二、构建与发版流程
+
+### 1. 工作区与稀疏检出
 
 ```bash
-cd /workspace/tmp-work/eta-fork
+cd /workspace/tmp-work/eta-up          # rebase 分支，基于上游 main
+git sparse-checkout add app/src/main/jniLibs app/src/main/assets/local_speech \
+    app/src/test docs
+```
 
-# 1) 改代码
-# 2) 本地无法编译（chroot 无 Android SDK），直接推 CI 验证
+漏掉任一路径，`git add` 会**静默跳过**（提示 "outside of your sparse-checkout definition"）。
+
+### 2. 提交与推送
+
+```bash
 git add -A
-git commit -m "fix(ui): 简短描述"
-
-# 3) 推送（网络不稳，失败就重试；也常见 non-fast-forward，先 pull --rebase）
-for i in 1 2 3 4; do timeout 150 git push origin main 2>&1 | tail -1 && break; sleep 8; done
+git -c user.name=Mari0us -c user.email=mariusarva@users.noreply.github.com commit -m "..."
+git push fork rebase
 ```
 
-**注意**：并发会话可能同时推 main，push 被拒先 `git pull --rebase origin main` 再推。
-rebase 有丢改动的前例（`deleteSingleMessage` 丢过一次），rebase 后必须 `grep` 确认关键符号还在。
-
-## 2. 构建
-
-主仓库 `mariusarva/Eta` 的 Actions 被平台禁用（API 显示 enabled，dispatch 返回 422），
-统一走中转仓库 `mariusarva/eta-ci`：
+推送偶尔报 `Recv failure: Software caused connection abort` 或远端报
+`not our ref <sha>`。用循环 + 远端校验：
 
 ```bash
-SHA=$(cd /workspace/tmp-work/eta-fork && git rev-parse HEAD)
-gh workflow run build.yml --repo mariusarva/eta-ci -f ref=$SHA -f forkVersion=<N>
-```
-
-- `ref` 必须是**完整 40 位 SHA**；短 SHA 或分支名会 fetch 失败。
-- `forkVersion` 写入 `versionName` 与 `versionCode`。
-
-## 3. 下载产物
-
-GitHub artifact 直连很慢（26MB 常要 20–40 分钟且中途断），用分段并行脚本：
-
-```bash
-TOKEN=$(cd /workspace/tmp-work/eta-fork && gh auth token)
-AID=$(gh api "/repos/mariusarva/eta-ci/actions/runs/<RUN_ID>/artifacts" -q '.artifacts[0].id')
-curl -s -o /dev/null -w '%{redirect_url}' \
-  -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
-  "https://api.github.com/repos/mariusarva/eta-ci/actions/artifacts/$AID/zip" > /tmp/durl.txt
-bash /workspace/dl_seg.sh    # 8 段并行 + 分段重试，约 1 分钟
-unzip -o -q /workspace/art14.zip -d /workspace/tmp-artN
-```
-
-## 4. 发 Release
-
-```bash
-cd /workspace/tmp-artN
-mv "Eta-v3.4.4-fork.N+<sha>.apk" "Eta-v3.4.4-fork.N.apk"
-cat > RELEASE_NOTES.md <<'MD'
-# Eta fork 3.4.4-fork.N（一句话）
-
-## 现象 / 定位 / 改动 / 验证
-...
-MD
-cp /workspace/tmp-art7/FORK_FEATURES.md .
-
-gh release create v3.4.4-fork.N --repo mariusarva/Eta --target <完整SHA> \
-  --title "..." --notes-file RELEASE_NOTES.md
-for i in 1 2 3 4 5 6 7 8; do
-  gh release upload v3.4.4-fork.N --repo mariusarva/Eta \
-    "Eta-v3.4.4-fork.N.apk" RELEASE_NOTES.md FORK_FEATURES.md --clobber && break
-  sleep 8
+for i in 1 2 3 4 5; do
+  git push fork rebase 2>&1 | tail -1
+  if git ls-remote fork rebase | grep -q "$(git rev-parse HEAD)"; then echo PUSHED; break; fi
+  sleep 6
 done
 ```
 
-- `--target` 必须是完整 40 位 SHA，7 位会 422。
-- Release 附件上传偶发 TLS 中断，脚本里带重试。
-- **tag 只能用一次**：`gh release create` 报 `tag_name already exists` 说明该 tag 被占用，
-  换下一个序号，不要删旧 tag 复用（会与已发布的 APK 混淆）。
+### 3. 触发 CI
 
-## 5. 安装
+主仓库 Actions 被平台禁用，统一走 `mariusarva/eta-ci`：
 
 ```bash
-cp /workspace/tmp-artN/Eta-v3.4.4-fork.N.apk /data/local/tmp/
-pm install -r -d /data/local/tmp/Eta-v3.4.4-fork.N.apk
-dumpsys package io.github.mangi.eta | grep -m1 versionName
+gh workflow run build.yml --repo mariusarva/eta-ci \
+  -f ref=<完整 40 位 SHA> -f forkVersion=<N>
 ```
 
-- 必须用 `/data/local/tmp/` 路径；`/storage/emulated/0/...` 会因 system_server 的 SELinux
-  拒绝读 fuse 而失败（`Can't open file`）。
-- `-d` 允许降级；签名固定后正常升级不需要它，但保留无害。
+`ref` 必须是已推送的完整 SHA；短 SHA 或分支名会 fetch 失败。
 
-## 6. 日志
+### 4. 下载产物
 
-每次改动都要更新 `docs/CHANGELOG-FORK.md`，格式固定：
+GitHub artifact 直连经常被中断，用分段并行下载脚本（`/workspace/dl2.py`）：
 
-```
-## fork.N（日期）标题
-
-**现象**：用户看到什么。
-**定位**：查到什么证据（日志原文、代码路径、DB 查询结果）。
-**改动**：改了哪些文件、为什么这样改。
-**验证**：怎么确认有效（真机现象、gfxinfo 数字、DB 行数）。
+```bash
+ID=$(gh api repos/mariusarva/eta-ci/actions/runs/<run_id>/artifacts --jq '.artifacts[0].id')
+python3 dl2.py $ID /workspace/artNN.zip
 ```
 
-失败的尝试也写进去，标清楚为什么失败、怎么绕开的。这是给未来的自己看的。
+脚本先换签名 URL，再 8 段 Range 并行、每段断点续传重试 40 次。
 
-## 7. 常见坑
+### 5. 安装与发布
 
-| 现象 | 原因 | 处理 |
-|---|---|---|
-| 启动闪退，`IllegalStateException` 结构不符 | `@Entity` 没声明迁移里建的索引 | 补 `indices = [...]`，版本号 +1 |
-| 编译报 `Unresolved reference` | 以旧 tag 文件覆盖了 main 版本 | 一律以 main 为底手工改 |
-| `git push` 被拒 | 并发会话已推 | `pull --rebase` 后再推，并核对改动没丢 |
-| `pm install` 报 `Can't open file` | 用了 `/storage` 路径 | 拷到 `/data/local/tmp/` |
-| artifact 下载断流 | 直连 blob 存储不稳 | 用 `dl_seg.sh` 分段并行 |
-| 检查更新永远说无新版 | `isNewer` 剥掉了 fork 序号 | 已在 fork.22 修，保留 fork 序号比较 |
+```bash
+cp Eta-v3.4.4-fork.N+<sha>.apk /storage/emulated/0/Download/Eta-fork.N.apk
+```
+
+安装必须用 `/data/local/tmp/` 路径，**不能用 `/storage/...`**（system_server 读 fuse 被
+SELinux 拒绝）：
+
+```bash
+pm install -r -d /data/local/tmp/eta-forkN.apk
+```
+
+发 Release：`--target` 必须完整 40 位 SHA；**tag 只能用一次**（撞了就得换序号）。
+
+---
+
+## 三、常见坑
+
+| 现象 | 原因与处理 |
+|---|---|
+| `CouiPreferenceGroup` 里直接放 `CouiPreference` 报「@Composable invocations can only happen…」 | content 是 `CardListGroupScope.()`，子项必须包 `item {}` |
+| 跨文件用 `SettingsIconColors` 报 private | 它在 `SettingsScreen.kt` 里是 private，自己定义颜色常量 |
+| MIUIX 分支没有 `IconButton` | 用 `GlassIconButton` 或自绘 Box |
+| `updateAutoBackupSettings` 赋值类型不匹配 | 返回 `Unit`，写入后要重新读一次 |
+| 通知卡按钮压住图标 | action 超过 3 个会被裁；同时只有标题的紧凑卡会重叠，补 `setContentText` |
+| 弹窗文字糊在一起 | Miuix 的 `surface`/`surfaceContainer` 深色下带 alpha，用绝对色 |
+| 侧栏里 GlassDialog 点了没反应 | 200dp 侧栏内被裁切，改用 `Dialog` 窗口 |
+| 分类被清空 | 整行 `@Upsert` 未带 `category_id` 会写成 NULL，保存时要回填 |
+| 能力胶囊技能数永远 N/N | `listInstalledSkills()` 已过滤 enabled，统计要用 `listSkillsForManagement()` |
+| 轮次横条看不见 | 放进 Box 需显式 `align(BottomCenter)`；更稳的是挂到 Scaffold `bottomBar` |
+| 离线语音模型列表为空 | `assets/local_speech/catalog.json` 没打包，`LocalSpeechRegistry` 读不到 |
+| CI 报 `not our ref` | push 未完成就触发；用 `git ls-remote` 校验后再跑 |
+| `CharacterProfile` 找不到 | 包路径是 `io.github.mangi.eta.agent.roleplay`，不是 `data.model` |
+
+---
+
+## 四、上游同步步骤
+
+```bash
+cd /workspace/tmp-work/eta-up
+git fetch origin main --depth=60
+git diff --name-only <上次同步点>..origin/main      # 先看影响面
+git stash push -u -m "sync-prep"
+git merge --no-commit --no-ff origin/main
+# 解冲突：多数是纯 import 段，两边都保留
+git add -A && git commit -m "merge: 同步上游 main（<旧> → <新>）"
+git stash pop
+```
+
+冲突集中在 `AgentChatBody` / `AgentChatInputBar` / `ConversationPaneChrome` /
+`ConversationSidePaneScaffold`，因为 fork 在这几处都改过。新增文件不受影响。
+
+**注意**：不要用旧 tag 的文件覆盖 main 版本。上游会删代码，旧文件覆盖会导致大量
+`Unresolved reference`。补丁必须以 main 为底稿。
