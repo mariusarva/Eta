@@ -142,7 +142,8 @@ import androidx.compose.material.icons.rounded.Reply
 
 private val SendButtonVisualSize = ChatInputActionIconSize
 private val SendIconSize = 16.dp
-private val StopIconSize = 10.dp
+/** 停止方块图标：32dp 视觉圆里 14dp 才不显得空。 */
+private val StopIconSize = 14.dp
 /**
  * 暂停 / 插入按钮的视觉圆直径。
  *
@@ -320,7 +321,7 @@ internal fun AgentChatInputBar(
                 onSteer = onSteerQueuedMessage,
                 onRecall = { id -> onRecallQueuedMessage(id, textFieldState.text.toString()) },
                 onRemove = onRemoveQueuedMessage,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier.padding(bottom = 10.dp),
             )
         }
         AnimatedVisibility(
@@ -738,7 +739,7 @@ internal fun AgentChatInputBar(
                                             isEditingMessage && preserveFollowingMessages -> stringResource(R.string.chat_save_message)
                                             else -> stringResource(R.string.chat_send)
                                         },
-                                        modifier = Modifier.size(if (stopIcon) 12.dp else 17.dp),
+                                        modifier = Modifier.size(if (stopIcon) 16.dp else 17.dp),
                                         tint = when {
                                             stopIcon -> MiuixTheme.colorScheme.surface
                                             canSend -> MiuixTheme.colorScheme.onPrimary

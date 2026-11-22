@@ -299,54 +299,52 @@ private fun PaneBrandHeader(modifier: Modifier = Modifier) {
     }
 }
 
+/** 顶栏动作键：34dp 命中、28dp 圆、18dp 图标，三个键与「新建会话」共用同一外形。 */
+@Composable
+private fun PaneTopBarActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    onClick: () -> Unit,
+    active: Boolean = false,
+) {
+    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val colors = CouiPageDefaults.themeColors()
+    val background = if (isCoui) colors.card else MiuixTheme.colorScheme.surfaceContainerHigh
+    val tint = when {
+        active && isCoui -> colors.accent
+        active -> MiuixTheme.colorScheme.primary
+        isCoui -> colors.title
+        else -> MiuixTheme.colorScheme.onSurface
+    }
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(androidx.compose.foundation.shape.CircleShape)
+            .background(background)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = description, onClick = onClick)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = tint,
+        )
+    }
+}
+
 /** 顶栏的分类管理入口：新建、改名、排序、删除都在那个对话框里。 */
 @Composable
 private fun PaneManageCategoriesButton(
     hasCouiToolbarBackdrop: Boolean,
     onClick: () -> Unit,
 ) {
-    val description = "管理分类"
-    val colors = CouiPageDefaults.themeColors()
-    if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
-        if (hasCouiToolbarBackdrop) {
-            CouiTopAppBarIconButton(
-                icon = Icons.Outlined.Folder,
-                contentDescription = description,
-                onClick = onClick,
-                colors = colors,
-                iconSize = ConversationPanelMetrics.NewChatIconSize,
-            )
-        } else {
-            CouiIconButton(
-                onClick = onClick,
-                modifier = Modifier.semantics { contentDescription = description },
-                material = false,
-                backgroundColor = CouiTheme.colorScheme.surface,
-                minWidth = 40.dp,
-                minHeight = 40.dp,
-            ) {
-                CouiIcon(
-                    imageVector = Icons.Outlined.Folder,
-                    contentDescription = description,
-                    modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
-                    tint = colors.title,
-                )
-            }
-        }
-    } else {
-        GlassIconButton(
-            onClick = onClick,
-            backdrop = currentGlassOverlayBackdrop(),
-            size = GlassTopAppBarDefaults.ButtonSize,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Folder,
-                contentDescription = description,
-                modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
-                tint = MiuixTheme.colorScheme.onSurface,
-            )
-        }
-    }
+    PaneTopBarActionButton(
+        icon = Icons.Outlined.Folder,
+        description = "管理分类",
+        onClick = onClick,
+    )
 }
 
 /** 顶栏的多选入口：进入后可批量移动分类或删除会话。 */
@@ -356,50 +354,12 @@ private fun PaneSelectionButton(
     hasCouiToolbarBackdrop: Boolean,
     onClick: () -> Unit,
 ) {
-    val description = if (active) "退出多选" else "多选会话"
-    val colors = CouiPageDefaults.themeColors()
-    if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
-        // 与「新建会话」同一套外观：有玻璃顶栏时用 TopAppBar 图标按钮，
-        // 否则退回到实心圆按钮，三者背景才一致。
-        if (hasCouiToolbarBackdrop) {
-            CouiTopAppBarIconButton(
-                icon = Icons.Rounded.Checklist,
-                contentDescription = description,
-                onClick = onClick,
-                colors = colors,
-                iconSize = ConversationPanelMetrics.NewChatIconSize,
-            )
-        } else {
-            CouiIconButton(
-                onClick = onClick,
-                modifier = Modifier.semantics { contentDescription = description },
-                material = false,
-                backgroundColor = CouiTheme.colorScheme.surface,
-                minWidth = 40.dp,
-                minHeight = 40.dp,
-            ) {
-                CouiIcon(
-                    imageVector = Icons.Rounded.Checklist,
-                    contentDescription = description,
-                    modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
-                    tint = if (active) colors.accent else colors.title,
-                )
-            }
-        }
-    } else {
-        GlassIconButton(
-            onClick = onClick,
-            backdrop = currentGlassOverlayBackdrop(),
-            size = GlassTopAppBarDefaults.ButtonSize,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Checklist,
-                contentDescription = description,
-                modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
-                tint = if (active) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
-            )
-        }
-    }
+    PaneTopBarActionButton(
+        icon = Icons.Rounded.Checklist,
+        description = if (active) "退出多选" else "多选会话",
+        onClick = onClick,
+        active = active,
+    )
 }
 
 @Composable

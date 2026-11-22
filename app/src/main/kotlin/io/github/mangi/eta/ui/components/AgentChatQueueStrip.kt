@@ -90,12 +90,14 @@ internal fun AgentChatQueueStrip(
         modifier = modifier
             .fillMaxWidth()
             .squircleSurface(
-                color = MiuixTheme.colorScheme.surfaceContainer,
+                // 与聊天背景同色系的 surfaceContainer 几乎看不出边界，抬一档并把描边加深，
+                // 排队条才明确是「浮在输入框上方的一条」。
+                color = MiuixTheme.colorScheme.surfaceContainerHigh,
                 cornerRadius = QueueContainerCornerRadius,
             )
             .squircleBorder(
                 width = 0.5.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.9f),
                 cornerRadius = QueueContainerCornerRadius,
             ),
     ) {
