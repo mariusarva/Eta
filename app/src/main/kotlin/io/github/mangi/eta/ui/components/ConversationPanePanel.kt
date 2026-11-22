@@ -129,6 +129,7 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Add
+import top.yukonga.miuix.kmp.icon.glass.Import
 
 @Stable
 private class PaneBarInsets {
@@ -1299,7 +1300,7 @@ private fun ConversationHistoryRow(
                         )
                         GlassPopupItem(
                             text = "移到分类",
-                            icon = MiuixIcons.Glass.FolderOutline,
+                            icon = MiuixIcons.Glass.Import,
                             onClick = {
                                 showActionMenu = false
                                 onMoveToCategory()
