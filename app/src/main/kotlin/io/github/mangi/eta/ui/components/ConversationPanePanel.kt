@@ -676,7 +676,7 @@ private fun PaneDialog(
     if (!show) return
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismissRequest,
-        // 满屏窗口 + 靠左摆放：分类对话框和侧栏是同一套东西，居中会飘在聊天区上方。
+        // 满屏窗口 + 居中 + 左右对称留白：任何一侧多留一点都会看着歪。
         properties = androidx.compose.ui.window.DialogProperties(
             usePlatformDefaultWidth = false,
             decorFitsSystemWindows = false,
@@ -684,12 +684,12 @@ private fun PaneDialog(
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.CenterStart,
+            contentAlignment = Alignment.Center,
         ) {
         Column(
             modifier = Modifier
-                .padding(start = 12.dp, end = 40.dp)
-                .widthIn(max = 460.dp)
+                // 左右等距：贴左或居中偏移都会显得歪，直接用对称内边距铺满窗口宽度。
+                .padding(horizontal = 14.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 // 必须不透明：Miuix 的 surface / surfaceContainer 系列在深色主题下都带 alpha，
