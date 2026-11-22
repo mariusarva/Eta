@@ -133,6 +133,9 @@ internal class AgentExecutionService : Service() {
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(BRAND_COLOR)
             .setContentTitle(headline)
+            // 第二行必须有内容：只有标题时系统按紧凑单行卡片排版，按钮行会压到图标与标题上
+            // （HyperOS 的通知中心与灵动岛展开态都能复现）。
+            .setContentText(resources.getQuantityString(R.plurals.execution_summary, taskCount.coerceAtLeast(1), taskCount.coerceAtLeast(1)))
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
