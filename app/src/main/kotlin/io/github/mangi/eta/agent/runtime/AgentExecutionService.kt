@@ -139,9 +139,14 @@ internal class AgentExecutionService : Service() {
 
         if (status != null) {
             val runId = primaryRunId
-            builder.addAction(
-                Notification.Action.Builder(null, getString(R.string.execution_action_open), open).build(),
-            )
+            // Android 通知最多渲染 3 个 action，超出的直接不显示（HyperOS 上还会把卡片撑破、
+            // 按钮条压到卡片下沿）。有 run 时三个位置分给 暂停/继续、插入、停止，
+            // 「打开」交给 contentIntent——点卡片正文同样能进来。
+            if (runId == null) {
+                builder.addAction(
+                    Notification.Action.Builder(null, getString(R.string.execution_action_open), open).build(),
+                )
+            }
             if (runId != null) {
                 // 暂停 / 继续：与 App 内运行键同一套控制通道（MSG_PAUSE / MSG_RESUME）。
                 val pauseIntent = PendingIntent.getService(
