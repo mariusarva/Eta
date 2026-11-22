@@ -223,7 +223,7 @@ fun AgentAppRoot(
     var conversationDeleteTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     // 「用角色新建对话」：侧栏顶栏按钮触发，这里拉一次角色列表再弹选择框。
     var showCharacterPicker by remember { mutableStateOf(false) }
-    var characterOptions by remember { mutableStateOf<List<io.github.mangi.eta.data.model.CharacterProfile>>(emptyList()) }
+    var characterOptions by remember { mutableStateOf<List<io.github.mangi.eta.agent.roleplay.CharacterProfile>>(emptyList()) }
     var characterPickerLoading by remember { mutableStateOf(false) }
     LaunchedEffect(showCharacterPicker) {
         if (!showCharacterPicker) return@LaunchedEffect
