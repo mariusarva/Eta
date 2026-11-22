@@ -115,6 +115,12 @@ import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import io.github.mangi.eta.ui.model.ConversationCategoryUi
+import io.github.mangi.eta.ui.components.SettingsTextField
+import top.yukonga.miuix.kmp.glass.GlassDialog
+import io.github.mangi.eta.ui.components.MiuixDialogActions
 
 @Stable
 private class PaneBarInsets {
@@ -143,13 +149,20 @@ internal fun ConversationPanePanel(
     onOpenSkills: () -> Unit,
     onOpenScheduledTasks: () -> Unit = {},
     onOpenCharacters: () -> Unit,
+    onFilterCategory: (String?) -> Unit = {},
+    onCreateCategory: (String) -> Unit = {},
+
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // state.conversations 已由 AgentAppState 按标题、预览与消息内容过滤。
     val query = state.searchQuery.trim()
     val isSearching = query.isNotBlank()
-    val groups = remember(state.conversations) { state.conversations.groupForDrawer() }
+    var showCreateCategory by remember { mutableStateOf(false) }
+    var newCategoryName by remember { mutableStateOf("") }
+    val groups = remember(state.conversations, state.categories) {
+        state.conversations.groupForDrawer(state.categories)
+    }
     val containerColor = conversationPaneContainerColor()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val couiBackdrop = if (isCoui && isRevealed) rememberCouiPageBackdrop(containerColor) else null
@@ -223,6 +236,20 @@ internal fun ConversationPanePanel(
                                 }
                             }
 
+                            if (!isSearching && state.categories.isNotEmpty()) {
+                                item(key = "pane_category_filter") {
+                                    ConversationCategoryFilterRow(
+                                        categories = state.categories,
+                                        selectedId = state.categoryFilterId,
+                                        onSelect = onFilterCategory,
+                                        onCreate = {
+                                            newCategoryName = ""
+                                            showCreateCategory = true
+                                        },
+                                    )
+                                }
+                            }
+
                             if (state.conversations.isEmpty()) {
                                 item(key = "pane_empty_conversations") {
                                     EmptyConversations(isSearching = isSearching)
@@ -286,6 +313,32 @@ internal fun ConversationPanePanel(
                     body.placeRelative(0, 0)
                     topBar.placeRelative(0, 0)
                     bottomDock.placeRelative(0, constraints.maxHeight - bottomDock.height)
+                }
+            }
+
+            GlassDialog(
+                show = showCreateCategory,
+                title = "新建分类",
+                summary = "分类只影响侧栏分组，不改变会话内容。",
+                backdrop = currentGlassOverlayBackdrop(),
+                onDismissRequest = { showCreateCategory = false },
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    SettingsTextField(
+                        label = "分类名称",
+                        value = newCategoryName,
+                        onChange = { newCategoryName = it },
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    MiuixDialogActions(
+                        confirmText = "创建",
+                        confirmEnabled = newCategoryName.isNotBlank(),
+                        onCancel = { showCreateCategory = false },
+                        onConfirm = {
+                            onCreateCategory(newCategoryName)
+                            showCreateCategory = false
+                        },
+                    )
                 }
             }
 
@@ -471,6 +524,89 @@ private fun MiuixWorkbenchRow(entry: WorkbenchEntry) {
                 .size(14.dp),
             tint = colors.onSurfaceVariantActions,
         )
+    }
+}
+
+
+/** 分类筛选条：全部 + 各分类，点一下切换筛选。 */
+@Composable
+private fun ConversationCategoryFilterRow(
+    categories: List<ConversationCategoryUi>,
+    selectedId: String?,
+    onSelect: (String?) -> Unit,
+    onCreate: () -> Unit,
+) {
+    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val horizontalInset = ConversationPanelMetrics.PaneHorizontalPadding +
+        ConversationPanelMetrics.RowHorizontalPadding
+    val entries: List<Pair<String?, String>> = buildList {
+        add(null to "全部")
+        categories.forEach { add(it.id to it.name) }
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(start = horizontalInset, end = horizontalInset, top = 4.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        entries.forEach { (id, label) ->
+            val active = id == selectedId
+            val container = when {
+                isCoui && active -> CouiPageDefaults.themeColors().accent
+                isCoui -> CouiPageDefaults.themeColors().card
+                active -> MiuixTheme.colorScheme.onSurface
+                else -> MiuixTheme.colorScheme.surfaceContainerHigh
+            }
+            val content = when {
+                isCoui && active -> CouiPageDefaults.themeColors().card
+                isCoui -> CouiPageDefaults.themeColors().summary
+                active -> MiuixTheme.colorScheme.surface
+                else -> MiuixTheme.colorScheme.onSurface
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(container)
+                    .clickable(role = Role.Button) { onSelect(id) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (isCoui) {
+                    CouiText(
+                        text = label,
+                        kind = CouiTextKind.ItemSummary,
+                        color = content,
+                        maxLines = 1,
+                    )
+                } else {
+                    Text(
+                        text = label,
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = content,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(
+                    if (isCoui) CouiPageDefaults.themeColors().card
+                    else MiuixTheme.colorScheme.surfaceContainerHigh
+                )
+                .clickable(role = Role.Button, onClickLabel = "新建分类", onClick = onCreate)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "＋",
+                style = MiuixTheme.textStyles.footnote1,
+                color = if (isCoui) CouiPageDefaults.themeColors().summary
+                else MiuixTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
 
@@ -903,6 +1039,7 @@ private data class ConversationDrawerGroup(
 )
 
 private sealed interface ConversationDrawerSection {
+    data class Category(val id: String, val name: String) : ConversationDrawerSection
     data object Pinned : ConversationDrawerSection
     data object Today : ConversationDrawerSection
     data class Dated(val label: String) : ConversationDrawerSection
@@ -910,15 +1047,40 @@ private sealed interface ConversationDrawerSection {
 
 @Composable
 private fun ConversationDrawerGroup.localizedLabel(): String = when (val value = section) {
+    is ConversationDrawerSection.Category -> value.name
     ConversationDrawerSection.Pinned -> stringResource(R.string.conversation_section_pinned)
     ConversationDrawerSection.Today -> stringResource(R.string.conversation_section_today)
     is ConversationDrawerSection.Dated -> value.label
 }
 
-private fun List<ConversationSummaryUi>.groupForDrawer(): List<ConversationDrawerGroup> {
+private fun List<ConversationSummaryUi>.groupForDrawer(
+    categories: List<ConversationCategoryUi> = emptyList(),
+): List<ConversationDrawerGroup> {
     if (isEmpty()) return emptyList()
     val groups = mutableListOf<ConversationDrawerGroup>()
+
+    // 置顶永远在最前，且不进任何分类分组。
+    val pinned = filter { it.isPinned }
+    if (pinned.isNotEmpty()) {
+        groups += ConversationDrawerGroup(ConversationDrawerSection.Pinned, pinned)
+    }
+
+    // 分类分组按 sort_order 顺序，只收非置顶会话。
+    val categorized = mutableSetOf<String>()
+    categories.forEach { category ->
+        val items = filter { !it.isPinned && it.categoryId == category.id }
+        if (items.isNotEmpty()) {
+            categorized += items.map { it.id }
+            groups += ConversationDrawerGroup(
+                ConversationDrawerSection.Category(category.id, category.name),
+                items,
+            )
+        }
+    }
+
+    // 其余（未分类，或分类已被删除）沿用时间分组。
     for (conversation in this) {
+        if (conversation.isPinned || conversation.id in categorized) continue
         val section = conversation.drawerSection()
         val last = groups.lastOrNull()
         if (last?.section == section) {

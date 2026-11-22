@@ -83,6 +83,8 @@ fun ConversationSidePaneScaffold(
     onOpenTools: () -> Unit,
     onOpenSkills: () -> Unit,
     onOpenScheduledTasks: () -> Unit = {},
+    onFilterCategory: (String?) -> Unit = {},
+    onCreateCategory: (String) -> Unit = {},
     onOpenCharacters: () -> Unit,
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -237,6 +239,8 @@ fun ConversationSidePaneScaffold(
                         onOpenTools = onOpenTools,
                         onOpenSkills = onOpenSkills,
                         onOpenScheduledTasks = onOpenScheduledTasks,
+                        onFilterCategory = onFilterCategory,
+                        onCreateCategory = onCreateCategory,
                         onOpenCharacters = onOpenCharacters,
                         onOpenPermissions = onOpenPermissions,
                         modifier = Modifier

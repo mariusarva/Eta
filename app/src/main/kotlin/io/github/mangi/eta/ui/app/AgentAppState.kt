@@ -155,6 +155,12 @@ internal class AgentAppState(
     private var conversationTitles: Map<String, String> = initialConversations.titles
     private var conversationUpdatedAt: Map<String, Long> = initialConversations.updatedAt
     private var conversationPinnedIds: Set<String> = initialConversations.pinnedIds
+    /** 侧栏会话分类，按 sort_order 升序。 */
+    private var conversationCategoryList: List<io.github.mangi.eta.data.db.ConversationCategoryEntity> = emptyList()
+    /** 会话 -> 分类；不在表里即未分类。 */
+    private var conversationCategoryIds: Map<String, String> = emptyMap()
+    /** 「在分类下新建会话」时暂存，会话真正落库后归入该分类。 */
+    private var pendingNewConversationCategoryId: String? = null
 
     var homeState by mutableStateOf(
         selectedConversationId?.let(conversationsById::get) ?: emptyChatState(defaultReasoningEffort(null))
@@ -183,6 +189,7 @@ internal class AgentAppState(
 
     init {
         refreshConversationSummaries()
+        reloadConversationCategories()
         observeRuntimeSelection()
         observeDefaultReasoningPreferences()
         runtimeRecoveryInProgress.set(true)
@@ -1912,6 +1919,135 @@ internal class AgentAppState(
         persistConversations()
     }
 
+    // ---- 会话分类 ----
+
+    private fun conversationDao() = io.github.mangi.eta.data.db.EtaDatabase.get(appContext).conversationDao()
+
+    /** 从库里重读分类与归属，再刷新侧栏。 */
+    private fun reloadConversationCategories() {
+        scope.launch {
+            val dao = conversationDao()
+            val categories = withContext(Dispatchers.IO) { runCatching { dao.categories() }.getOrDefault(emptyList()) }
+            val index = withContext(Dispatchers.IO) {
+                runCatching { dao.conversationIndex() }.getOrDefault(emptyList())
+            }
+            conversationCategoryList = categories
+            conversationCategoryIds = index.mapNotNull { row ->
+                row.categoryId?.takeIf { it.isNotBlank() }?.let { row.id to it }
+            }.toMap()
+            refreshConversationSummaries()
+        }
+    }
+
+    fun createConversationCategory(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        scope.launch {
+            val dao = conversationDao()
+            withContext(Dispatchers.IO) {
+                val order = runCatching { dao.maxCategorySortOrder() }.getOrDefault(0) + 1
+                dao.upsertCategory(
+                    io.github.mangi.eta.data.db.ConversationCategoryEntity(
+                        id = "cat-" + UUID.randomUUID(),
+                        name = trimmed,
+                        sortOrder = order,
+                        createdAt = System.currentTimeMillis(),
+                    )
+                )
+            }
+            reloadConversationCategories()
+        }
+    }
+
+    fun renameConversationCategory(categoryId: String, name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        scope.launch {
+            val dao = conversationDao()
+            withContext(Dispatchers.IO) {
+                val existing = dao.categories().firstOrNull { it.id == categoryId } ?: return@withContext
+                dao.upsertCategory(existing.copy(name = trimmed))
+            }
+            reloadConversationCategories()
+        }
+    }
+
+    fun deleteConversationCategory(categoryId: String) {
+        scope.launch {
+            val dao = conversationDao()
+            withContext(Dispatchers.IO) {
+                dao.clearCategoryMembers(categoryId)
+                dao.deleteCategory(categoryId)
+            }
+            if (conversationPaneState.categoryFilterId == categoryId) {
+                conversationPaneState = conversationPaneState.copy(categoryFilterId = null)
+            }
+            reloadConversationCategories()
+        }
+    }
+
+    fun moveConversationsToCategory(conversationIds: Collection<String>, categoryId: String?) {
+        if (conversationIds.isEmpty()) return
+        val target = categoryId?.takeIf { it.isNotBlank() }
+        // 先更新内存再落库：侧栏在写库返回前就会刷新，不先置位会看到「移进去又弹回来」。
+        conversationCategoryIds = if (target == null) {
+            conversationCategoryIds - conversationIds.toSet()
+        } else {
+            conversationCategoryIds + conversationIds.associateWith { target }
+        }
+        refreshConversationSummaries()
+        scope.launch {
+            val dao = conversationDao()
+            withContext(Dispatchers.IO) { dao.assignCategory(conversationIds.toList(), target) }
+            reloadConversationCategories()
+        }
+    }
+
+    /** 分类上移 / 下移：与相邻分类交换 sort_order。 */
+    fun moveConversationCategory(categoryId: String, delta: Int) {
+        scope.launch {
+            val dao = conversationDao()
+            withContext(Dispatchers.IO) {
+                val ordered = dao.categories().sortedWith(compareBy({ it.sortOrder }, { it.createdAt }))
+                val index = ordered.indexOfFirst { it.id == categoryId }
+                if (index < 0) return@withContext
+                val target = index + delta
+                if (target !in ordered.indices) return@withContext
+                val current = ordered[index]
+                val neighbour = ordered[target]
+                dao.updateCategoryOrder(current.id, neighbour.sortOrder)
+                dao.updateCategoryOrder(neighbour.id, current.sortOrder)
+            }
+            reloadConversationCategories()
+        }
+    }
+
+    /** 新建会话并预置分类：会话真正落库后自动归入该分类。 */
+    fun createConversationInCategory(categoryId: String?) {
+        pendingNewConversationCategoryId = categoryId
+        createConversation()
+    }
+
+    fun setConversationCategoryFilter(categoryId: String?) {
+        conversationPaneState = conversationPaneState.copy(categoryFilterId = categoryId)
+        refreshConversationSummaries()
+    }
+
+    /** 批量删除：逐个走单条删除链路（运行中的会先停再删），最后统一刷新一次侧栏。 */
+    fun deleteConversations(conversationIds: Collection<String>) {
+        conversationIds.filter { it in conversationsById }.forEach { deleteConversation(it) }
+        refreshConversationSummaries()
+    }
+
+    /** 新会话首次落库后，把它归入用户在「分类下新建」时选的分类。 */
+    private suspend fun applyPendingCategoryIfNeeded(selected: String?) {
+        val pending = pendingNewConversationCategoryId ?: return
+        if (selected.isNullOrBlank()) return
+        pendingNewConversationCategoryId = null
+        runCatching { conversationDao().assignCategory(listOf(selected), pending) }
+        reloadConversationCategories()
+    }
+
     fun deleteMessageTurn(messageId: String) {
         if (homeState.isStreaming || homeState.messageEdit != null || isBranchingCurrentConversation) return
         val conversationId = selectedConversationId ?: return
@@ -3058,6 +3194,7 @@ internal class AgentAppState(
                     updatedAtMillis = conversationUpdatedAt[id] ?: 0L,
                     mode = ConversationModeUi.Chat,
                     isPinned = id in conversationPinnedIds,
+                    categoryId = conversationCategoryIds[id],
                     characterName = state.roleplay?.characterName ?: state.conversationCharacterName,
                     characterAvatarPath = state.roleplay?.avatarPath ?: state.conversationCharacterAvatarPath,
                     isActiveRun = state.isStreaming,
@@ -3069,13 +3206,26 @@ internal class AgentAppState(
                 )
             }
         val query = conversationPaneState.searchQuery.trim()
+        // 筛选分类被删掉后自动退回「全部」，避免侧栏永远空着。
+        val filterId = conversationPaneState.categoryFilterId
+            ?.takeIf { id -> conversationCategoryList.any { it.id == id } }
+        val summariesInFilter = if (filterId == null) summaries else summaries.filter { it.categoryId == filterId }
         conversationPaneState = conversationPaneState.copy(
             selectedConversationId = selectedConversationId,
+            categoryFilterId = filterId,
+            categories = conversationCategoryList.map { category ->
+                io.github.mangi.eta.ui.model.ConversationCategoryUi(
+                    id = category.id,
+                    name = category.name,
+                    sortOrder = category.sortOrder,
+                    conversationCount = summaries.count { it.categoryId == category.id },
+                )
+            },
             conversations = if (query.isBlank()) {
-                summaries
+                summariesInFilter
             } else {
                 contentMatchCache.keys.retainAll(conversationsById.keys)
-                summaries.filter { summary ->
+                summariesInFilter.filter { summary ->
                     summary.title.contains(query, ignoreCase = true) ||
                         summary.preview.contains(query, ignoreCase = true) ||
                         summary.id in persistedSearchMatches || conversationContentMatches(summary.id, query)
@@ -3114,6 +3264,7 @@ internal class AgentAppState(
                     previous?.join()
                     persistence.save(appContext,
                         AgentConversationStore.Snapshot(selected, conversations, titles, timestamps, pinned))
+                    applyPendingCategoryIfNeeded(selected)
                     onSaved?.invoke()
                     scope.launch(Dispatchers.Main.immediate) { releaseInactiveConversations(conversations) }
                     true
