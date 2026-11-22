@@ -125,7 +125,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import io.github.mangi.eta.ui.app.ConversationTimeLabels
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Add
@@ -1418,6 +1418,7 @@ private fun ConversationDrawerSection.key(): String = when (this) {
     is ConversationDrawerSection.Dated -> "dated-" + label
 }
 
+@Composable
 private fun ConversationDrawerGroup.localizedLabel(): String = when (val value = section) {
     is ConversationDrawerSection.Category -> value.name
     ConversationDrawerSection.Pinned -> stringResource(R.string.conversation_section_pinned)

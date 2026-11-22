@@ -630,21 +630,6 @@ internal fun AgentChatInputBar(
                                     tint = MiuixTheme.colorScheme.onSurface,
                                 )
                             }
-                            // 插入键只在有输入内容时出现：平时不占位，窄屏不会把发送/停止键挤出去。
-                            if (canSend) {
-                                Spacer(modifier = Modifier.width(RunActionGap))
-                                RunActionButton(
-                                    onClick = onInject,
-                                    contentDescription = "插入",
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Reply,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(ActionIconSize),
-                                        tint = MiuixTheme.colorScheme.onSurface,
-                                    )
-                                }
-                            }
                         }
 
                         val showStreamingSend = isStreaming && !isCompacting && canSend
