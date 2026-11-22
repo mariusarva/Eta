@@ -90,11 +90,13 @@ internal fun AgentChatQueueStrip(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            // 方角矩形：圆角胶囊在深色背景上和输入框糊在一起，直角的块状边界更清楚。
+            // 小圆角矩形：胶囊太圆会和输入框糊成一片，纯直角又太生硬，8dp 居中。
+            .clip(RoundedCornerShape(8.dp))
             .background(MiuixTheme.colorScheme.surfaceContainerHigh)
             .border(
                 width = 0.5.dp,
                 color = MiuixTheme.colorScheme.outline.copy(alpha = 0.9f),
+                shape = RoundedCornerShape(8.dp),
             ),
     ) {
         Row(

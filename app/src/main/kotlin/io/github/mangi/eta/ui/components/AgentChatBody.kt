@@ -452,8 +452,7 @@ private fun AgentChatScaffold(
                 allTurns = allTurns,
                 onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
                 onJumpToMessage = onJumpRequest,
-                modifier = Modifier.padding(bottom = 2.dp),
-            )
+        )
             AgentChatBottomBar(
                 input = input,
                 isCompacting = isCompacting,

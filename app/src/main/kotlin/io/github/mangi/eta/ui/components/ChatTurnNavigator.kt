@@ -277,9 +277,7 @@ internal fun ChatTurnNavigator(
         Box(
             modifier = Modifier
                 .width(96.dp)
-                .heightIn(min = 26.dp)
-                .clip(RoundedCornerShape(50))
-                .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                .heightIn(min = 18.dp)
                 .semantics { contentDescription = if (expanded) "收起对话轮次" else "展开对话轮次" }
                 .pointerInput(expanded) {
                     detectVerticalDragGestures { change, dragAmount ->
