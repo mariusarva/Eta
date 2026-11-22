@@ -136,6 +136,9 @@ import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 /**
  * 聊天主体：消息流 + 底部输入框。
@@ -490,6 +493,7 @@ private fun AgentChatScaffold(
                 AgentConversationMessages(
                     visibleMessages = visibleMessages,
                     scrollState = scrollState,
+                    allTurns = allTurns,
                     isStreaming = isStreaming,
                     topInset = topInset,
                     bottomInset = bottomPadding,
@@ -524,6 +528,7 @@ private fun AgentChatScaffold(
 internal fun AgentConversationMessages(
     visibleMessages: List<AgentChatMessageUi>,
     scrollState: LazyListState,
+    allTurns: List<ChatTurnEntry> = emptyList(),
     isStreaming: Boolean,
     bottomInset: Dp,
     keepBottomAnchored: Boolean,
@@ -981,7 +986,7 @@ internal fun AgentConversationMessages(
                 onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
                 onJumpToMessage = { messageId ->
                     // 目标可能在还没加载的历史里：先按页往前加载，直到这条消息出现。
-                    scope.launch {
+                    coroutineScope.launch {
                         var guard = 0
                         fun indexOfTarget(): Int = timelineEntries.indexOfFirst { entry ->
                             when (entry) {

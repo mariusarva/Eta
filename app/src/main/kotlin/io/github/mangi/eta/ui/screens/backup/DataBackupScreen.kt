@@ -60,6 +60,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import io.github.mangi.eta.ui.app.currentGlassOverlayBackdrop
 import android.content.Intent
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.sp
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 internal fun DataBackupScreen(
