@@ -56,6 +56,14 @@ internal class AgentExecutionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             stopTasks()
+        } else if (intent?.action == ACTION_TOGGLE_PAUSE) {
+            val targetRunId = intent.getStringExtra(EXTRA_TOGGLE_RUN_ID).orEmpty()
+            val pausedNow = runPaused
+            if (targetRunId.isNotBlank()) {
+                val client = AgentRuntimeClient(this, AndroidAgentLogger)
+                if (pausedNow) client.resumeRun() else client.pauseRun(targetRunId)
+            }
+            refreshNotification()
         } else {
             ensureForeground()
             refreshNotification()
@@ -130,8 +138,39 @@ internal class AgentExecutionService : Service() {
             .setOnlyAlertOnce(true)
 
         if (status != null) {
+            val runId = primaryRunId
+            builder.addAction(
+                Notification.Action.Builder(null, getString(R.string.execution_action_open), open).build(),
+            )
+            if (runId != null) {
+                // 暂停 / 继续：与 App 内运行键同一套控制通道（MSG_PAUSE / MSG_RESUME）。
+                val pauseIntent = PendingIntent.getService(
+                    this, 3,
+                    Intent(this, AgentExecutionService::class.java)
+                        .setAction(ACTION_TOGGLE_PAUSE)
+                        .putExtra(EXTRA_TOGGLE_RUN_ID, runId),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                builder.addAction(
+                    Notification.Action.Builder(
+                        null,
+                        if (runPaused) "继续" else "暂停",
+                        pauseIntent,
+                    ).build(),
+                )
+                // 插入对话：独立栈的透明输入层，交出输入后自动关闭。
+                val supplement = PendingIntent.getActivity(
+                    this, 4,
+                    Intent(this, SupplementActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        .putExtra(SupplementActivity.EXTRA_RUN_ID, runId),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                builder.addAction(
+                    Notification.Action.Builder(null, "插入", supplement).build(),
+                )
+            }
             builder
-                .addAction(Notification.Action.Builder(null, getString(R.string.execution_action_open), open).build())
                 .addAction(Notification.Action.Builder(null, getString(R.string.execution_action_stop), stop).build())
         } else {
             builder
@@ -172,6 +211,8 @@ internal class AgentExecutionService : Service() {
         private const val CHANNEL = "eta_execution"
         private const val NOTIFICATION_ID = 1107
         private const val ACTION_STOP = "io.github.mangi.eta.action.STOP_USER_EXECUTION"
+        private const val ACTION_TOGGLE_PAUSE = "io.github.mangi.eta.action.TOGGLE_RUN_PAUSE"
+        private const val EXTRA_TOGGLE_RUN_ID = "io.github.mangi.eta.extra.TOGGLE_RUN_ID"
         private const val BRAND_COLOR = 0xFF4285F4.toInt()
         private val leases = ExecutionLeaseRegistry()
         private val ownerSequence = AtomicLong()
@@ -179,6 +220,9 @@ internal class AgentExecutionService : Service() {
         @Volatile private var instance: AgentExecutionService? = null
         private var runStatus: AgentOverlayStatus? = null
         private var activeRunCount = 0
+        /** 当前主运行的 runId 与暂停态：通知上的暂停按钮按它投递。 */
+        private var primaryRunId: String? = null
+        private var runPaused = false
         private var currentConversationId: String = ""
         private var currentArchivedSource: String = ""
         private var currentArchivedKey: String = ""
@@ -199,10 +243,14 @@ internal class AgentExecutionService : Service() {
             archivedKey: String = "",
             startedAtEpochMs: Long = 0L,
             suppressLiveUpdate: Boolean = false,
+            primaryRunId: String? = null,
+            isPaused: Boolean = false,
         ) {
             mainHandler.post {
                 runStatus = status
                 this.activeRunCount = activeRunCount
+                this.primaryRunId = primaryRunId
+                this.runPaused = isPaused
                 currentConversationId = conversationId
                 currentArchivedSource = archivedSource
                 currentArchivedKey = archivedKey

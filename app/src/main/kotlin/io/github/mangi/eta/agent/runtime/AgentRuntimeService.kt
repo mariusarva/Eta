@@ -1199,6 +1199,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             archivedKey = archive?.second.orEmpty(),
             startedAtEpochMs = targetRun?.startedAtEpochMs ?: 0L,
             suppressLiveUpdate = guiOverlayActive || allActiveRunsSilent,
+            primaryRunId = targetRun?.takeIf { !it.session.isTerminal }?.runId,
+            isPaused = targetRun?.session?.controller?.isPaused == true,
         )
     }
 
