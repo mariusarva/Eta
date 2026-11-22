@@ -28,6 +28,7 @@ import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.coui.CouiButton
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
+import io.github.mangi.eta.ui.components.SettingsTextField
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 
@@ -75,9 +76,9 @@ internal fun SystemTtsSettingsSection(store: SpeechSettingsStore) {
             }
             if (config.useSystemDefault) SpeechNote("已允许使用系统默认（联网由引擎决定）。文本可能交由引擎联网处理；不代表离线。")
             SpeechFieldColumn {
-                SpeechField(stringResource(R.string.speech_system_tts_engine), config.engine,
+                SettingsTextField(stringResource(R.string.speech_system_tts_engine), config.engine,
                     onChange = { store.edit(settings.copy(systemTts = config.copy(engine = it.trim()))) })
-                SpeechField(stringResource(R.string.speech_system_tts_language), config.language,
+                SettingsTextField(stringResource(R.string.speech_system_tts_language), config.language,
                     onChange = { store.edit(settings.copy(systemTts = config.copy(language = it.trim()))) })
             }
             val rateTitle = stringResource(R.string.speech_system_tts_rate)

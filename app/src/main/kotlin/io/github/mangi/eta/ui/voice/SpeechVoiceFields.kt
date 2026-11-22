@@ -14,6 +14,7 @@ import io.github.mangi.eta.data.model.TtsProvider
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.EtaGlassSpinnerPreference
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
+import io.github.mangi.eta.ui.components.SettingsTextField
 import top.yukonga.miuix.kmp.basic.DropdownItem
 
 @Composable
@@ -87,7 +88,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
             }
             AnimatedVisibility(visible = custom) {
                 SpeechFieldColumn {
-                    SpeechField(
+                    SettingsTextField(
                         label = stringResource(R.string.speech_voice_id),
                         value = voice,
                         onChange = { change(it.trim()) },
