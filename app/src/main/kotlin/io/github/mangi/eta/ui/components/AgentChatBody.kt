@@ -140,6 +140,7 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.ui.zIndex
+import androidx.compose.foundation.layout.offset
 
 /**
  * 聊天主体：消息流 + 底部输入框。
@@ -452,7 +453,9 @@ private fun AgentChatScaffold(
                 allTurns = allTurns,
                 onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
                 onJumpToMessage = onJumpRequest,
-        )
+                // 视觉上再往下贴：横条与输入框之间原本隔着输入栏的 14dp 顶部内边距。
+                modifier = Modifier.offset(y = 10.dp),
+            )
             AgentChatBottomBar(
                 input = input,
                 isCompacting = isCompacting,
