@@ -48,6 +48,8 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
 
     override fun onCreate() {
         super.onCreate()
+        // 全量备份还原必须在 Room / DataStore 打开前落地，否则打开的是旧库。
+        runCatching { io.github.mangi.eta.data.repository.EtaFullBackupArchive.applyPendingRestore(this) }
         AppStrings.init(this)
         Prefs.initLocal(this)
         if (!AppProcessPolicy.shouldInitializeFullRuntime(Application.getProcessName(), packageName)) {
@@ -57,6 +59,18 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         RootAccess.initialize(this)
         applicationScope.launch { TerminalRuntime.backgroundJobs(this@EtaApp).resume() }
         SettingsDataStore.init(this)
+        // 自动备份：进程起来先排闹钟，再按周期判断要不要补一次（没开启直接跳过）。
+        applicationScope.launch {
+            runCatching {
+                io.github.mangi.eta.agent.automation.AutoBackupAlarm.refresh(this@EtaApp)
+                io.github.mangi.eta.data.repository.AutoBackupRunner.maybeRun(this@EtaApp)
+                io.github.mangi.eta.agent.automation.AutoBackupAlarm.refresh(this@EtaApp)
+            }.onFailure { throwable ->
+                io.github.mangi.eta.core.AndroidAgentLogger.warn(
+                    "Auto backup startup skipped: type=" + throwable.javaClass.simpleName
+                )
+            }
+        }
         val predictiveBackEnabled = runBlocking(Dispatchers.IO) {
             AppearanceSettingsRepository.settings().predictiveBackEnabled
         }

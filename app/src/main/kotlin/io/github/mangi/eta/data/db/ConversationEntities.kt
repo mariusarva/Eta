@@ -9,7 +9,10 @@ import io.github.mangi.eta.data.model.ReasoningEffort
 import kotlinx.serialization.Serializable
 
 @Serializable
-@Entity(tableName = "conversations")
+@Entity(
+    tableName = "conversations",
+    indices = [Index(name = "index_conversations_category_id", value = ["category_id"])],
+)
 internal data class ConversationEntity(
     @PrimaryKey val id: String,
     val title: String,
@@ -25,6 +28,8 @@ internal data class ConversationEntity(
     /** 会话最近使用的本地 Model.id；null 表示跟随默认模型。 */
     @ColumnInfo(name = "model_id") val modelId: String? = null,
     @ColumnInfo(name = "is_pinned", defaultValue = "0") val isPinned: Boolean = false,
+    /** 所属会话分类；null 表示未分类。 */
+    @ColumnInfo(name = "category_id") val categoryId: String? = null,
 )
 
 internal data class ConversationMetadata(
@@ -55,6 +60,7 @@ internal data class ConversationIndexRow(
     @ColumnInfo(name = "tool_name") val toolName: String?,
     @ColumnInfo(name = "has_roleplay") val hasRoleplay: Boolean,
     @ColumnInfo(name = "is_pinned") val isPinned: Boolean = false,
+    @ColumnInfo(name = "category_id") val categoryId: String? = null,
 )
 
 internal data class ConversationIdentity(
@@ -63,6 +69,8 @@ internal data class ConversationIdentity(
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
     @ColumnInfo(name = "is_pinned") val isPinned: Boolean = false,
+    /** 保存会话时用来回填分类归属：整行 upsert 会把没带上的列写成默认值。 */
+    @ColumnInfo(name = "category_id") val categoryId: String? = null,
 )
 
 internal data class ConversationMessageContent(val id: String, val content: String)
@@ -117,6 +125,8 @@ internal data class ConversationMessageEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "conversation_id") val conversationId: String,
     @ColumnInfo(name = "sort_index") val sortIndex: Int,
+    /** 消息落库时间；0 表示旧数据升级前写入、没有时间信息。 */
+    @ColumnInfo(name = "created_at", defaultValue = "0") val createdAt: Long = 0L,
     val type: String,
     val content: String,
     @ColumnInfo(name = "images_json") val imagesJson: String = "[]",

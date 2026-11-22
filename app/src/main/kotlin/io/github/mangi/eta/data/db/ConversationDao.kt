@@ -11,7 +11,7 @@ import androidx.room.Upsert
 @Dao
 internal interface ConversationDao : ChunkedTextDao {
     @Query(
-        "SELECT c.id, c.title, c.reasoning_effort, c.created_at, c.updated_at, c.model_id, c.is_pinned, " +
+        "SELECT c.id, c.title, c.reasoning_effort, c.created_at, c.updated_at, c.model_id, c.is_pinned, c.category_id, " +
             "(c.roleplay_json != '') AS has_roleplay, " +
             "m.id AS message_id, m.type AS message_type, m.tool_name, " +
             "COALESCE((SELECT substr(content, 1, 256) FROM agent_text_chunks " +
@@ -23,7 +23,7 @@ internal interface ConversationDao : ChunkedTextDao {
     )
     suspend fun conversationIndex(): List<ConversationIndexRow>
 
-    @Query("SELECT id, title, created_at, updated_at, is_pinned FROM conversations")
+    @Query("SELECT id, title, created_at, updated_at, is_pinned, category_id FROM conversations")
     suspend fun conversationIdentities(): List<ConversationIdentity>
 
     @Query("UPDATE conversations SET title = :title, updated_at = :updatedAt, is_pinned = :isPinned WHERE id = :conversationId")
@@ -305,4 +305,49 @@ internal interface ConversationDao : ChunkedTextDao {
         insertMessages(messages)
         state?.let { insertState(it) }
     }
+
+    // ---- 本 fork：容量统计与轮次摘要 ----
+
+    @Query("SELECT COUNT(*) FROM conversations")
+    suspend fun conversationTotal(): Int
+
+    @Query("SELECT COUNT(*) FROM conversation_messages")
+    suspend fun messageTotal(): Int
+
+    /** 轮次导航用：只取用户消息的 id、前 80 字与落库时间，不读全文，也不占分页窗口。 */
+    @Query(
+        "SELECT id, substr(content, 1, 80) AS content, created_at FROM conversation_messages " +
+            "WHERE conversation_id = :conversationId AND type = 'user' ORDER BY sort_index ASC"
+    )
+    suspend fun userMessageDigests(conversationId: String): List<ConversationUserDigest>
+
+    // ---- 本 fork：会话分类 ----
+
+    @Query("SELECT * FROM conversation_categories ORDER BY sort_order ASC, created_at ASC")
+    suspend fun categories(): List<ConversationCategoryEntity>
+
+    @Upsert
+    suspend fun upsertCategory(category: ConversationCategoryEntity)
+
+    @Query("DELETE FROM conversation_categories WHERE id = :categoryId")
+    suspend fun deleteCategory(categoryId: String)
+
+    @Query("UPDATE conversations SET category_id = NULL WHERE category_id = :categoryId")
+    suspend fun clearCategoryMembers(categoryId: String)
+
+    @Query("UPDATE conversations SET category_id = :categoryId WHERE id IN (:conversationIds)")
+    suspend fun assignCategory(conversationIds: List<String>, categoryId: String?)
+
+    @Query("SELECT COALESCE(MAX(sort_order), 0) FROM conversation_categories")
+    suspend fun maxCategorySortOrder(): Int
+
+    @Query("UPDATE conversation_categories SET sort_order = :order WHERE id = :categoryId")
+    suspend fun updateCategoryOrder(categoryId: String, order: Int)
 }
+
+/** 轮次一行所需的用户消息摘要。 */
+internal data class ConversationUserDigest(
+    val id: String,
+    val content: String,
+    @androidx.room.ColumnInfo(name = "created_at") val createdAt: Long,
+)

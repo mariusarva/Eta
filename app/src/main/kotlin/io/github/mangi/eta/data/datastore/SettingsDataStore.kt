@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.mangi.eta.data.model.AppearanceAccentColor
+import io.github.mangi.eta.data.model.AutoBackupSettings
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.data.model.AppearanceThemeMode
@@ -33,6 +34,8 @@ import kotlinx.coroutines.flow.map
 
 internal object SettingsDataStore {
     private val SPEECH_SETTINGS = stringPreferencesKey("speech_settings_v1")
+    private val AUTO_BACKUP_SETTINGS = stringPreferencesKey("auto_backup_settings_v1")
+    private val EXECUTION_LARGE_ICON = booleanPreferencesKey("execution_notification_large_icon")
     private val WEB_TOOLS_SETTINGS = stringPreferencesKey("web_tools_settings_v1")
     private val IMAGE_GEN_SETTINGS = stringPreferencesKey("image_gen_settings_v1")
     private val SUBAGENT_SETTINGS = stringPreferencesKey("subagent_settings_v1")
@@ -42,6 +45,45 @@ internal object SettingsDataStore {
         ignoreUnknownKeys = true
         encodeDefaults = true
         coerceInputValues = true
+    }
+
+    fun autoBackupSettingsFlow(): Flow<AutoBackupSettings> {
+        ensureInitialized()
+        return dataStore.data
+            .catch { cause ->
+                if (cause is IOException) emit(emptyPreferences()) else throw cause
+            }
+            .map { prefs ->
+                prefs[AUTO_BACKUP_SETTINGS]?.let { raw ->
+                    runCatching { speechJson.decodeFromString<AutoBackupSettings>(raw) }.getOrNull()
+                } ?: AutoBackupSettings()
+            }
+    }
+
+    suspend fun autoBackupSettings(): AutoBackupSettings = autoBackupSettingsFlow().first()
+
+    suspend fun setAutoBackupSettings(settings: AutoBackupSettings) {
+        ensureInitialized()
+        dataStore.edit { it[AUTO_BACKUP_SETTINGS] = speechJson.encodeToString(settings.normalized()) }
+    }
+
+    /** 只改用户选项，保留运行状态字段（lastAt / lastError 等）。 */
+    suspend fun updateAutoBackupSettings(transform: (AutoBackupSettings) -> AutoBackupSettings) {
+        setAutoBackupSettings(transform(autoBackupSettings()))
+    }
+
+    suspend fun executionNotificationLargeIcon(): Boolean {
+        ensureInitialized()
+        return dataStore.data
+            .catch { cause ->
+                if (cause is IOException) emit(emptyPreferences()) else throw cause
+            }
+            .first()[EXECUTION_LARGE_ICON] ?: true
+    }
+
+    suspend fun setExecutionNotificationLargeIcon(enabled: Boolean) {
+        ensureInitialized()
+        dataStore.edit { it[EXECUTION_LARGE_ICON] = enabled }
     }
 
     fun speechSettingsFlow(): Flow<SpeechSettings> {

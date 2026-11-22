@@ -23,12 +23,13 @@ import androidx.room.migration.Migration
         RuntimeInFlightEventEntity::class,
         SkillRegistryEntity::class,
         McpServerEntity::class,
+        ConversationCategoryEntity::class,
         CharacterEntity::class,
         UserPersonaEntity::class,
         ScheduledTaskEntity::class,
         ScheduledTaskRunEntity::class,
     ],
-    version = 30,
+    version = 31,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -46,6 +47,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
 
         fun get(context: Context): EtaDatabase =
             instance ?: synchronized(this) {
+                if (instance == null) snapshotBeforeOpen(context.applicationContext)
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     EtaDatabase::class.java,
@@ -76,6 +78,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_27_28,
                         MIGRATION_28_29,
                         MIGRATION_29_30,
+                        MIGRATION_30_31,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -85,6 +88,53 @@ internal abstract class EtaDatabase : RoomDatabase() {
                     .build()
                     .also { instance = it }
             }
+
+        /** 当前 schema 版本，与 [EtaDatabase.version] 必须同步。 */
+        private const val DB_VERSION = 31
+
+        /** 迁移前快照保留份数。 */
+        private const val SNAPSHOT_KEEP = 3
+
+        /**
+         * 打开前兜底：库版本与当前 schema 不一致时，先把原库复制一份再交给 Room。
+         *
+         * 本库用的是 `fallbackToDestructiveMigration(dropAllTables = true)`，版本对不上又没有
+         * 可用迁移时会直接清空所有表且没有任何提示。先留一份原始库，出事后能把文件换回去。
+         * 只在真要迁移时拷贝；复制前先 checkpoint WAL，否则还留在 wal 里的数据不会进快照。
+         */
+        private fun snapshotBeforeOpen(context: Context) {
+            runCatching {
+                val dbFile = context.getDatabasePath("eta.db")
+                if (!dbFile.exists() || dbFile.length() == 0L) return
+                val version = android.database.sqlite.SQLiteDatabase.openDatabase(
+                    dbFile.path,
+                    null,
+                    android.database.sqlite.SQLiteDatabase.OPEN_READWRITE,
+                ).use { database ->
+                    val current = database.version
+                    runCatching { database.execSQL("PRAGMA wal_checkpoint(TRUNCATE)") }
+                    current
+                }
+                if (version == DB_VERSION) return
+                val dir = java.io.File(context.filesDir, "db-snapshot").apply { mkdirs() }
+                val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+                    .format(java.util.Date())
+                val target = java.io.File(dir, "eta-v" + version + "-" + stamp + ".db")
+                dbFile.copyTo(target, overwrite = false)
+                io.github.mangi.eta.core.AndroidAgentLogger.info(
+                    "Database snapshot before migration: v" + version + " -> v" + DB_VERSION +
+                        ", size=~" + (target.length() / 1024 / 1024) + "MB"
+                )
+                dir.listFiles { file -> file.isFile && file.name.startsWith("eta-v") && file.name.endsWith(".db") }
+                    ?.sortedByDescending { it.name }
+                    ?.drop(SNAPSHOT_KEEP)
+                    ?.forEach { it.delete() }
+            }.onFailure { error ->
+                io.github.mangi.eta.core.AndroidAgentLogger.warn(
+                    "Database snapshot skipped: type=" + error.javaClass.simpleName
+                )
+            }
+        }
 
         @VisibleForTesting
         internal fun closeForTests() {
@@ -218,6 +268,79 @@ internal abstract class EtaDatabase : RoomDatabase() {
         internal val MIGRATION_29_30 = Migration(29, 30) { database ->
             database.execSQL(
                 "ALTER TABLE scheduled_tasks ADD COLUMN show_running_notification INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+
+        /**
+         * 本 fork 的分类与消息时间列。
+         *
+         * 前置的「补齐」是给从本 fork 旧版本升上来的库：那些库的 user_version 也是 30，
+         * 但内容是分类方案，没有上游 28/29/30 的 scheduled_tasks 与 vertex 列。
+         * 全部用 IF NOT EXISTS / 忽略重复列，保证两边来源都能升到 31。
+         */
+        internal val MIGRATION_30_31 = Migration(30, 31) { database ->
+            // 补上游 27→28：Vertex 配置列
+            runCatching {
+                database.execSQL("ALTER TABLE model_providers ADD COLUMN vertex_project TEXT NOT NULL DEFAULT ''")
+            }
+            runCatching {
+                database.execSQL("ALTER TABLE model_providers ADD COLUMN vertex_location TEXT NOT NULL DEFAULT 'global'")
+            }
+            // 补上游 28→29：定时任务表
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS scheduled_tasks (" +
+                    "id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, prompt TEXT NOT NULL, " +
+                    "enabled INTEGER NOT NULL, trigger_kind TEXT NOT NULL, schedule_json TEXT NOT NULL, " +
+                    "misfire_policy TEXT NOT NULL, misfire_window_minutes INTEGER NOT NULL, " +
+                    "quiet_hours_json TEXT NOT NULL, delivery_mode TEXT NOT NULL, session_mode TEXT NOT NULL, " +
+                    "dedicated_conversation_key TEXT, model_id TEXT, reasoning_effort TEXT, " +
+                    "capabilities_json TEXT NOT NULL, timeout_seconds INTEGER NOT NULL, memo TEXT NOT NULL, " +
+                    "memo_updated_at INTEGER NOT NULL, next_run_at INTEGER, last_run_at INTEGER, " +
+                    "last_status TEXT, last_summary TEXT NOT NULL, consecutive_failures INTEGER NOT NULL, " +
+                    "auto_disabled_reason TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)"
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_scheduled_tasks_enabled_next_run_at " +
+                    "ON scheduled_tasks (enabled, next_run_at)"
+            )
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS scheduled_task_runs (" +
+                    "id TEXT NOT NULL PRIMARY KEY, task_id TEXT NOT NULL, trigger_source TEXT NOT NULL, " +
+                    "scheduled_for_at INTEGER, started_at INTEGER NOT NULL, finished_at INTEGER, " +
+                    "status TEXT NOT NULL, summary TEXT NOT NULL, notified INTEGER NOT NULL, " +
+                    "archive_conversation_key TEXT, model_label TEXT NOT NULL, " +
+                    "FOREIGN KEY(task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE)"
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_scheduled_task_runs_task_id_started_at " +
+                    "ON scheduled_task_runs (task_id, started_at)"
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_scheduled_task_runs_status " +
+                    "ON scheduled_task_runs (status)"
+            )
+            runCatching {
+                database.execSQL(
+                    "ALTER TABLE scheduled_tasks ADD COLUMN show_running_notification INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+            // 本 fork：消息落库时间
+            runCatching {
+                database.execSQL(
+                    "ALTER TABLE conversation_messages ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+            // 本 fork：会话分类
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS conversation_categories (" +
+                    "id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
+                    "sort_order INTEGER NOT NULL, created_at INTEGER NOT NULL)"
+            )
+            runCatching {
+                database.execSQL("ALTER TABLE conversations ADD COLUMN category_id TEXT")
+            }
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_conversations_category_id ON conversations (category_id)"
             )
         }
 
