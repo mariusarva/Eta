@@ -1299,7 +1299,7 @@ private fun ConversationHistoryRow(
                         )
                         GlassPopupItem(
                             text = "移到分类",
-                            icon = MiuixIcons.Glass.Folder,
+                            icon = MiuixIcons.Glass.FolderOutline,
                             onClick = {
                                 showActionMenu = false
                                 onMoveToCategory()
