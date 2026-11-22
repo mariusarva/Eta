@@ -131,8 +131,8 @@ internal fun ChatTurnNavigator(
     val haptics = LocalHapticFeedback.current
     val listState = rememberLazyListState()
 
-    // 消息太少（只有一轮）时不显示，避免占位。
-    if (turns.size < 2) return
+    // 没有任何轮次时才不显示：只要求有一轮就给一个可上拉查看的把手。
+    if (turns.isEmpty()) return
 
     LaunchedEffect(expanded) {
         if (expanded && turns.isNotEmpty()) {

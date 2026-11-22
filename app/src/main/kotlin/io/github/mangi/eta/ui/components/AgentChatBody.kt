@@ -921,8 +921,10 @@ internal fun AgentConversationMessages(
 
             AnimatedVisibility(
                 visible = !keepBottomAnchored && !isAtBottom,
+                // 回滚键放右下：底部中央留给轮次上拉横条，两者叠在一起时横条会被按钮整个盖住。
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp)
                     .padding(bottom = bottomInset + 8.dp),
                 enter = fadeIn(tween(160)) + scaleIn(tween(180), initialScale = 0.82f),
                 exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
@@ -985,7 +987,7 @@ internal fun AgentConversationMessages(
             ChatTurnNavigator(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 2.dp),
+                    .padding(bottom = 6.dp),
                 messages = visibleMessages,
                 allTurns = allTurns,
                 onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
