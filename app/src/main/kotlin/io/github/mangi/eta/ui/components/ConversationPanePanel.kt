@@ -175,7 +175,8 @@ internal fun ConversationPanePanel(
     val isSearching = query.isNotBlank()
     var showCreateCategory by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
-    var collapsedSections by remember { mutableStateOf<Set<String>>(emptySet()) }
+    // null 表示用户还没动过：默认把所有分类分组收敛成标题行，避免分类一多把会话列表顶走。
+    var collapsedSections by remember { mutableStateOf<Set<String>?>(null) }
     var selecting by remember { mutableStateOf(false) }
     val selectedConversationIds = remember { mutableStateMapOf<String, Boolean>() }
     var showMoveDialog by remember { mutableStateOf(false) }
@@ -266,7 +267,9 @@ internal fun ConversationPanePanel(
                             } else {
                                 groups.forEachIndexed { groupIndex, group ->
                                     val sectionKey = group.section.key()
-                                    val collapsed = sectionKey in collapsedSections
+                                    val collapsedSet = collapsedSections
+                                        ?: state.categories.map { "category-" + it.id }.toSet()
+                                    val collapsed = sectionKey in collapsedSet
                                     val categoryId = (group.section as? ConversationDrawerSection.Category)?.id
                                     item(key = "section-$sectionKey") {
                                         ConversationSectionHeader(
@@ -277,9 +280,9 @@ internal fun ConversationPanePanel(
                                             collapsible = true,
                                             onToggleCollapse = {
                                                 collapsedSections = if (collapsed) {
-                                                    collapsedSections - sectionKey
+                                                    collapsedSet - sectionKey
                                                 } else {
-                                                    collapsedSections + sectionKey
+                                                    collapsedSet + sectionKey
                                                 }
                                             },
                                             onNewConversationInSection = if (categoryId != null) {
