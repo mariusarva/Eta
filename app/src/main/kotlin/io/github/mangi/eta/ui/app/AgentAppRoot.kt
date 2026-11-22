@@ -1220,7 +1220,13 @@ fun AgentAppRoot(
                     onCancel = { messageDeleteTarget = null },
                     onConfirm = {
                         retainedDeleteMessage?.let { target ->
-                            agentState.deleteMessageTurn(target.messageId)
+                            // 没有后续轮次时只移除被点的这一条（旧实现会按用户轮次截断，误删上一条回答）；
+                            // 有后续轮次时按轮次截断，与提示文案一致。
+                            if (target.laterTurnCount == 0) {
+                                agentState.deleteSingleMessage(target.messageId)
+                            } else {
+                                agentState.deleteMessageTurn(target.messageId)
+                            }
                         }
                         messageDeleteTarget = null
                     },

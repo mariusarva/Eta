@@ -63,10 +63,23 @@ internal object AppUpdateChecker {
         }
     }
 
+    /**
+     * 只保留版本号前三段纯数字，去掉一切非数字后缀再比较。
+     *
+     * 本 fork 的 tag 带 `-fork.N` 序号（如 `v3.4.4-fork.28`），而 versionName 也是
+     * `3.4.4-fork.28+提交号`。若把后缀带进比较，`4-fork` 会被当成大于 `4`，
+     * 导致每次检查都误报有新版本。发版序号不属于上游版本语义，统一剥离。
+     */
+    private fun versionCore(version: String): List<String> =
+        version.removePrefix("v")
+            .substringBefore('+')
+            .substringBefore('-')
+            .split('.')
+            .map { part -> part.takeWhile(Char::isDigit).ifBlank { part } }
+
     fun isNewer(latest: String, current: String): Boolean {
-        val latestParts = latest.removePrefix("v").split('.')
-        val currentParts =
-            current.removePrefix("v").substringBefore('+').substringBefore('-').split('.')
+        val latestParts = versionCore(latest)
+        val currentParts = versionCore(current)
         for (index in 0 until maxOf(latestParts.size, currentParts.size)) {
             val latestPart = latestParts.getOrNull(index) ?: "0"
             val currentPart = currentParts.getOrNull(index) ?: "0"
@@ -79,14 +92,24 @@ internal object AppUpdateChecker {
                 if (compared != 0) return compared > 0
             }
         }
-        return false
+        // 上游版本相同：本 fork 的 `-fork.N` 序号参与比较，否则自己的修复版永远提示不了更新。
+        return forkSequence(latest) > forkSequence(current)
     }
+
+    /** 取 `-fork.N` 里的 N；没有 fork 后缀返回 0（纯上游版视为 fork.0）。 */
+    private fun forkSequence(version: String): Int =
+        Regex("fork[.-](\\d+)")
+            .find(version.substringBefore('+'))
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+            ?: 0
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS)
         .build()
 
-    private const val LATEST_RELEASE_URL = "https://api.github.com/repos/Mangi-11/Eta/releases/latest"
+    private const val LATEST_RELEASE_URL = "https://api.github.com/repos/mariusarva/Eta/releases/latest"
     private const val USER_AGENT = "Eta-Update-Checker"
 }
