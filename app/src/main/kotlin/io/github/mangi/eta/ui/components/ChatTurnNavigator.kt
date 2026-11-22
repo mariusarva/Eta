@@ -53,6 +53,7 @@ import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.foundation.border
 
 /**
  * 一轮对话的索引项。
@@ -153,7 +154,14 @@ internal fun ChatTurnNavigator(
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 6.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                    // 必须用实色 surface：surfaceContainerHigh 在深色主题下是半透明的，
+                    // 展开后能直接看穿到底下的聊天气泡，文字全糊在一起。
+                    .background(MiuixTheme.colorScheme.surface)
+                    .border(
+                        width = 0.5.dp,
+                        color = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
+                        shape = RoundedCornerShape(20.dp),
+                    )
                     .navigationBarsPadding(),
             ) {
                 Row(

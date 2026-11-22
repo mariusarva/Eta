@@ -670,18 +670,12 @@ private fun PaneDialog(
     if (!show) return
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismissRequest,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        // 用平台默认宽度：系统按屏幕宽度减去边距居中摆放，
+        // 自己给满屏 + widthIn 反而会因为窗口宽度不等于屏幕宽度而偏一侧。
+        properties = androidx.compose.ui.window.DialogProperties(),
     ) {
-        // 显式给满屏再居中：Dialog 去掉平台默认宽度后内容按自身宽度排，
-        // 只加 padding 会让卡片在窗口里偏一侧。
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
-        ) {
         Column(
             modifier = Modifier
-                .widthIn(max = 420.dp)
-                .padding(horizontal = 28.dp, vertical = 24.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 // 必须不透明：surfaceContainer 带透明度时，对话框下方的会话列表会透上来，
@@ -706,7 +700,6 @@ private fun PaneDialog(
             }
             Spacer(Modifier.height(12.dp))
             content()
-        }
         }
     }
 }
