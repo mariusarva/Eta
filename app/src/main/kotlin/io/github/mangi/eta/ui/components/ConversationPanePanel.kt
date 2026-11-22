@@ -674,7 +674,9 @@ private fun PaneDialog(
                 .padding(horizontal = 32.dp, vertical = 24.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
-                .background(MiuixTheme.colorScheme.surfaceContainer)
+                // 必须不透明：surfaceContainer 带透明度时，对话框下方的会话列表会透上来，
+                // 视觉上像文字错位叠在一起。
+                .background(MiuixTheme.colorScheme.surface)
                 .padding(18.dp),
         ) {
             if (!title.isNullOrBlank()) {

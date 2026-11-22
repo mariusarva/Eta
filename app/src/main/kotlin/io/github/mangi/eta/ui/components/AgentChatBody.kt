@@ -139,6 +139,7 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import androidx.compose.ui.zIndex
 
 /**
  * 聊天主体：消息流 + 底部输入框。
@@ -987,6 +988,7 @@ internal fun AgentConversationMessages(
             ChatTurnNavigator(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .zIndex(2f)
                     .padding(bottom = 6.dp),
                 messages = visibleMessages,
                 allTurns = allTurns,

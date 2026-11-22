@@ -268,8 +268,10 @@ internal fun ChatTurnNavigator(
         // 底部小横条：向上拖或轻点展开/收起
         Box(
             modifier = Modifier
-                .width(72.dp)
-                .heightIn(min = 20.dp)
+                .width(96.dp)
+                .heightIn(min = 26.dp)
+                .clip(RoundedCornerShape(50))
+                .background(MiuixTheme.colorScheme.surfaceContainerHigh)
                 .semantics { contentDescription = if (expanded) "收起对话轮次" else "展开对话轮次" }
                 .pointerInput(expanded) {
                     detectVerticalDragGestures { change, dragAmount ->
@@ -295,10 +297,10 @@ internal fun ChatTurnNavigator(
         ) {
             Box(
                 modifier = Modifier
-                    .width(36.dp)
-                    .height(4.dp)
+                    .width(44.dp)
+                    .height(5.dp)
                     .clip(CircleShape)
-                    .background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.28f)),
+                    .background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.42f)),
             )
         }
     }

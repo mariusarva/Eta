@@ -209,11 +209,13 @@ internal fun ConversationPaneTopBar(
                 hasCouiToolbarBackdrop = hasCouiToolbarBackdrop,
                 onClick = onManageCategories,
             )
+            Spacer(Modifier.width(6.dp))
             PaneSelectionButton(
                 active = isSelecting,
                 hasCouiToolbarBackdrop = hasCouiToolbarBackdrop,
                 onClick = onToggleSelecting,
             )
+            Spacer(Modifier.width(6.dp))
             PaneNewChatButton(
                 hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
                 miuixBackdrop = miuixBackdrop,
