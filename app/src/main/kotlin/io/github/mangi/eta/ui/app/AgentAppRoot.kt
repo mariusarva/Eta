@@ -395,6 +395,8 @@ fun AgentAppRoot(
                 agentState.moveConversationsToCategory(ids, categoryId)
             },
             onNewConversationInCategory = { categoryId -> agentState.createConversationInCategory(categoryId) },
+            onOpenMemory = { pushRoute(AppRoute.Memory) },
+            onOpenMcpServers = { pushRoute(AppRoute.McpServers) },
             onOpenCharacters = { pushRoute(AppRoute.Characters) },
             onOpenPermissions = { pushRoute(AppRoute.Permissions) },
             onOpenSettings = { pushRoute(AppRoute.Settings) },

@@ -90,13 +90,13 @@ internal fun AgentChatQueueStrip(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            // 小圆角矩形：胶囊太圆会和输入框糊成一片，纯直角又太生硬，8dp 居中。
-            .clip(RoundedCornerShape(8.dp))
+            // 圆角矩形：胶囊太圆会和输入框糊成一片，纯直角又太生硬，14dp 居中。
+            .clip(RoundedCornerShape(14.dp))
             .background(MiuixTheme.colorScheme.surfaceContainerHigh)
             .border(
                 width = 0.5.dp,
                 color = MiuixTheme.colorScheme.outline.copy(alpha = 0.9f),
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(14.dp),
             ),
     ) {
         Row(
@@ -107,7 +107,7 @@ internal fun AgentChatQueueStrip(
         ) {
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(14.dp))
                     .then(
                         if (hasMultiple) {
                             Modifier.clickable { expanded = !expanded }

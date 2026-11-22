@@ -130,6 +130,8 @@ import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Add
 import top.yukonga.miuix.kmp.icon.glass.Import
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.AccountTree
 
 @Stable
 private class PaneBarInsets {
@@ -166,6 +168,8 @@ internal fun ConversationPanePanel(
     onDeleteConversations: (List<String>) -> Unit = {},
     onMoveConversationsToCategory: (List<String>, String?) -> Unit = { _, _ -> },
     onNewConversationInCategory: (String?) -> Unit = {},
+    onOpenMemory: () -> Unit = {},
+    onOpenMcpServers: () -> Unit = {},
 
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -257,6 +261,8 @@ internal fun ConversationPanePanel(
                                         onOpenSkills = onOpenSkills,
                                         onOpenScheduledTasks = onOpenScheduledTasks,
                                         onOpenCategories = { showManageCategory = true },
+                                        onOpenMemory = onOpenMemory,
+                                        onOpenMcpServers = onOpenMcpServers,
                                     )
                                 }
                             }
@@ -729,6 +735,8 @@ private fun PaneWorkbenchSection(
     onOpenSkills: () -> Unit,
     onOpenScheduledTasks: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
+    onOpenMemory: () -> Unit = {},
+    onOpenMcpServers: () -> Unit = {},
 ) {
     val modelSummary = activeModelLabel?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.conversation_model_unconfigured)
@@ -753,6 +761,16 @@ private fun PaneWorkbenchSection(
             icon = ConversationPaneIcons.Skills,
             title = stringResource(R.string.route_skills),
             onClick = onOpenSkills,
+        ),
+        WorkbenchEntry(
+            icon = Icons.AutoMirrored.Rounded.MenuBook,
+            title = "记忆",
+            onClick = onOpenMemory,
+        ),
+        WorkbenchEntry(
+            icon = Icons.Rounded.AccountTree,
+            title = "MCP 服务",
+            onClick = onOpenMcpServers,
         ),
         WorkbenchEntry(
             icon = ConversationPaneIcons.Schedule,
