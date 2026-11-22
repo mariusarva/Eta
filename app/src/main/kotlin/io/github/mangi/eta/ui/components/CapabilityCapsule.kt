@@ -25,9 +25,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import io.github.mangi.eta.ui.components.EtaWindowDialog
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.glass.GlassDialog
+import top.yukonga.miuix.kmp.glass.GlassDialogButton
+import top.yukonga.miuix.kmp.glass.GlassDialogButtonRole
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -76,9 +78,10 @@ internal fun CapabilityCapsule(
             CapsuleNumber(text = "技能 " + skillEnabled + "/" + skillTotal)
             CapsuleNumber(text = "内存 " + usage.usedPercent + "%", warning = usage.usedPercent >= 85)
         }
-        EtaWindowDialog(
+        GlassDialog(
             show = showDetail,
             title = "能力与占用",
+            backdrop = currentGlassOverlayBackdrop(),
             onDismissRequest = { showDetail = false },
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -94,6 +97,14 @@ internal fun CapabilityCapsule(
                         "内存拓展",
                         formatGigabytes(usage.swapUsedBytes) + " / " + formatGigabytes(usage.swapTotalBytes),
                     )
+                }
+                Spacer(Modifier.height(12.dp))
+                GlassDialogButton(
+                    onClick = { showDetail = false },
+                    role = GlassDialogButtonRole.Normal,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(text = "关闭", style = MiuixTheme.textStyles.button, maxLines = 1)
                 }
             }
         }
