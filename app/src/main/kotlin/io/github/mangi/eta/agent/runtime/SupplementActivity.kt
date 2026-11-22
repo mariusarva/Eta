@@ -58,7 +58,7 @@ internal class SupplementActivity : ComponentActivity() {
         }
         val appearance = runBlocking { AppearanceSettingsRepository.settings() }
         setContent {
-            AgentAppTheme(appearance = appearance, applyInterfaceScale = false) {
+            AgentAppTheme(appearance = appearance, systemOverlay = true) {
                 SupplementSheet(
                     title = title,
                     onDismiss = { finish() },
