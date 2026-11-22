@@ -203,8 +203,16 @@ internal fun ConversationPaneTopBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PaneBrandHeader(modifier = Modifier.weight(1f))
-            PaneManageCategoriesButton(onClick = onManageCategories)
-            PaneSelectionButton(active = isSelecting, onClick = onToggleSelecting)
+            val hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null
+            PaneManageCategoriesButton(
+                hasCouiToolbarBackdrop = hasCouiToolbarBackdrop,
+                onClick = onManageCategories,
+            )
+            PaneSelectionButton(
+                active = isSelecting,
+                hasCouiToolbarBackdrop = hasCouiToolbarBackdrop,
+                onClick = onToggleSelecting,
+            )
             PaneNewChatButton(
                 hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
                 miuixBackdrop = miuixBackdrop,
@@ -327,24 +335,40 @@ private fun PaneManageCategoriesButton(onClick: () -> Unit) {
 
 /** 顶栏的多选入口：进入后可批量移动分类或删除会话。 */
 @Composable
-private fun PaneSelectionButton(active: Boolean, onClick: () -> Unit) {
+private fun PaneSelectionButton(
+    active: Boolean,
+    hasCouiToolbarBackdrop: Boolean,
+    onClick: () -> Unit,
+) {
     val description = if (active) "退出多选" else "多选会话"
     val colors = CouiPageDefaults.themeColors()
     if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
-        CouiIconButton(
-            onClick = onClick,
-            modifier = Modifier.semantics { contentDescription = description },
-            material = false,
-            backgroundColor = CouiTheme.colorScheme.surface,
-            minWidth = 40.dp,
-            minHeight = 40.dp,
-        ) {
-            CouiIcon(
-                imageVector = Icons.Rounded.Checklist,
+        // 与「新建会话」同一套外观：有玻璃顶栏时用 TopAppBar 图标按钮，
+        // 否则退回到实心圆按钮，三者背景才一致。
+        if (hasCouiToolbarBackdrop) {
+            CouiTopAppBarIconButton(
+                icon = Icons.Rounded.Checklist,
                 contentDescription = description,
-                modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
-                tint = if (active) colors.accent else colors.title,
+                onClick = onClick,
+                colors = colors,
+                iconSize = ConversationPanelMetrics.NewChatIconSize,
             )
+        } else {
+            CouiIconButton(
+                onClick = onClick,
+                modifier = Modifier.semantics { contentDescription = description },
+                material = false,
+                backgroundColor = CouiTheme.colorScheme.surface,
+                minWidth = 40.dp,
+                minHeight = 40.dp,
+            ) {
+                CouiIcon(
+                    imageVector = Icons.Rounded.Checklist,
+                    contentDescription = description,
+                    modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
+                    tint = if (active) colors.accent else colors.title,
+                )
+            }
         }
     } else {
         GlassIconButton(

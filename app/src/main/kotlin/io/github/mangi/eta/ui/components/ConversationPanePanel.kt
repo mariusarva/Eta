@@ -381,11 +381,10 @@ internal fun ConversationPanePanel(
                 }
             }
 
-            GlassDialog(
+            PaneDialog(
                 show = showCreateCategory,
                 title = "新建分类",
                 summary = "分类只影响侧栏分组，不改变会话内容。",
-                backdrop = currentGlassOverlayBackdrop(),
                 onDismissRequest = { showCreateCategory = false },
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -408,11 +407,10 @@ internal fun ConversationPanePanel(
             }
 
 
-            GlassDialog(
+            PaneDialog(
                 show = showManageCategory,
                 title = "管理分类",
                 summary = "改名、上下移或删除；删除分类不会删除会话。",
-                backdrop = currentGlassOverlayBackdrop(),
                 onDismissRequest = { showManageCategory = false; renamingCategoryId = null },
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -510,11 +508,10 @@ internal fun ConversationPanePanel(
                 }
             }
 
-            GlassDialog(
+            PaneDialog(
                 show = showMoveDialog,
                 title = "移到分类",
                 summary = "已选 ${selectedConversationIds.size} 项",
-                backdrop = currentGlassOverlayBackdrop(),
                 onDismissRequest = { showMoveDialog = false },
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -547,11 +544,10 @@ internal fun ConversationPanePanel(
 
             // 单条会话「移到分类」：与批量条走同一条链路。
             moveConversationTarget?.let { target ->
-                GlassDialog(
+                PaneDialog(
                     show = true,
                     title = "移到分类",
                     summary = target.title,
-                    backdrop = currentGlassOverlayBackdrop(),
                     onDismissRequest = { moveConversationTarget = null },
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
@@ -651,6 +647,54 @@ private fun BulkActionChip(
             maxLines = 1,
             softWrap = false,
         )
+    }
+}
+
+/**
+ * 侧栏用的对话框：走真正的 Dialog 窗口。
+ *
+ * 侧栏宽度只有 200dp 出头，用 GlassDialog 叠在侧栏内时会被父布局裁切/压在下层，
+ * 表现是「点了没反应」。
+ */
+@Composable
+private fun PaneDialog(
+    show: Boolean,
+    title: String? = null,
+    summary: String? = null,
+    onDismissRequest: () -> Unit,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    if (!show) return
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 32.dp, vertical = 24.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(MiuixTheme.colorScheme.surfaceContainer)
+                .padding(18.dp),
+        ) {
+            if (!title.isNullOrBlank()) {
+                Text(
+                    text = title,
+                    style = MiuixTheme.textStyles.title4,
+                    color = MiuixTheme.colorScheme.onSurface,
+                )
+            }
+            if (!summary.isNullOrBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = summary,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            content()
+        }
     }
 }
 
