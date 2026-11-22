@@ -142,6 +142,7 @@ import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import io.github.mangi.eta.ui.app.ConversationTimeLabels
+import androidx.compose.ui.semantics.Role
 
 private val chatImageBitmapCache = object : LruCache<String, ImageBitmap>(48 * 1024 * 1024) {
     override fun sizeOf(key: String, value: ImageBitmap): Int =
@@ -456,16 +457,41 @@ private fun UserMessageBubble(
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
-        // 该轮的时间：与轮次列表同源，0 表示旧数据没有时间信息。
-        if (message.createdAtMillis > 0L) {
-            Text(
-                text = remember(message.createdAtMillis) {
-                    ConversationTimeLabels.rowLabel(message.createdAtMillis)
-                },
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.padding(top = 4.dp),
-            )
+        // 该轮的时间 + 删除键：与轮次列表同源，0 表示旧数据没有时间信息。
+        Row(
+            modifier = Modifier.padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (message.createdAtMillis > 0L) {
+                Text(
+                    text = remember(message.createdAtMillis) {
+                        ConversationTimeLabels.rowLabel(message.createdAtMillis)
+                    },
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                Spacer(Modifier.width(6.dp))
+            }
+            if (actionsEnabled) {
+                // 每一轮下方都给一个显式删除键：长按菜单藏得深，删一轮不该靠用户去猜。
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .clickable(role = Role.Button, onClickLabel = "删除这一轮") {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onDelete()
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Delete,
+                        contentDescription = "删除这一轮",
+                        modifier = Modifier.size(15.dp),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+            }
         }
     }
 
