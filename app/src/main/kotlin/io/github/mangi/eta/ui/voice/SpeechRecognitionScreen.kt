@@ -45,8 +45,11 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
     val store = remember { SpeechSettingsStore(context, scope) }
     SpeechLifecycle { store.stop() }
     val settings = store.settings
-    val asrLabels = AsrProvider.entries.map { it.label() }
-    val asrNoteRes = when (settings.asr) {
+    // SHERPA_NCNN / QWEN3_LOCAL 是历史枚举值，仍可反序列化旧设置，但不再单独作为可选项展示。
+    val asrOptions = AsrProvider.entries.filter { it != AsrProvider.SHERPA_NCNN && it != AsrProvider.QWEN3_LOCAL }
+    val asrLabels = asrOptions.map { it.label() }
+    val asrNoteRes: Int? = when (settings.asr) {
+        AsrProvider.LOCAL, AsrProvider.SHERPA_NCNN, AsrProvider.QWEN3_LOCAL -> null
         AsrProvider.QWEN_REALTIME, AsrProvider.DOUBAO -> R.string.speech_asr_note_streaming
         AsrProvider.QWEN_FLASH -> R.string.speech_asr_note_flash
         AsrProvider.QWEN_FILE -> R.string.speech_asr_note_file
@@ -54,6 +57,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
         AsrProvider.DEEPSEEK -> R.string.speech_asr_note_deepseek
     }
     val showQwenLanguage = when (settings.asr) {
+        AsrProvider.LOCAL, AsrProvider.SHERPA_NCNN, AsrProvider.QWEN3_LOCAL -> false
         AsrProvider.QWEN_REALTIME, AsrProvider.QWEN_FLASH, AsrProvider.QWEN_FILE -> true
         AsrProvider.DOUBAO, AsrProvider.MIMO, AsrProvider.DEEPSEEK -> false
     }

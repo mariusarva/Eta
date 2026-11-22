@@ -15,6 +15,10 @@ import org.json.JSONObject
 internal suspend fun synthesizeSpeech(settings: SpeechSettings, credentials: SpeechCredentials,
     text: String, onAudio: (ByteArray) -> Unit) = withTimeout(90_000) {
     when (settings.tts) {
+        TtsProvider.SYSTEM -> throw SpeechFailure(
+            SpeechErrorCode.CONFIGURATION,
+            AppStrings.get(R.string.voice_i18n_tts_provider_not_selected, "系统朗读须通过本地播放控制器调用"),
+        )
         TtsProvider.GEMINI -> return@withTimeout synthesizeGemini(settings.geminiTts, credentials.geminiTts, text, onAudio)
         TtsProvider.MINIMAX -> return@withTimeout synthesizeMiniMax(settings.minimaxTts, credentials.minimaxTts, text, onAudio)
         TtsProvider.MIMO -> return@withTimeout synthesizeMimo(settings.mimoTts, credentials.mimoTts, text, onAudio)

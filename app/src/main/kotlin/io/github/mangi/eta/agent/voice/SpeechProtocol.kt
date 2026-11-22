@@ -59,6 +59,7 @@ internal fun validateSpeechSettings(
     }
     if (synthesis) {
         when (settings.tts) {
+            TtsProvider.SYSTEM -> Unit // 离线系统 TTS，无需云端凭据或 URL
             TtsProvider.NONE -> throw SpeechFailure(
                 SpeechErrorCode.CONFIGURATION,
                 AppStrings.get(R.string.voice_i18n_config_tts_required, "请先在设置中配置语音播报"),
@@ -118,6 +119,7 @@ internal fun validateSpeechSettings(
             }
         }
     } else when (settings.asr) {
+        AsrProvider.LOCAL, AsrProvider.SHERPA_NCNN, AsrProvider.QWEN3_LOCAL -> Unit // 本地引擎无凭据/URL/云端校验
         AsrProvider.MIMO -> {
             required(secrets.mimoAsr, R.string.voice_i18n_field_mimo_asr_api_key, "MiMo 识别 API Key")
             speechBaseUrl(settings.mimoAsr.baseUrl)

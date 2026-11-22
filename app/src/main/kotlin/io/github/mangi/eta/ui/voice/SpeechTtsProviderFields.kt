@@ -140,6 +140,7 @@ internal fun DeepSeekTtsConnectionSection(store: SpeechSettingsStore) {
 @Composable
 internal fun SpeechDeliveryFields(store: SpeechSettingsStore) {
     when (store.settings.tts) {
+        TtsProvider.SYSTEM -> Unit // 离线系统 TTS 无云端字段
         TtsProvider.GEMINI, TtsProvider.MIMO -> {
             val settings = store.settings
             val mimo = settings.tts == TtsProvider.MIMO

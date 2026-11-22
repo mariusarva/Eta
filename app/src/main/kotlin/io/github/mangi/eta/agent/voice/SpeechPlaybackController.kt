@@ -6,6 +6,7 @@ import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.AppStrings
 import io.github.mangi.eta.data.model.SpeechCredentials
 import io.github.mangi.eta.data.model.SpeechSettings
+import io.github.mangi.eta.data.model.TtsProvider
 import io.github.mangi.eta.data.repository.SpeechSettingsRepository
 import java.io.Closeable
 import kotlinx.coroutines.CancellationException
@@ -43,6 +44,8 @@ internal class SpeechPlaybackController(
     private var output: SpeechAudioOutput? = null
     private var lease: SpeechAudioLease? = null
     private var playbackActive = false
+    /** 系统朗读引擎实例复用：每次播报重建会带来数百毫秒初始化延迟。 */
+    private var systemPlayback: SystemSpeechPlayback? = null
 
     fun speak(messageId: String, text: String, settings: SpeechSettings? = null, credentials: SpeechCredentials? = null) {
         stop()
@@ -67,6 +70,18 @@ internal class SpeechPlaybackController(
                         SpeechErrorCode.CONFIGURATION,
                         AppStrings.get(R.string.voice_i18n_playback_text_too_long, "正文过长，请选择较短的回答朗读"),
                     )
+                }
+                if (config.tts == TtsProvider.SYSTEM) {
+                    // 系统朗读不经 PCM / 网络管线：直接交给 SystemSpeechPlayback，
+                    // 由它按 systemTts 配置选音色并逐段播报。
+                    val system = systemPlayback ?: SystemSpeechPlayback(context).also { systemPlayback = it }
+                    system.play(readable, config.systemTts, config.language) {
+                        scope.launch(Dispatchers.Main.immediate) {
+                            if (session == generation) mutableState.value = SpeechPlaybackState(messageId)
+                        }
+                    }
+                    if (session == generation) stop()
+                    return@launch
                 }
                 lease?.requestPlaybackFocus { beforePlayback(); playbackActive = true }
                 val player = createOutput()
@@ -164,6 +179,7 @@ internal class SpeechPlaybackController(
 
     fun stop() {
         generation++
+        systemPlayback?.stopCurrent()
         output?.close(); output = null
         job?.cancel(); job = null
         lease?.close(); lease = null

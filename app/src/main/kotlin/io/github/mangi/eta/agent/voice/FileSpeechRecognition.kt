@@ -2,6 +2,7 @@ package io.github.mangi.eta.agent.voice
 
 import android.content.Context
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.voice.local.LocalSpeechFileTranscription
 import io.github.mangi.eta.core.AppStrings
 import io.github.mangi.eta.data.model.AsrProvider
 import io.github.mangi.eta.data.model.SpeechCredentials
@@ -25,6 +26,10 @@ internal suspend fun recognizeSpeechFile(
 ): String = withContext(Dispatchers.IO) {
     withTimeout(300_000) {
         when (settings.asr) {
+            AsrProvider.LOCAL, AsrProvider.SHERPA_NCNN, AsrProvider.QWEN3_LOCAL -> {
+                onProgress("正在本地识别，音频不会上传")
+                LocalSpeechFileTranscription.transcribe(context, wav, onProgress)
+            }
             AsrProvider.MIMO -> {
                 onProgress(AppStrings.get(R.string.voice_i18n_progress_recognizing, "正在识别"))
                 recognizeMimoSpeech(settings.mimoAsr, credentials.mimoAsr, wav)

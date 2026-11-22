@@ -13,7 +13,6 @@ import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.TtsProvider
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.EtaGlassSpinnerPreference
-import io.github.mangi.eta.ui.components.SettingsTextField
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
 import top.yukonga.miuix.kmp.basic.DropdownItem
 
@@ -21,7 +20,7 @@ import top.yukonga.miuix.kmp.basic.DropdownItem
 internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
     val settings = store.settings
     val voice = when (settings.tts) {
-        TtsProvider.NONE -> return
+        TtsProvider.SYSTEM, TtsProvider.NONE -> return
         TtsProvider.QWEN -> settings.qwenVoice
         TtsProvider.DOUBAO -> settings.doubaoVoice
         TtsProvider.GEMINI -> settings.geminiTts.voice
@@ -36,7 +35,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
     val change: (String) -> Unit = {
         store.edit(
             when (settings.tts) {
-                TtsProvider.NONE -> settings
+                TtsProvider.SYSTEM, TtsProvider.NONE -> settings
                 TtsProvider.QWEN -> settings.copy(qwenVoice = it)
                 TtsProvider.DOUBAO -> settings.copy(doubaoVoice = it)
                 TtsProvider.GEMINI -> settings.copy(geminiTts = settings.geminiTts.copy(voice = it))
@@ -88,7 +87,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
             }
             AnimatedVisibility(visible = custom) {
                 SpeechFieldColumn {
-                    SettingsTextField(
+                    SpeechField(
                         label = stringResource(R.string.speech_voice_id),
                         value = voice,
                         onChange = { change(it.trim()) },
@@ -100,6 +99,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
         SpeechNote(
             stringResource(
                 when (settings.tts) {
+                    TtsProvider.SYSTEM -> error("System TTS returns early; no voice note")
                     TtsProvider.QWEN -> R.string.speech_qwen_voice_note
                     TtsProvider.DOUBAO -> R.string.speech_doubao_voice_note
                     TtsProvider.GEMINI -> R.string.speech_gemini_voice_note

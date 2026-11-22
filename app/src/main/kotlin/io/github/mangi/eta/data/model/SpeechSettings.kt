@@ -6,10 +6,19 @@ private const val MIMO_SPEECH_BASE_URL = "https://api.xiaomimimo.com/v1"
 private const val DEEPSEEK_SPEECH_BASE_URL = "https://api.deepseek.com"
 
 @Serializable
-enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, MIMO, DEEPSEEK }
+enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, MIMO, SHERPA_NCNN, QWEN3_LOCAL, LOCAL, DEEPSEEK;
+
+    /** 保留旧枚举名与序数可读，新 UI 只提供 LOCAL。 */
+    val canonical: AsrProvider get() = when (this) {
+        SHERPA_NCNN, QWEN3_LOCAL -> LOCAL
+        else -> this
+    }
+    val isLocal: Boolean get() = canonical == LOCAL
+    companion object { val selectable: List<AsrProvider> = entries.filter { it == it.canonical } }
+}
 
 @Serializable
-enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO, DEEPSEEK }
+enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO, SYSTEM, DEEPSEEK }
 
 @Serializable
 enum class SpeechRegion { BEIJING, SINGAPORE }
@@ -101,6 +110,17 @@ data class SpeechOssConfig(
     val prefix: String = "eta-speech/",
 )
 
+/** 纯离线 Android TTS：引擎留空表示系统默认，不做任何云端回退。 */
+@Serializable
+data class SystemTtsConfig(
+    val engine: String = "",
+    val language: String = "zh-CN",
+    val rate: Float = 1f,
+    val pitch: Float = 1f,
+    /** 显式开启；false 时保留旧设置的严格离线元数据校验。 */
+    val useSystemDefault: Boolean = false,
+)
+
 @Serializable
 data class SpeechSettings(
     val asr: AsrProvider = AsrProvider.QWEN_REALTIME,
@@ -128,6 +148,7 @@ data class SpeechSettings(
     val mimoTts: MimoTtsConfig = MimoTtsConfig(),
     val deepseekAsr: DeepSeekAsrConfig = DeepSeekAsrConfig(),
     val deepseekTts: DeepSeekTtsConfig = DeepSeekTtsConfig(),
+    val systemTts: SystemTtsConfig = SystemTtsConfig(),
 ) {
     companion object {
         const val DEFAULT_AUTO_SEND_SILENCE_MS = 2_000

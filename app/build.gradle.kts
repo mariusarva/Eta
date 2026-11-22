@@ -42,9 +42,13 @@ android {
         applicationId = "io.github.mangi.eta"
         minSdk = 34
         targetSdk = 37
-        // versionCode 规则：yyyyMMdd + 两位当日序号（01 起），发版时随 versionName 一起手动递增。
-        versionCode = 2026111302
-        versionName = "3.4.4"
+        // versionCode 规则：yyyyMMdd + 两位当日序号。fork 序号直接累加到当日序号位上，
+        // 这样每次发版 versionCode 都严格递增（之前固定成常量，装完新包版本号看起来反而"退回"了）。
+        // 发版时通过 -Peta.forkVersion=N 传入（CI 的 workflow_dispatch 参数）。
+        val forkVersion = (providers.gradleProperty("eta.forkVersion").orNull ?: "0").toIntOrNull() ?: 0
+        versionCode = 2026112100 + forkVersion
+        // fork 序号也参与「检查更新」比较：上游版本相同时靠它判断本 fork 是否有新版。
+        versionName = "3.4.4-fork.$forkVersion"
 
         ndk {
             // 同时过滤本地与依赖 AAR 的原生库，确保 APK 仅包含 ARM64。
@@ -153,6 +157,8 @@ androidComponents {
 
 dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
+    // 离线语音（Vosk）：官方 AAR，传递依赖带 JNA Android。
+    implementation("com.alphacephei:vosk-android:0.3.75")
     implementation(libs.jsoup)
     implementation(libs.commons.compress)
     implementation(libs.xz)

@@ -89,6 +89,7 @@ internal object SpeechVoicePresets {
     )
 
     fun forProvider(provider: TtsProvider): List<SpeechVoicePreset> = when (provider) {
+        TtsProvider.SYSTEM -> emptyList()
         TtsProvider.QWEN -> qwen
         TtsProvider.DOUBAO -> doubao
         TtsProvider.GEMINI -> gemini

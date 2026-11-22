@@ -16,7 +16,7 @@ import org.json.JSONObject
 
 internal fun supportsSpeechSession(provider: TtsProvider): Boolean = when (provider) {
     TtsProvider.QWEN, TtsProvider.DOUBAO, TtsProvider.DEEPSEEK -> true
-    TtsProvider.NONE, TtsProvider.GEMINI, TtsProvider.MINIMAX, TtsProvider.MIMO -> false
+    TtsProvider.NONE, TtsProvider.GEMINI, TtsProvider.MINIMAX, TtsProvider.MIMO, TtsProvider.SYSTEM -> false
 }
 
 /**
@@ -31,6 +31,10 @@ internal suspend fun streamSpeech(
     onAudio: (ByteArray) -> Unit,
 ) = withTimeout(STREAM_TIMEOUT_MS) {
     when (settings.tts) {
+        TtsProvider.SYSTEM -> throw SpeechFailure(
+            SpeechErrorCode.CONFIGURATION,
+            AppStrings.get(R.string.voice_i18n_tts_provider_not_selected, "系统朗读不支持流式合成"),
+        )
         TtsProvider.QWEN -> streamQwen(settings, credentials, chunks, onAudio)
         TtsProvider.DOUBAO -> streamDoubao(settings, credentials, chunks, onAudio)
         TtsProvider.DEEPSEEK -> streamDeepSeekSpeech(settings.deepseekTts, credentials.deepseekTts, chunks, onAudio)
