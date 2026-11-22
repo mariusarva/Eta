@@ -51,6 +51,13 @@ internal data class AgentChatUiState(
 @Immutable
 sealed interface AgentChatMessageUi {
     val id: String
+
+    /**
+     * 消息落库时间（毫秒）。0 表示旧数据没有时间信息。
+     *
+     * 只有 [UserMessageUi] 真正实现它：轮次由用户消息开启，轮次列表只需要这个时间。
+     */
+    val createdAtMillis: Long get() = 0L
 }
 
 @Immutable
@@ -59,6 +66,7 @@ data class UserMessageUi(
     val content: String,
     val images: List<String> = emptyList(),
     val isEdited: Boolean = false,
+    override val createdAtMillis: Long = 0L,
 ) : AgentChatMessageUi
 
 @Immutable

@@ -141,6 +141,7 @@ import top.yukonga.miuix.kmp.basic.rememberTooltipState
 import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.mangi.eta.ui.app.ConversationTimeLabels
 
 private val chatImageBitmapCache = object : LruCache<String, ImageBitmap>(48 * 1024 * 1024) {
     override fun sizeOf(key: String, value: ImageBitmap): Int =
@@ -451,6 +452,17 @@ private fun UserMessageBubble(
             Text(
                 text = stringResource(R.string.ui_edited_c36776),
                 style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        // 该轮的时间：与轮次列表同源，0 表示旧数据没有时间信息。
+        if (message.createdAtMillis > 0L) {
+            Text(
+                text = remember(message.createdAtMillis) {
+                    ConversationTimeLabels.rowLabel(message.createdAtMillis)
+                },
+                style = MiuixTheme.textStyles.footnote2,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(top = 4.dp),
             )

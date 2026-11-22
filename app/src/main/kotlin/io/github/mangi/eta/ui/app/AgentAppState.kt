@@ -911,6 +911,7 @@ internal class AgentAppState(
                         id = "user-$runId",
                         content = payload.userText,
                         images = archivedRun.userImagePreviews,
+                        createdAtMillis = archivedRun.createdAt,
                     ) +
                     AgentMessageUi(
                         id = "assistant-$runId",
@@ -1744,6 +1745,8 @@ internal class AgentAppState(
             content = runtimePrompt,
             images = pendingImages.map { it.dataUrl },
             isEdited = editBoundary != null,
+            createdAtMillis = editBoundary?.userMessage?.createdAtMillis?.takeIf { it > 0L }
+                ?: System.currentTimeMillis(),
         )
         val history = editBoundary?.historyPrefix ?: state.history
         val messages = if (editBoundary == null) {
@@ -3050,7 +3053,7 @@ internal class AgentAppState(
             if (messages.any { it.id == id }) {
                 messages
             } else {
-                messages + UserMessageUi(id = id, content = text)
+                messages + UserMessageUi(id = id, content = text, createdAtMillis = System.currentTimeMillis())
             }
         }
         refreshConversationSummaries()

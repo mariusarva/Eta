@@ -121,6 +121,9 @@ import io.github.mangi.eta.ui.model.ConversationCategoryUi
 import io.github.mangi.eta.ui.components.SettingsTextField
 import top.yukonga.miuix.kmp.glass.GlassDialog
 import io.github.mangi.eta.ui.components.MiuixDialogActions
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import io.github.mangi.eta.ui.app.ConversationTimeLabels
 
 @Stable
 private class PaneBarInsets {
@@ -916,6 +919,25 @@ private fun ConversationHistoryRow(
                         text = status,
                         style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp),
                         color = accentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+                // 行内时间统一带日期：分组标题已表达大范围，这里要的是「哪一天 + 几点」。
+                if (conversation.updatedAtMillis > 0L) {
+                    val locale = LocalConfiguration.current.locales[0]
+                    val use24Hour = android.text.format.DateFormat.is24HourFormat(LocalContext.current)
+                    Text(
+                        text = remember(conversation.updatedAtMillis, locale, use24Hour) {
+                            ConversationTimeLabels.rowLabel(
+                                timestampMillis = conversation.updatedAtMillis,
+                                locale = locale,
+                                use24HourClock = use24Hour,
+                            )
+                        },
+                        style = MiuixTheme.textStyles.footnote2.copy(fontSize = 11.sp),
+                        color = summaryColor.copy(alpha = 0.72f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 2.dp),

@@ -519,6 +519,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             messages = uiState.messages + UserMessageUi(
                 id = "user-$runId",
                 content = normalized,
+                createdAtMillis = System.currentTimeMillis(),
             ),
         )
         updateSoftInput(visible = false)
@@ -639,7 +640,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             is AgentEvent.UserSupplementReceived -> {
                 val id = "user-$runId-supplement-${event.index}"
                 if (messages.none { it.id == id }) {
-                    messages = messages + UserMessageUi(id = id, content = event.text)
+                    messages = messages + UserMessageUi(id = id, content = event.text, createdAtMillis = System.currentTimeMillis())
                 }
             }
             is AgentEvent.RunFailed -> phase = EtaVoicePhase.ERROR

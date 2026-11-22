@@ -408,6 +408,7 @@ internal object AgentConversationStore {
                 sortIndex = sortIndex,
                 type = TYPE_USER,
                 content = content,
+                createdAt = createdAtMillis.takeIf { it > 0L } ?: System.currentTimeMillis(),
                 imagesJson = images.toJsonArrayString(),
                 isEdited = isEdited,
             )
@@ -505,6 +506,7 @@ internal object AgentConversationStore {
                 content = content,
                 images = imagesJson.toStringList(),
                 isEdited = isEdited,
+                createdAtMillis = createdAt,
             )
 
             TYPE_ASSISTANT -> AgentMessageUi(
