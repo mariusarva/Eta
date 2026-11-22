@@ -132,6 +132,7 @@ import androidx.compose.material.icons.rounded.Add
 import top.yukonga.miuix.kmp.icon.glass.Import
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.Close
 
 @Stable
 private class PaneBarInsets {
@@ -683,7 +684,16 @@ private fun PaneDialog(
         ),
     ) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                // 自己压一层遮罩：系统 Dialog 的 scrim 很淡，弹窗后面的会话列表会显得透，
+                // 加上这层后卡片与列表的对比才够。
+                .background(Color.Black.copy(alpha = 0.42f))
+                .clickable(
+                    interactionSource = null,
+                    indication = null,
+                    onClick = onDismissRequest,
+                ),
             contentAlignment = Alignment.Center,
         ) {
         Column(
@@ -698,11 +708,31 @@ private fun PaneDialog(
                 .padding(18.dp),
         ) {
             if (!title.isNullOrBlank()) {
-                Text(
-                    text = title,
-                    style = MiuixTheme.textStyles.title4,
-                    color = MiuixTheme.colorScheme.onSurface,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = title,
+                        style = MiuixTheme.textStyles.title4,
+                        color = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .clickable(role = Role.Button, onClickLabel = "关闭", onClick = onDismissRequest),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "关闭",
+                            modifier = Modifier.size(18.dp),
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                    }
+                }
             }
             if (!summary.isNullOrBlank()) {
                 Spacer(Modifier.height(6.dp))
