@@ -151,6 +151,9 @@ internal fun ConversationPanePanel(
     onOpenCharacters: () -> Unit,
     onFilterCategory: (String?) -> Unit = {},
     onCreateCategory: (String) -> Unit = {},
+    onRenameCategory: (String, String) -> Unit = { _, _ -> },
+    onDeleteCategory: (String) -> Unit = {},
+    onMoveCategory: (String, Int) -> Unit = { _, _ -> },
 
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -160,6 +163,9 @@ internal fun ConversationPanePanel(
     val isSearching = query.isNotBlank()
     var showCreateCategory by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
+    var showManageCategory by remember { mutableStateOf(false) }
+    var renamingCategoryId by remember { mutableStateOf<String?>(null) }
+    var renameCategoryText by remember { mutableStateOf("") }
     val groups = remember(state.conversations, state.categories) {
         state.conversations.groupForDrawer(state.categories)
     }
@@ -246,6 +252,7 @@ internal fun ConversationPanePanel(
                                             newCategoryName = ""
                                             showCreateCategory = true
                                         },
+                                        onManage = { showManageCategory = true },
                                     )
                                 }
                             }
@@ -339,6 +346,91 @@ internal fun ConversationPanePanel(
                             showCreateCategory = false
                         },
                     )
+                }
+            }
+
+
+            GlassDialog(
+                show = showManageCategory,
+                title = "管理分类",
+                summary = "改名、上下移或删除；删除分类不会删除会话。",
+                backdrop = currentGlassOverlayBackdrop(),
+                onDismissRequest = { showManageCategory = false; renamingCategoryId = null },
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    val current = state.categories
+                    if (current.isEmpty()) {
+                        Text(
+                            text = "还没有分类。",
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                    }
+                    current.forEachIndexed { index, category ->
+                        if (renamingCategoryId == category.id) {
+                            SettingsTextField(
+                                label = "分类名称",
+                                value = renameCategoryText,
+                                onChange = { renameCategoryText = it },
+                            )
+                            MiuixDialogActions(
+                                confirmText = "保存",
+                                confirmEnabled = renameCategoryText.isNotBlank(),
+                                onCancel = { renamingCategoryId = null },
+                                onConfirm = {
+                                    onRenameCategory(category.id, renameCategoryText)
+                                    renamingCategoryId = null
+                                },
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = category.name,
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = "↑",
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable(enabled = index > 0, role = Role.Button) {
+                                        onMoveCategory(category.id, -1)
+                                    },
+                                )
+                                Text(
+                                    text = "↓",
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable(
+                                        enabled = index < current.lastIndex,
+                                        role = Role.Button,
+                                    ) { onMoveCategory(category.id, 1) },
+                                )
+                                Text(
+                                    text = "改名",
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable(role = Role.Button) {
+                                        renamingCategoryId = category.id
+                                        renameCategoryText = category.name
+                                    },
+                                )
+                                Text(
+                                    text = "删除",
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onSurface,
+                                    modifier = Modifier.clickable(role = Role.Button) {
+                                        onDeleteCategory(category.id)
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -535,6 +627,7 @@ private fun ConversationCategoryFilterRow(
     selectedId: String?,
     onSelect: (String?) -> Unit,
     onCreate: () -> Unit,
+    onManage: () -> Unit,
 ) {
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val horizontalInset = ConversationPanelMetrics.PaneHorizontalPadding +
@@ -602,6 +695,24 @@ private fun ConversationCategoryFilterRow(
         ) {
             Text(
                 text = "＋",
+                style = MiuixTheme.textStyles.footnote1,
+                color = if (isCoui) CouiPageDefaults.themeColors().summary
+                else MiuixTheme.colorScheme.onSurface,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(
+                    if (isCoui) CouiPageDefaults.themeColors().card
+                    else MiuixTheme.colorScheme.surfaceContainerHigh
+                )
+                .clickable(role = Role.Button, onClickLabel = "管理分类", onClick = onManage)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "⋯",
                 style = MiuixTheme.textStyles.footnote1,
                 color = if (isCoui) CouiPageDefaults.themeColors().summary
                 else MiuixTheme.colorScheme.onSurface,
