@@ -8,6 +8,46 @@
 
 ---
 
+## fork.28 补充（2026-11-22）离线语音搬回 + 体积回归
+
+**现象**：fork.28 首个成功产物只有 9.7MB，`lib/` 只剩 7 个 so、共 1.5MB；旧底座同版本是 26MB。
+APK 能装能跑，但语音输入/朗读全部失效。
+
+**定位**：体积差全在 `lib/arm64-v8a`，缺的正是离线语音运行库：
+
+| 缺失 | 压缩后 |
+|---|---|
+| libonnxruntime.so | 7.59MB |
+| libsherpa-onnx-jni.so | 1.81MB |
+| libncnn.so | 1.78MB |
+| libeta_transcribe_jni.so | 1.41MB |
+| libvosk.so | 3.11MB |
+| libsherpa-ncnn-jni.so | 0.29MB |
+| libc++_shared.so | 0.44MB |
+
+上游自身没有离线语音，这些 so 与 `com.k2fsa.sherpa.onnx` Kotlin binding 都是 fork 自己带的，
+rebase 时只搬了 UI 层，源代码与二进制一起漏了。
+
+**改动**：
+
+- `app/src/main/jniLibs/arm64-v8a/` 补回 7 个 so（`libeta_pty` / `libproot_*` 仍由上游依赖提供，
+  不重复放）。
+- 复制 `com.k2fsa.sherpa.onnx` 5 个 Kotlin binding 文件。
+- 搬回 `agent/voice/local/` 22 文件（注册表、下载、校验、GGUF/Vosk 引擎、独立进程服务）、
+  `agent/voice/qwen/WarmCachePolicy`、`agent/voice/SystemSpeechPlayback`。
+- 搬回 `ui/voice/` 的本地模型管理与系统 TTS 设置 6 文件。
+- `SpeechSettings`：新增 `SystemTtsConfig`；`AsrProvider` 补 `LOCAL/SHERPA_NCNN/QWEN3_LOCAL`
+  并用 `canonical` 把历史枚举归一到 `LOCAL`（下拉不会出现三个同名项）；`TtsProvider` 补 `SYSTEM`。
+- 各 `when` 分支补齐：文件识别走本地转写、系统朗读不经 PCM/网络管线直接交
+  `SystemSpeechPlayback`、`SYSTEM` 无云端凭据字段、不支持流式合成。
+- `SpeechPlaybackController` 接 `SYSTEM` 分支，引擎实例复用（每次重建要多几百毫秒初始化）。
+- Manifest 注册 `:local_speech` 独立进程（native 崩溃不牵连主进程）；`build.gradle` 加
+  `com.alphacephei:vosk-android:0.3.75`，并把 `versionName/versionCode` 改回 forkVersion 规则。
+
+**验证**：产物 27.1MB，`lib/arm64-v8a` 18.00MB，与旧底座逐项对齐（components 分块统计一致）。
+
+---
+
 ## fork.28（2026-11-22）rebase 到上游 main：GitHub 账号与提示词 Studio 接通
 
 **背景**：上游自 `83a25e7` 起 61 个提交、300 文件变更（Miuix 0.9.5、COUI 换库、minSdk 34、
