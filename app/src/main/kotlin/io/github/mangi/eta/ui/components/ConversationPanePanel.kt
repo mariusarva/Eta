@@ -171,6 +171,7 @@ internal fun ConversationPanePanel(
     onNewConversationInCategory: (String?) -> Unit = {},
     onOpenMemory: () -> Unit = {},
     onOpenMcpServers: () -> Unit = {},
+    onOpenCategories: () -> Unit = {},
 
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -261,7 +262,7 @@ internal fun ConversationPanePanel(
                                         onOpenTools = onOpenTools,
                                         onOpenSkills = onOpenSkills,
                                         onOpenScheduledTasks = onOpenScheduledTasks,
-                                        onOpenCategories = { showManageCategory = true },
+                                        onOpenCategories = onOpenCategories,
                                         onOpenMemory = onOpenMemory,
                                         onOpenMcpServers = onOpenMcpServers,
                                     )

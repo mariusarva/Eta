@@ -82,6 +82,10 @@ sealed interface AppRoute : NavKey {
     @Serializable
     data object PromptToolGroups : AppRoute
 
+    /** 会话分类管理（整页）。 */
+    @Serializable
+    data object ConversationCategories : AppRoute
+
     /** GitHub 账号：设备码授权 + 终端 git 同步 + 官方远程 MCP 自动注册。 */
     @Serializable
     data object GitHubAccount : AppRoute

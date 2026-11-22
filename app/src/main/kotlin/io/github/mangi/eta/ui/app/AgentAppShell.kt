@@ -152,6 +152,7 @@ internal fun AgentAppShell(
     onNewConversationInCategory: (String?) -> Unit = {},
     onOpenMemory: () -> Unit = {},
     onOpenMcpServers: () -> Unit = {},
+    onOpenCategories: () -> Unit = {},
     onOpenCharacters: () -> Unit,
     onOpenPermissions: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -318,6 +319,7 @@ internal fun AgentAppShell(
                 onNewConversationInCategory = onNewConversationInCategory,
                 onOpenMemory = onOpenMemory,
                 onOpenMcpServers = onOpenMcpServers,
+                onOpenCategories = onOpenCategories,
                 onOpenCharacters = onOpenCharacters,
                 onOpenPermissions = onOpenPermissions,
                 activeModelLabel = homeModelPickerState?.selectedModel?.displayName,
@@ -680,6 +682,7 @@ private fun titleForRoute(route: AppRoute?): String = when (route) {
     is AppRoute.PromptEffective -> "实际生效内容"
     is AppRoute.PromptEffectiveItem -> "分段详情"
     is AppRoute.PromptToolGroups -> "工具分组"
+    is AppRoute.ConversationCategories -> "会话分类"
     is AppRoute.GitHubAccount -> "GitHub 账号"
     is AppRoute.ConversationTitleSettings -> stringResource(R.string.conversation_title_settings_title)
     is AppRoute.AssistantOverlaySettings -> stringResource(R.string.assistant_overlay_settings_title)

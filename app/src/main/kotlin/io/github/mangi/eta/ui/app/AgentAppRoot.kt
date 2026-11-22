@@ -140,6 +140,7 @@ import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.mangi.eta.ui.screens.categories.ConversationCategoriesScreen
 
 /**
  * Agent App 根组件：持有本地导航栈，并把 Screen actions 交给 [AgentAppState]。
@@ -395,6 +396,7 @@ fun AgentAppRoot(
                 agentState.moveConversationsToCategory(ids, categoryId)
             },
             onNewConversationInCategory = { categoryId -> agentState.createConversationInCategory(categoryId) },
+            onOpenCategories = { pushRoute(AppRoute.ConversationCategories) },
             onOpenMemory = { pushRoute(AppRoute.Memory) },
             onOpenMcpServers = { pushRoute(AppRoute.McpServers) },
             onOpenCharacters = { pushRoute(AppRoute.Characters) },
@@ -558,6 +560,16 @@ fun AgentAppRoot(
                     }
                     entry<AppRoute.Subagents>(swipeDismiss = activeSwipeDismiss) {
                         SubagentSettingsScreen(onBack = ::popRoute)
+                    }
+                    entry<AppRoute.ConversationCategories>(swipeDismiss = activeSwipeDismiss) {
+                        ConversationCategoriesScreen(
+                            categories = agentState.conversationPaneState.categories,
+                            onBack = ::popRoute,
+                            onCreate = { agentState.createConversationCategory(it) },
+                            onRename = { id, name -> agentState.renameConversationCategory(id, name) },
+                            onDelete = { agentState.deleteConversationCategory(it) },
+                            onMove = { id, delta -> agentState.moveConversationCategory(id, delta) },
+                        )
                     }
                     entry<AppRoute.GitHubAccount>(swipeDismiss = activeSwipeDismiss) {
                         GitHubAccountScreen(onBack = ::popRoute)
