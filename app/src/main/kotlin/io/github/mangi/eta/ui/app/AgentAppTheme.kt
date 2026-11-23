@@ -35,10 +35,8 @@ import io.github.suqi8.coui.kmp.effect.LocalCOUIMaterialEffectEnabled
 import io.github.suqi8.coui.kmp.squircle.LocalSquircleEnabled as LocalCouiSquircleEnabled
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.theme.LocalContentColor as LocalCouiContentColor
-import io.github.suqi8.coui.kmp.theme.ColorSchemeMode as CouiColorSchemeMode
-import io.github.suqi8.coui.kmp.theme.ThemeColorSpec as CouiThemeColorSpec
-import io.github.suqi8.coui.kmp.theme.ThemeController as CouiThemeController
-import io.github.suqi8.coui.kmp.theme.ThemePaletteStyle as CouiThemePaletteStyle
+import io.github.suqi8.coui.kmp.theme.darkColorScheme
+import io.github.suqi8.coui.kmp.theme.lightColorScheme
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
@@ -106,30 +104,35 @@ fun AgentAppTheme(
     MiuixTheme(controller = controller) {
         val baseMiuixColors = MiuixTheme.colorScheme
         val pureBlack = appearance.monetEnabled && appearance.pureBlackEnabled && isDark
-        // COUI 配色与 Miuix 共用同一套开关：开了 Monet 就走 COUI 自己的 Monet 模式，
-        // 由库用 keyColor + paletteStyle 生成；关掉则用 COUI 自带的浅/深基线。
-        // 之前这里固定 lightColorScheme()/darkColorScheme()，COUI 样式完全不响应 Monet 取色。
-        val couiColorSchemeMode = when {
-            !appearance.monetEnabled && appearance.themeMode == AppearanceThemeMode.LIGHT -> CouiColorSchemeMode.Light
-            !appearance.monetEnabled && appearance.themeMode == AppearanceThemeMode.DARK -> CouiColorSchemeMode.Dark
-            !appearance.monetEnabled -> CouiColorSchemeMode.System
-            appearance.themeMode == AppearanceThemeMode.LIGHT -> CouiColorSchemeMode.MonetLight
-            appearance.themeMode == AppearanceThemeMode.DARK -> CouiColorSchemeMode.MonetDark
-            else -> CouiColorSchemeMode.MonetSystem
-        }
-        val couiController = remember(couiColorSchemeMode, keyColor, appearance.paletteStyle, isDark) {
-            CouiThemeController(
-                colorSchemeMode = couiColorSchemeMode,
-                keyColor = keyColor,
-                colorSpec = CouiThemeColorSpec.Spec2025,
-                paletteStyle = appearance.paletteStyle.toCouiPaletteStyle(),
-                isDark = isDark,
+        // COUI 配色必须跟随 Monet，但不能走 COUI 自己的 ThemeController：
+        // 它会拉 com.materialkolor.scheme.DynamicScheme（material-color-utilities 5.0.0），
+        // 而 Miuix 0.9.5-beta03 依赖 6.0.0，该类已移到 com.materialkolor.dynamiccolor，
+        // 两个版本无法共存，R8 会报 Missing class。
+        //
+        // 因此改为「用 Miuix 已算好的 Monet 配色覆盖 COUI 基线」：baseMiuixColors 已由
+        // ThemeController 按 keyColor/paletteStyle/isDark 生成，这里只把强调色、容器色、
+        // 文字色映射过去，COUI 的其余语义槽位保持自带基线。两条链路共享同一份种子色，
+        // 不会出现 Miuix 变了、COUI 没变的情况。
+        val couiNative = remember(baseMiuixColors, isDark) {
+            val base = if (isDark) darkColorScheme() else lightColorScheme()
+            base.copy(
+                primary = baseMiuixColors.primary,
+                onPrimary = baseMiuixColors.onPrimary,
+                primaryText = baseMiuixColors.primary,
+                primaryTextOnPopup = baseMiuixColors.primary,
+                secondaryContainer = baseMiuixColors.secondaryContainer,
+                error = baseMiuixColors.error,
+                onError = baseMiuixColors.onError,
+                outline = baseMiuixColors.outline,
+                labelPrimary = baseMiuixColors.onSurface,
+                labelSecondary = baseMiuixColors.onSurfaceVariantSummary,
+                backgroundWithCard = baseMiuixColors.background,
+                cardBackground = baseMiuixColors.surfaceContainer,
+                cardPressed = baseMiuixColors.surfaceContainerHigh,
+                containerSolid = baseMiuixColors.surfaceContainerHighest,
+                divider = baseMiuixColors.outline,
             )
         }
-        // 先用 controller 建立 COUI 主题，COUI 的 Monet 配色由库按 keyColor/paletteStyle 生成；
-        // 之后 Miuix 的 COUI 分支直接读同一份 colorScheme，两套配色不会分叉。
-        COUITheme(controller = couiController) {
-        val couiNative = COUITheme.colorScheme
         val themedMiuixColors = remember(
             baseMiuixColors,
             appearance.uiStyle,
@@ -182,10 +185,10 @@ fun AgentAppTheme(
                 LocalAppearanceSettings provides appearance,
                 LocalUiStyle provides appearance.uiStyle,
             ) {
-                // COUI 主题已在外层无条件提供：会话分类、GitHub 账号两个页面只写了 COUI 版式，
+                // COUI 主题无条件提供：会话分类、GitHub 账号两个页面只写了 COUI 版式，
                 // 在 MIUIX 样式下如果没有 COUITheme，COUITheme.colorScheme 会回落到
                 // LocalColors 的默认值 lightColorScheme()，深色模式里整页变成浅色。
-                run {
+                COUITheme(colors = couiNative) {
                     if (appearance.uiStyle == AppearanceUiStyle.COUI) {
                         // 使用 colors 重载避免拉入 COUI ThemeController 对 material-color-utilities 5.0
                         // 旧包的静态引用（Miuix 0.9.5-beta02 已升级至 6.0.0）；显式补齐 COUI LocalContentColor，
@@ -279,22 +282,7 @@ fun AgentAppTheme(
                 }
             }
         }
-        }
     }
-}
-
-/** COUI 与 Miuix 的调色板枚举是两套类型，语义一一对应；CMF 是 COUI 独有，映射到最接近的 Fidelity。 */
-private fun AppearancePaletteStyle.toCouiPaletteStyle(): CouiThemePaletteStyle = when (this) {
-    AppearancePaletteStyle.TONAL_SPOT -> CouiThemePaletteStyle.TonalSpot
-    AppearancePaletteStyle.NEUTRAL -> CouiThemePaletteStyle.Neutral
-    AppearancePaletteStyle.VIBRANT -> CouiThemePaletteStyle.Vibrant
-    AppearancePaletteStyle.EXPRESSIVE -> CouiThemePaletteStyle.Expressive
-    AppearancePaletteStyle.RAINBOW -> CouiThemePaletteStyle.Rainbow
-    AppearancePaletteStyle.FRUIT_SALAD -> CouiThemePaletteStyle.FruitSalad
-    AppearancePaletteStyle.MONOCHROME -> CouiThemePaletteStyle.Monochrome
-    AppearancePaletteStyle.FIDELITY -> CouiThemePaletteStyle.Fidelity
-    AppearancePaletteStyle.CONTENT -> CouiThemePaletteStyle.Content
-    AppearancePaletteStyle.CMF -> CouiThemePaletteStyle.Fidelity
 }
 
 private fun AppearancePaletteStyle.toMiuixPaletteStyle(): ThemePaletteStyle = when (this) {
