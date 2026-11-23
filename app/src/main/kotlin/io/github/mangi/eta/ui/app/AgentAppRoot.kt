@@ -159,6 +159,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import io.github.mangi.eta.ui.components.CharacterAvatar
+import io.github.mangi.eta.ui.components.RoleplayChatUi
 
 /**
  * Agent App 根组件：持有本地导航栈，并把 Screen actions 交给 [AgentAppState]。
@@ -256,7 +257,19 @@ fun AgentAppRoot(
         AndroidAgentLogger.info("character picker opened: count=" + characterOptions.size)
     }
     var conversationExportTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
-    var messageDeleteTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
+    // 顶栏「已选角色」胶囊要显示头像；从角色列表里取。启动时若已有选中的角色，
+    // 这里补读一次列表（弹窗还没打开过时列表是空的），避免胶囊只显示名字没有头像。
+    LaunchedEffect(agentState.characterForNewChat) {
+        if (agentState.characterForNewChat == null || characterOptions.isNotEmpty()) return@LaunchedEffect
+        characterOptions = runCatching {
+            io.github.mangi.eta.data.repository.CharacterRepository.list()
+        }.getOrDefault(emptyList())
+    }
+    val selectedCharacterAvatar = remember(agentState.characterForNewChat, characterOptions) {
+        agentState.characterForNewChat?.first?.let { id ->
+            characterOptions.firstOrNull { it.id == id }?.avatarPath
+        }
+    }    var messageDeleteTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
     var messageRegenerateTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
     val conversationExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/markdown"),
@@ -440,6 +453,13 @@ fun AgentAppRoot(
             onPickCharacterForNewConversation = {
                 AndroidAgentLogger.info("character picker requested")
                 showCharacterPicker = true
+            },
+            selectedCharacter = agentState.characterForNewChat?.let { bound ->
+                RoleplayChatUi(
+                    characterName = bound.second,
+                    avatarPath = selectedCharacterAvatar,
+                    userName = "",
+                )
             },
             onOpenPermissions = { pushRoute(AppRoute.Permissions) },
             onOpenSettings = { pushRoute(AppRoute.Settings) },
@@ -1365,21 +1385,36 @@ fun AgentAppRoot(
                         characterPickerError != null -> "读取角色失败：" + characterPickerError
                         characterOptions.isEmpty() -> "还没有角色卡。"
                         agentState.characterForNewChat != null ->
-                            "当前：" + agentState.characterForNewChat!!.second + "；之后点「新建会话」都会用它。"
-                        else -> "选一个角色后，之后每次「新建会话」都直接进入该角色剧情。"
+                            "当前已选：${agentState.characterForNewChat!!.second}"
+                        else -> "还没有选定角色，新建会话是普通对话。"
                     },
                     style = MiuixTheme.textStyles.footnote1,
+                    color = if (agentState.characterForNewChat != null) MiuixTheme.colorScheme.primary
+                    else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "选一个角色后，之后每次「新建会话」都直接进入该角色剧情。",
+                    style = MiuixTheme.textStyles.footnote2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (agentState.characterForNewChat == null) {
+                                MiuixTheme.colorScheme.primary.copy(alpha = 0.10f)
+                            } else {
+                                Color.Transparent
+                            },
+                        )
                         .clickable {
                             agentState.setCharacterForNewChat(null, null)
                             showCharacterPicker = false
                         }
-                        .padding(vertical = 10.dp),
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -1390,7 +1425,7 @@ fun AgentAppRoot(
                     )
                     if (agentState.characterForNewChat == null) {
                         Text(
-                            text = "已选",
+                            text = "✓ 已选",
                             style = MiuixTheme.textStyles.footnote1,
                             color = MiuixTheme.colorScheme.primary,
                         )
@@ -1407,12 +1442,28 @@ fun AgentAppRoot(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(vertical = 2.dp)
                                 .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.10f)
+                                    else Color.Transparent,
+                                )
+                                .then(
+                                    if (selected) {
+                                        Modifier.border(
+                                            1.dp,
+                                            MiuixTheme.colorScheme.primary.copy(alpha = 0.55f),
+                                            RoundedCornerShape(12.dp),
+                                        )
+                                    } else {
+                                        Modifier
+                                    },
+                                )
                                 .clickable {
                                     agentState.setCharacterForNewChat(profile.id, profile.card.name)
                                     showCharacterPicker = false
                                 }
-                                .padding(horizontal = 4.dp, vertical = 8.dp),
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             CharacterAvatar(
@@ -1432,11 +1483,20 @@ fun AgentAppRoot(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    text = if (selected) "已选" else profile.card.firstMessage.replace('\n', ' '),
+                                    text = profile.card.firstMessage.replace('\n', ' '),
                                     style = MiuixTheme.textStyles.footnote2,
                                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            if (selected) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "✓ 已选",
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.primary,
+                                    maxLines = 1,
                                 )
                             }
                         }

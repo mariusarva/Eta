@@ -95,6 +95,7 @@ fun ConversationSidePaneScaffold(
     onOpenMcpServers: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
     onPickCharacterForNewConversation: (() -> Unit)? = null,
+    selectedCharacter: RoleplayChatUi? = null,
     onOpenCharacters: () -> Unit,
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -261,6 +262,7 @@ fun ConversationSidePaneScaffold(
                         onOpenMcpServers = onOpenMcpServers,
                         onOpenCategories = onOpenCategories,
                         onPickCharacterForNewConversation = onPickCharacterForNewConversation,
+                        selectedCharacter = selectedCharacter,
                         onOpenCharacters = onOpenCharacters,
                         onOpenPermissions = onOpenPermissions,
                         modifier = Modifier

@@ -132,6 +132,7 @@ import androidx.compose.material.icons.rounded.Add
 import top.yukonga.miuix.kmp.icon.glass.Import
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Close
 
 @Stable
@@ -173,6 +174,7 @@ internal fun ConversationPanePanel(
     onOpenMcpServers: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
     onPickCharacterForNewConversation: (() -> Unit)? = null,
+    selectedCharacter: RoleplayChatUi? = null,
 
     onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -266,6 +268,8 @@ internal fun ConversationPanePanel(
                                         onOpenCategories = onOpenCategories,
                                         onOpenMemory = onOpenMemory,
                                         onOpenMcpServers = onOpenMcpServers,
+                                        selectedCharacter = selectedCharacter,
+                                        onPickCharacter = onPickCharacterForNewConversation,
                                     )
                                 }
                             }
@@ -348,6 +352,7 @@ internal fun ConversationPanePanel(
                         },
                         onManageCategories = { showManageCategory = true },
                         onPickCharacterForNewConversation = onPickCharacterForNewConversation,
+                        selectedCharacter = selectedCharacter,
                     )
                     if (selecting) {
                         ConversationBulkBar(
@@ -770,52 +775,81 @@ private fun PaneWorkbenchSection(
     onOpenCategories: () -> Unit = {},
     onOpenMemory: () -> Unit = {},
     onOpenMcpServers: () -> Unit = {},
+    selectedCharacter: RoleplayChatUi? = null,
+    onPickCharacter: (() -> Unit)? = null,
 ) {
     val modelSummary = activeModelLabel?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.conversation_model_unconfigured)
-    val entries = listOf(
-        WorkbenchEntry(
-            icon = ConversationPaneIcons.Model,
-            title = stringResource(R.string.conversation_dock_models),
-            trailingValue = modelSummary,
-            onClick = onOpenModelProviders,
-        ),
-        WorkbenchEntry(
-            icon = ConversationPaneIcons.Character,
-            title = stringResource(R.string.conversation_dock_characters),
-            onClick = onOpenCharacters,
-        ),
-        WorkbenchEntry(
-            icon = ConversationPaneIcons.Tools,
-            title = stringResource(R.string.route_tools),
-            onClick = onOpenTools,
-        ),
-        WorkbenchEntry(
-            icon = ConversationPaneIcons.Skills,
-            title = stringResource(R.string.route_skills),
-            onClick = onOpenSkills,
-        ),
-        WorkbenchEntry(
-            icon = Icons.AutoMirrored.Rounded.MenuBook,
-            title = "记忆",
-            onClick = onOpenMemory,
-        ),
-        WorkbenchEntry(
-            icon = Icons.Rounded.AccountTree,
-            title = "MCP 服务",
-            onClick = onOpenMcpServers,
-        ),
-        WorkbenchEntry(
-            icon = ConversationPaneIcons.Schedule,
-            title = stringResource(R.string.route_scheduled_tasks),
-            onClick = onOpenScheduledTasks,
-        ),
-        WorkbenchEntry(
-            icon = Icons.Outlined.Folder,
-            title = "会话分类",
-            onClick = onOpenCategories,
-        ),
-    )
+    val entries = buildList {
+        add(
+            WorkbenchEntry(
+                icon = ConversationPaneIcons.Model,
+                title = stringResource(R.string.conversation_dock_models),
+                trailingValue = modelSummary,
+                onClick = onOpenModelProviders,
+            ),
+        )
+        add(
+            WorkbenchEntry(
+                icon = ConversationPaneIcons.Character,
+                title = stringResource(R.string.conversation_dock_characters),
+                onClick = onOpenCharacters,
+            ),
+        )
+        // 「新建会话用什么角色」单独一行，避免只靠顶栏图标猜当前选择。
+        if (onPickCharacter != null) {
+            add(
+                WorkbenchEntry(
+                    icon = Icons.Rounded.Person,
+                    title = "新建会话角色",
+                    trailingValue = selectedCharacter?.characterName ?: "不使用角色",
+                    onClick = onPickCharacter,
+                ),
+            )
+        }
+        add(
+            WorkbenchEntry(
+                icon = ConversationPaneIcons.Tools,
+                title = stringResource(R.string.route_tools),
+                onClick = onOpenTools,
+            ),
+        )
+        add(
+            WorkbenchEntry(
+                icon = ConversationPaneIcons.Skills,
+                title = stringResource(R.string.route_skills),
+                onClick = onOpenSkills,
+            ),
+        )
+        add(
+            WorkbenchEntry(
+                icon = Icons.AutoMirrored.Rounded.MenuBook,
+                title = "记忆",
+                onClick = onOpenMemory,
+            ),
+        )
+        add(
+            WorkbenchEntry(
+                icon = Icons.Rounded.AccountTree,
+                title = "MCP 服务",
+                onClick = onOpenMcpServers,
+            ),
+        )
+        add(
+            WorkbenchEntry(
+                icon = ConversationPaneIcons.Schedule,
+                title = stringResource(R.string.route_scheduled_tasks),
+                onClick = onOpenScheduledTasks,
+            ),
+        )
+        add(
+            WorkbenchEntry(
+                icon = Icons.Outlined.Folder,
+                title = "会话分类",
+                onClick = onOpenCategories,
+            ),
+        )
+    }
 
     val cardColor = conversationPaneCardColor()
     val dividerIndent = ConversationPanelMetrics.WorkbenchRowHorizontalPadding +

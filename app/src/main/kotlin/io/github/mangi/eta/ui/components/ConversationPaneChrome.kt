@@ -24,9 +24,11 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.MapsUgc
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -195,6 +197,8 @@ internal fun ConversationPaneTopBar(
     onToggleSelecting: () -> Unit = {},
     onManageCategories: () -> Unit = {},
     onPickCharacterForNewConversation: (() -> Unit)? = null,
+    /** 已选定的「新建会话」角色；非空时顶栏按钮显示头像与名字，让人一眼看出当前选的是谁。 */
+    selectedCharacter: RoleplayChatUi? = null,
 ) {
     val barContent: @Composable () -> Unit = {
         Row(
@@ -216,11 +220,19 @@ internal fun ConversationPaneTopBar(
             )
             Spacer(Modifier.width(6.dp))
             if (onPickCharacterForNewConversation != null) {
-                PaneTopBarActionButton(
-                    icon = Icons.Rounded.Person,
-                    description = "选择新建对话的角色",
-                    onClick = onPickCharacterForNewConversation,
-                )
+                if (selectedCharacter != null) {
+                    // 已选角色时按钮变成「头像 + 名字」的胶囊，避免只靠图标猜当前选的是谁。
+                    PaneSelectedCharacterChip(
+                        character = selectedCharacter,
+                        onClick = onPickCharacterForNewConversation,
+                    )
+                } else {
+                    PaneTopBarActionButton(
+                        icon = Icons.Rounded.Person,
+                        description = "选择新建对话的角色",
+                        onClick = onPickCharacterForNewConversation,
+                    )
+                }
                 Spacer(Modifier.width(6.dp))
             }
             PaneNewChatButton(
@@ -341,8 +353,56 @@ private fun PaneTopBarActionButton(
     }
 }
 
-/** 顶栏的分类管理入口：新建、改名、排序、删除都在那个对话框里。 */
+/**
+ * 已选角色胶囊：头像 + 名字 + 右侧下拉箭头，点击重新打开选择框。
+ * 名字宽度有上限并单行省略，避免长角色名把「新建会话」挤出顶栏。
+ */
 @Composable
+private fun PaneSelectedCharacterChip(
+    character: RoleplayChatUi,
+    onClick: () -> Unit,
+) {
+    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val colors = CouiPageDefaults.themeColors()
+    val background = if (isCoui) colors.card else MiuixTheme.colorScheme.surfaceContainerHigh
+    val titleColor = if (isCoui) colors.accent else MiuixTheme.colorScheme.primary
+    val description = "新建会话使用角色：" + character.characterName + "，点击更换"
+    Row(
+        modifier = Modifier
+            .height(34.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(17.dp))
+            .background(background)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = description, onClick = onClick)
+            .semantics { contentDescription = description }
+            .padding(start = 3.dp, end = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CharacterAvatar(
+            name = character.characterName,
+            avatarPath = character.avatarPath,
+            size = 28.dp,
+            shape = androidx.compose.foundation.shape.CircleShape,
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = character.characterName,
+            style = MiuixTheme.textStyles.footnote1,
+            color = titleColor,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = 72.dp),
+        )
+        Spacer(Modifier.width(2.dp))
+        Icon(
+            imageVector = Icons.Rounded.ArrowDropDown,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = if (isCoui) colors.title else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        )
+    }
+}
+
+/** 顶栏的分类管理入口：新建、改名、排序、删除都在那个对话框里。 *\/@Composable
 private fun PaneManageCategoriesButton(
     hasCouiToolbarBackdrop: Boolean,
     onClick: () -> Unit,

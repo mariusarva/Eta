@@ -767,6 +767,8 @@ internal val LocalSpeechPlaybackEnabled = compositionLocalOf { false }
 @Composable
 internal fun SpeechAutoReadAloud(messages: List<AgentChatMessageUi>, isStreaming: Boolean) {
     val controller = LocalSpeechPlayback.current ?: return
+    // CompositionLocal 只能在 @Composable 上下文读取，先在这里取出来给 LaunchedEffect 用。
+    val characterVoice = LocalRoleplayChat.current?.voiceId
     val settings by remember { SpeechSettingsRepository.settingsFlow() }.collectAsState(initial = null)
     val enabled = settings?.let { it.chatAutoSpeak && it.tts != TtsProvider.NONE } == true
     var watchedId by remember { mutableStateOf<String?>(null) }
@@ -789,7 +791,7 @@ internal fun SpeechAutoReadAloud(messages: List<AgentChatMessageUi>, isStreaming
             it is SystemNoticeMessageUi && it.code in setOf(SystemNoticeCode.Stopped, SystemNoticeCode.RuntimeFailed)
         }
         if (!interrupted && answer.content.isNotBlank()) {
-            controller.speak(answer.id, answer.content, voiceOverride = LocalRoleplayChat.current?.voiceId)
+            controller.speak(answer.id, answer.content, voiceOverride = characterVoice)
         }
     }
     // 关闭自动朗读视同“别再读了”，正在进行的朗读一并停止。

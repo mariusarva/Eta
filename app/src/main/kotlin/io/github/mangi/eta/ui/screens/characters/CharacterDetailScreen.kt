@@ -80,7 +80,7 @@ internal fun CharacterDetailScreen(
     val jsonExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) {
         if (it != null) store.export(id, CharacterCardFormat.JSON, it)
     }
-    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) store.changeAvatar(id, uri)
     }
     val profile = store.selected?.takeIf { it.id == id }
