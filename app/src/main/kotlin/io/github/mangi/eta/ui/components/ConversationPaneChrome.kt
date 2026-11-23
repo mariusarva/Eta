@@ -213,12 +213,7 @@ internal fun ConversationPaneTopBar(
         ) {
             PaneBrandHeader(modifier = Modifier.weight(1f))
             val hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null
-            PaneSelectionButton(
-                active = isSelecting,
-                hasCouiToolbarBackdrop = hasCouiToolbarBackdrop,
-                onClick = onToggleSelecting,
-            )
-            Spacer(Modifier.width(6.dp))
+            // 角色键在多选键左侧：角色是常用入口，多选是低频操作，靠右更顺手。
             if (onPickCharacterForNewConversation != null) {
                 if (selectedCharacter != null) {
                     // 已选角色时按钮变成「头像 + 名字」的胶囊，避免只靠图标猜当前选的是谁。
@@ -235,6 +230,12 @@ internal fun ConversationPaneTopBar(
                 }
                 Spacer(Modifier.width(6.dp))
             }
+            PaneSelectionButton(
+                active = isSelecting,
+                hasCouiToolbarBackdrop = hasCouiToolbarBackdrop,
+                onClick = onToggleSelecting,
+            )
+            Spacer(Modifier.width(6.dp))
             PaneNewChatButton(
                 hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
                 miuixBackdrop = miuixBackdrop,
