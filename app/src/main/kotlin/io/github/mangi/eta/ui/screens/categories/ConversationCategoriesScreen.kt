@@ -45,6 +45,15 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import io.github.mangi.eta.data.model.AppearanceUiStyle
+import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.basic.BasicComponent
 
 private val CategoryIconColor = Color(0xFF4285F4)
 
@@ -68,7 +77,8 @@ internal fun ConversationCategoriesScreen(
     var renamingId by remember { mutableStateOf<String?>(null) }
     var renamingName by remember { mutableStateOf("") }
 
-    CouiScaffoldPage(title = "会话分类", onBack = onBack, scrollState = scrollState) {
+    when (LocalUiStyle.current) {
+        AppearanceUiStyle.COUI -> CouiScaffoldPage(title = "会话分类", onBack = onBack, scrollState = scrollState) {
         CouiPreferenceGroup(title = "新建") {
             item {
                 CouiPreference(
@@ -163,6 +173,69 @@ internal fun ConversationCategoriesScreen(
         }
 
         CouiPageBottomSpacer()
+        }
+
+        AppearanceUiStyle.MIUIX -> MiuixScaffoldPage(title = "会话分类", onBack = onBack) {
+            item(key = "create") {
+                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(top = 8.dp, bottom = 12.dp)) {
+                    ArrowPreference(
+                        title = "新建分类",
+                        summary = "分类只决定侧栏里的归属，不改变会话内容。",
+                        onClick = { creating = true },
+                    )
+                }
+            }
+            if (categories.isEmpty()) {
+                item(key = "empty") {
+                    Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                        BasicComponent(
+                            title = "还没有分类",
+                            summary = "点上面的「新建分类」开始。",
+                        )
+                    }
+                }
+            }
+            categories.forEachIndexed { index, category ->
+                item(key = "category-" + category.id) {
+                    if (index == 0) SmallTitle("全部分类")
+                    Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = category.name,
+                                    style = MiuixTheme.textStyles.body1,
+                                    color = MiuixTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = category.conversationCount.toString() + " 个会话",
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                )
+                            }
+                            MiuixIconAction(enabled = index > 0, description = "上移", onClick = { onMove(category.id, -1) }) { tint ->
+                                Icon(Icons.Rounded.KeyboardArrowUp, "上移", Modifier.size(18.dp), tint = tint)
+                            }
+                            MiuixIconAction(enabled = index < categories.lastIndex, description = "下移", onClick = { onMove(category.id, 1) }) { tint ->
+                                Icon(Icons.Rounded.KeyboardArrowDown, "下移", Modifier.size(18.dp), tint = tint)
+                            }
+                            MiuixIconAction(enabled = true, description = "改名", onClick = {
+                                renamingId = category.id
+                                renamingName = category.name
+                            }) { tint ->
+                                Text("改名", style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp), color = tint)
+                            }
+                            MiuixIconAction(enabled = true, description = "删除", onClick = { onDelete(category.id) }) { tint ->
+                                Icon(Icons.Rounded.Delete, "删除", Modifier.size(17.dp), tint = tint)
+                            }
+                        }
+                    }
+                }
+            }
+            item(key = "bottom") { Spacer(Modifier.height(24.dp)) }
+        }
     }
 
     if (creating) {
@@ -289,5 +362,25 @@ private fun DialogTextButton(text: String, enabled: Boolean, onClick: () -> Unit
             style = MiuixTheme.textStyles.button,
             color = if (enabled) colors.accent else colors.disabled,
         )
+    }
+}
+
+/** MIUIX 版分类行右侧的动作位：与 COUI 版 IconAction 对齐尺寸，颜色走主题。 */
+@Composable
+private fun MiuixIconAction(
+    enabled: Boolean,
+    description: String,
+    onClick: () -> Unit,
+    content: @Composable (Color) -> Unit,
+) {
+    val tint = if (enabled) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClickLabel = description, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        content(tint)
     }
 }
