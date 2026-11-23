@@ -132,7 +132,6 @@ import androidx.compose.material.icons.rounded.Add
 import top.yukonga.miuix.kmp.icon.glass.Import
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AccountTree
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Close
 
 @Stable
@@ -268,8 +267,6 @@ internal fun ConversationPanePanel(
                                         onOpenCategories = onOpenCategories,
                                         onOpenMemory = onOpenMemory,
                                         onOpenMcpServers = onOpenMcpServers,
-                                        selectedCharacter = selectedCharacter,
-                                        onPickCharacter = onPickCharacterForNewConversation,
                                     )
                                 }
                             }
@@ -775,8 +772,6 @@ private fun PaneWorkbenchSection(
     onOpenCategories: () -> Unit = {},
     onOpenMemory: () -> Unit = {},
     onOpenMcpServers: () -> Unit = {},
-    selectedCharacter: RoleplayChatUi? = null,
-    onPickCharacter: (() -> Unit)? = null,
 ) {
     val modelSummary = activeModelLabel?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.conversation_model_unconfigured)
@@ -796,17 +791,7 @@ private fun PaneWorkbenchSection(
                 onClick = onOpenCharacters,
             ),
         )
-        // 「新建会话用什么角色」单独一行，避免只靠顶栏图标猜当前选择。
-        if (onPickCharacter != null) {
-            add(
-                WorkbenchEntry(
-                    icon = Icons.Rounded.Person,
-                    title = "新建会话角色",
-                    trailingValue = selectedCharacter?.characterName ?: "不使用角色",
-                    onClick = onPickCharacter,
-                ),
-            )
-        }
+        // 「角色」这行本身就进角色库；新建会话用哪个角色由顶栏胶囊显示，不在这里重复一行。
         add(
             WorkbenchEntry(
                 icon = ConversationPaneIcons.Tools,
