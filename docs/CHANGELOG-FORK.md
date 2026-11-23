@@ -8,6 +8,25 @@
 
 ---
 
+## fork.62 – fork.65（2026-11-23）发布收尾：分类弹窗与角色选择器
+
+fork.62 是第一次正式发版（含 fork.38–61 全部改动）。之后按真机反馈又修了三处。
+
+| 版本 | 现象 | 定位与改动 |
+|---|---|---|
+| fork.62 | — | 发版：上游同步 + 提示词与工具边界对齐 + 全部 fork 特性 |
+| fork.63 | 新建分类弹窗背景透明，文字糊在列表上 | `CouiPageDefaults.themeColors().card` 在深色主题下带 alpha。改按明暗取绝对色（浅 `#FFFFFF` / 深 `#2A2A2E`）+ 0.5dp 描边 |
+| fork.64 | 点侧栏顶栏中间的人像图标没反应 | 角色选择 `GlassDialog` 只写在 `when (LocalUiStyle.current)` 的 COUI 分支里。上游 `a14286b` 已把 Miuix 设为默认样式，跑的是 MIUIX 分支，`showCharacterPicker` 置位但没有对话框消费它。移到 `when` 之外 |
+| fork.65 | fork.64 仍不显示 | 日志显示点击后 `ImageDecoder` 解出了 104×104 头像（列表已加载），但 0.9 秒后 `setTopOnBackInvokedCallback` 切回 Activity —— 弹窗起来后立刻消失。`GlassDialog` 依赖 Miuix 的 glass overlay 宿主，放在 `when` 之外拿不到，`show` 无法维持窗口。改用系统 `Dialog` 窗口（与会话分类弹窗同一套），并加 `character picker requested` / `opened: count=N` 两条日志 |
+
+**这一段踩到的坑**：
+
+- 同一个「弹窗起来立刻消失」现象，`GlassDialog` 在 `when (LocalUiStyle)` 之外会静默失效，不报错、不打日志，只能靠 `ImageDecoder` 与 `setTopOnBackInvokedCallback` 的时间差判断。
+- 把 Compose 代码块在 `when` 分支与函数体之间搬动时，缩进层级一变，`{` / `}` 计数极易错位；改完必须数一遍括号。
+- 工作区清理会连带删掉代码仓库与下载脚本；`dl2.py` 可随时重写，但 `tmp-work` 需要重新 clone（`rebase` 分支在远端有备份）。
+
+---
+
 ## fork.38 – fork.61（2026-11-22）UI 对齐、上游同步、PR 与外部仓库对齐
 
 **背景**：fork.37 之后是按真机反馈逐条修 UI 的过程，中间夹了上游同步与两次外部代码对齐。
