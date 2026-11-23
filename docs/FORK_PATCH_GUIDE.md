@@ -183,6 +183,9 @@ pm install -r -d /data/local/tmp/eta-forkN.apk
 | R8 报 `Missing class com.materialkolor.scheme.DynamicScheme` | COUI 要 material-color-utilities 5.0.0（`scheme.*`），Miuix 要 6.0.0（`dynamiccolor.*`），不能共存；升级任一库前先对齐版本 |
 | 弹窗底色写死 `#FFFFFF` / `#2A2A2E` 后不跟 Monet | 用 `opaqueThemedSurface()`：把主题容器色按自身 alpha 合成到 `background`，不透明且保留色相 |
 | 补版式后 CI 报一批 `Unresolved reference` | 多半是漏 import（`Modifier`/`dp`/`padding`）。跑 `scripts/check-theme-coverage.py` 的 E4 规则先自查 |
+| 拆组件后点把手面板不出现 | 把手与面板各持一份 `expanded`；用共享的 `ChatTurnNavigatorState` |
+| 面板被压成 1/3 宽 | 它被放进了 `weight(1f)` 槽位；面板要整行宽就不能和把手共用 Row 槽位 |
+| 下载产物卡在 `Errno 103` 或速度归零 | 改用 `gh run download <run-id> -R <repo> -D <dir>`，走发布通道通常十秒完成 |
 
 ---
 

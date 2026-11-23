@@ -8,6 +8,36 @@
 
 ---
 
+## fork.86 – fork.87（2026-11-23）轮次横条位置
+
+按要求把「上拉小横条」从独立一行挪到能力胶囊那一行的左侧。
+
+| 版本 | 现象 | 定位与改动 |
+|---|---|---|
+| fork.86 | 横条在能力胶囊上方、居中偏左，两者不在同一水平线 | 横条原先在 `Scaffold.bottomBar` 里独占一行（靠 `offset(y=10dp)` 往下贴输入框），胶囊在 `AgentChatInputBar` 内部右上角。给输入栏加 `topStartSlot` 插槽，与 `CapabilityCapsule` 放同一 `Row`（`SpaceBetween`：插槽在左、胶囊在右，垂直居中）；`ChatTurnNavigator` 外层不再无条件 `fillMaxWidth` + `BottomCenter`，未展开时按内容宽度 `CenterStart` |
+| fork.86 | **展开面板被压成 1/3 宽**，标题与轮次全被截断 | 上一版把整个 `ChatTurnNavigator`（含面板）塞进了 `weight(1f)` 插槽，面板自然只剩 1/3。拆成三部分：`ChatTurnNavigatorState`（共享 `expanded`）+ `ChatTurnHandle`（96dp 把手，进插槽）+ `ChatTurnPanel`（面板，放回 `bottomBar` 并 `fillMaxWidth`） |
+
+**最终布局**：
+
+```
+[小横条]                    MCP 1/3  技能 15/15  内存 49%
+┌─────────────────────────────────────────────────┐
+│ Eta 正在执行…                                    │
+│  +   深度思考        ○   🎤   ⏸   ⏹            │
+└─────────────────────────────────────────────────┘
+```
+
+展开后的轮次面板仍在输入框上方、整行宽度，与改造前一致。
+
+### 这一段踩到的坑
+
+- **把手与面板必须共享同一份 `expanded`**。拆组件时如果各自 `remember { mutableStateOf(false) }`，点把手面板不会出现。用 `@Stable class ChatTurnNavigatorState` + `rememberChatTurnNavigatorState()` 传递。
+- **放进 `weight(1f)` 的容器里的组件，其 `fillMaxWidth` 只等于那个权重宽度**。面板要整行宽，就不能和把手共用同一个 Row 槽位。
+- **拆函数后要检查局部变量是否还被引用**：`haptics` 在 `ChatTurnPanel` 里还有两处调用（跳转、删除），删掉声明后编译报错。
+- 下载产物时 8 段并行与单线程 curl 都可能因 `Errno 103` / 速度归零卡住；`gh run download <run-id> -D <dir>` 走发布通道，通常十秒内完成，应作为首选。
+
+---
+
 ## fork.82 – fork.85（2026-11-23）主题收尾：GitHub 页与弹窗
 
 fork.81 之后按「GitHub 页面没有接入莫奈」「轮次列表这种弹出窗口也要接入」两条反馈继续。
