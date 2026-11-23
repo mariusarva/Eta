@@ -189,4 +189,8 @@
   <string name="character_section_voice">Voice</string>
   <string name="character_field_voice">Voice ID</string>
   <string name="character_voice_hint">Leave empty to use the global voice. Fill in a voice ID from the current TTS provider; roleplay replies and read-aloud use it.</string>
+  <string name="character_voice_custom">Custom (type below)</string>
+  <string name="character_voice_loading">Reading system voice list…</string>
+  <string name="character_voice_load_failed">Could not read the system voice list. Type a voice ID below.</string>
+  <string name="character_voice_empty">No installed offline voice found. Install voice data in system text-to-speech settings, or type a voice ID.</string>
 </resources>

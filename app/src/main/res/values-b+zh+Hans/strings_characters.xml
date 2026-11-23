@@ -187,4 +187,8 @@
   <string name="character_section_voice">语音</string>
   <string name="character_field_voice">音色 ID</string>
   <string name="character_voice_hint">留空则跟随全局音色。填当前 TTS 提供方的音色 ID，该角色的回复朗读会用它。</string>
+  <string name="character_voice_custom">自定义（在下方输入）</string>
+  <string name="character_voice_loading">正在读取系统音色列表…</string>
+  <string name="character_voice_load_failed">读取系统音色失败，可在下方手填音色 ID。</string>
+  <string name="character_voice_empty">没有找到已安装的离线音色。可在系统文字转语音设置中安装语音数据，或在下方手填音色 ID。</string>
 </resources>

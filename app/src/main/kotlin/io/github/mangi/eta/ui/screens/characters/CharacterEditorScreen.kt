@@ -48,6 +48,13 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.Ok
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import io.github.mangi.eta.agent.voice.SystemTtsVoiceOption
+import io.github.mangi.eta.agent.voice.listSystemTtsVoices
+import io.github.mangi.eta.ui.components.EtaGlassSpinnerPreference
+import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
+import top.yukonga.miuix.kmp.basic.DropdownItem
 
 @Composable
 internal fun CharacterEditorScreen(
@@ -300,9 +307,56 @@ internal fun CharacterTextField(
 @Composable
 internal fun CharacterVoiceField(store: CharacterLibraryStore) {
     val card = store.draft ?: return
+    val context = LocalContext.current
     val voice = card.voiceId.orEmpty()
     val hint = stringResource(R.string.character_voice_hint)
+    val uiStyle = LocalUiStyle.current
+    // 系统 TTS 是唯一真正离线的朗读通道：本地语音模型目录里 8 个模型全是 ASR，没有合成。
+    // 这里枚举引擎声明的音色，离线标记为已安装的那些才列出来。
+    var voices by remember { mutableStateOf<List<SystemTtsVoiceOption>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        loading = true
+        failed = false
+        voices = runCatching { listSystemTtsVoices(context) }
+            .onFailure { failed = true }
+            .getOrDefault(emptyList())
+        loading = false
+    }
+
     CharacterSectionHeader(stringResource(R.string.character_section_voice))
+    if (voices.isNotEmpty()) {
+        val customLabel = stringResource(R.string.character_voice_custom)
+        val labels = voices.map { it.label } + customLabel
+        val selectedIndex = voices.indexOfFirst { it.name == voice }.takeIf { it >= 0 } ?: voices.size
+        val onSelect: (Int) -> Unit = { index ->
+            val picked = voices.getOrNull(index)
+            // 选「自定义」时保留当前值不动，让下面的输入框接管。
+            if (picked != null) store.updateDraft { it.withVoice(picked.name) }
+        }
+        if (uiStyle == AppearanceUiStyle.COUI) {
+            CouiDropdownPreference(
+                title = stringResource(R.string.character_field_voice),
+                items = labels,
+                selectedIndex = selectedIndex,
+                onSelectedIndexChange = onSelect,
+            )
+        } else {
+            EtaGlassSpinnerPreference(
+                title = stringResource(R.string.character_field_voice),
+                items = labels.map { DropdownItem(text = it) },
+                selectedIndex = selectedIndex,
+                onSelectedIndexChange = onSelect,
+            )
+        }
+    } else if (loading) {
+        CharacterPageMessage(stringResource(R.string.character_voice_loading))
+    } else if (failed) {
+        CharacterPageMessage(stringResource(R.string.character_voice_load_failed))
+    } else {
+        CharacterPageMessage(stringResource(R.string.character_voice_empty))
+    }
     CharacterTextField(
         label = stringResource(R.string.character_field_voice),
         value = voice,

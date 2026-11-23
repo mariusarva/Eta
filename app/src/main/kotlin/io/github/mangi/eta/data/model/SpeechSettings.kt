@@ -119,6 +119,11 @@ data class SystemTtsConfig(
     val pitch: Float = 1f,
     /** 显式开启；false 时保留旧设置的严格离线元数据校验。 */
     val useSystemDefault: Boolean = false,
+    /**
+     * 指定音色名（TextToSpeech Voice.name）；留空表示按语言自动挑第一个已安装的离线音色。
+     * 角色卡音色覆盖系统 TTS 时写这里——系统音色的唯一稳定标识就是 name。
+     */
+    val voiceName: String = "",
 )
 
 @Serializable
@@ -170,8 +175,9 @@ data class SpeechSettings(
             TtsProvider.MINIMAX -> copy(minimaxTts = minimaxTts.copy(voice = id))
             TtsProvider.MIMO -> copy(mimoTts = mimoTts.copy(voice = id))
             TtsProvider.DEEPSEEK -> copy(deepseekTts = deepseekTts.copy(voice = id))
-            // 系统 TTS 的音色由引擎内部枚举决定，无法用云端 voice id 覆盖。
-            TtsProvider.SYSTEM, TtsProvider.NONE -> this
+            // 系统 TTS 的音色就是引擎声明的 Voice.name，可直接用角色卡的音色 id 覆盖。
+            TtsProvider.SYSTEM -> copy(systemTts = systemTts.copy(voiceName = id))
+            TtsProvider.NONE -> this
         }
     }
 }

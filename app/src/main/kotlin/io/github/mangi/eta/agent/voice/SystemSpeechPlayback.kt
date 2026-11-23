@@ -54,7 +54,12 @@ internal class SystemSpeechPlayback(private val context: Context) : Closeable {
                     }
                     tts.setLanguage(locale)
                 } else {
-                    val voice = chooseOfflineSystemVoice(metadata.first, locale, metadata.second?.name, engineName)
+                    // 指定了音色名就按名字取；找不到时退回按语言自动挑选，
+                    // 避免角色卡里的音色在换引擎后直接导致朗读失败。
+                    val wanted = config.voiceName.trim()
+                    val named = if (wanted.isEmpty()) null else metadata.first.firstOrNull { it.name == wanted }
+                    val voice = named
+                        ?: chooseOfflineSystemVoice(metadata.first, locale, metadata.second?.name, engineName)
                         ?: throw localFailure(offlineSystemVoiceFailure(metadata.first, locale, engineName))
                     tts.setVoice(voice)
                 }
@@ -226,8 +231,53 @@ internal fun offlineSystemVoiceFailure(voices: Set<Voice>, locale: Locale, engin
     else -> "引擎未提供该语言可确认已安装的离线音色；不会自动下载或切换联网音色，请检查系统文字转语音设置"
 }
 
-internal data class SystemTtsDiagnostics(val text: String)
+internal data class SystemTtsVoiceOption(
+    val name: String,
+    val locale: String,
+    val label: String,
+    val installed: Boolean,
+)
 
+/**
+ * 枚举系统 TTS 引擎的音色，供设置页与角色卡的下拉选择器使用。
+ *
+ * 只读元数据：不发声、不下载、不改引擎设置。offlineOnly 为 true 时过滤掉
+ * 声明需要联网或未安装的音色——这正是朗读默认走的严格离线口径。
+ */
+internal suspend fun listSystemTtsVoices(
+    context: Context,
+    engineName: String = "",
+    offlineOnly: Boolean = true,
+): List<SystemTtsVoiceOption> = withContext(Dispatchers.IO) {
+    var tts: TextToSpeech? = null
+    try {
+        withTimeout(15_000) {
+            val ready = CompletableDeferred<Int>()
+            val instance = withContext(Dispatchers.Main.immediate) {
+                TextToSpeech(context.applicationContext, { ready.complete(it) }, engineName.trim().ifEmpty { null })
+                    .also { tts = it }
+            }
+            check(ready.await() == TextToSpeech.SUCCESS) { "系统语音引擎初始化失败" }
+            instance.voices.orEmpty()
+                .asSequence()
+                .filter { !offlineOnly || isInstalledOfflineSystemVoice(it) }
+                .map { voice ->
+                    SystemTtsVoiceOption(
+                        name = voice.name,
+                        locale = voice.locale.toLanguageTag(),
+                        label = voice.name + "（" + voice.locale.toLanguageTag() + "）",
+                        installed = isInstalledOfflineSystemVoice(voice),
+                    )
+                }
+                .sortedWith(compareBy({ it.locale }, { it.name }))
+                .toList()
+        }
+    } finally {
+        withContext(NonCancellable + Dispatchers.Main.immediate) { runCatching { tts?.shutdown() } }
+    }
+}
+
+internal data class SystemTtsDiagnostics(val text: String)
 /** Metadata only: never speak, synthesize, install/download data, or read credentials. */
 internal suspend fun inspectSystemTts(context: Context, config: SystemTtsConfig): SystemTtsDiagnostics =
     withContext(Dispatchers.IO) {

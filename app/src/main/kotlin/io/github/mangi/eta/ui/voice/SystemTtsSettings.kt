@@ -31,6 +31,8 @@ import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
 import io.github.mangi.eta.ui.components.SettingsTextField
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import io.github.mangi.eta.agent.voice.SystemTtsVoiceOption
+import io.github.mangi.eta.agent.voice.listSystemTtsVoices
 
 @Composable
 internal fun SystemTtsSettingsSection(store: SpeechSettingsStore) {
@@ -40,6 +42,12 @@ internal fun SystemTtsSettingsSection(store: SpeechSettingsStore) {
     var diagnostic by remember { mutableStateOf("尚未检测") }
     var detecting by remember { mutableStateOf(false) }
     var revision by remember { mutableStateOf(0) }
+    // 系统引擎音色列表：引擎或语言变化后重新读，供音色下拉使用。
+    var systemVoices by remember { mutableStateOf<List<SystemTtsVoiceOption>>(emptyList()) }
+    LaunchedEffect(config.engine, config.useSystemDefault, revision) {
+        systemVoices = runCatching { listSystemTtsVoices(context, config.engine, offlineOnly = !config.useSystemDefault) }
+            .getOrDefault(emptyList())
+    }
     LaunchedEffect(config.engine, config.language, revision) {
         detecting = true
         try {
@@ -84,12 +92,26 @@ internal fun SystemTtsSettingsSection(store: SpeechSettingsStore) {
             val rateTitle = stringResource(R.string.speech_system_tts_rate)
             val pitchTitle = stringResource(R.string.speech_system_tts_pitch)
             val settingsTitle = stringResource(R.string.speech_system_tts_settings)
+            // 音色下拉：留空表示按语言自动挑第一个已安装的离线音色。
+            val autoVoiceLabel = "自动（按语言挑选）"
+            val voiceLabels = listOf(autoVoiceLabel) + systemVoices.map { it.label }
+            val voiceIndex = systemVoices.indexOfFirst { it.name == config.voiceName.trim() }
+                .let { if (it >= 0) it + 1 else 0 }
+            val onVoiceSelected: (Int) -> Unit = { index ->
+                store.stop()
+                val picked = if (index <= 0) "" else systemVoices.getOrNull(index - 1)?.name.orEmpty()
+                store.edit(settings.copy(systemTts = config.copy(voiceName = picked)))
+            }
             if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+                CouiDropdownPreference(title = stringResource(R.string.speech_voice), items = voiceLabels,
+                    selectedIndex = voiceIndex, onSelectedIndexChange = onVoiceSelected)
                 CouiDropdownPreference(title = rateTitle, items = labels, selectedIndex = steps.indexOf(config.rate),
                     onSelectedIndexChange = { index -> steps.getOrNull(index)?.let { store.edit(settings.copy(systemTts = config.copy(rate = it))) } })
                 CouiDropdownPreference(title = pitchTitle, items = labels, selectedIndex = steps.indexOf(config.pitch),
                     onSelectedIndexChange = { index -> steps.getOrNull(index)?.let { store.edit(settings.copy(systemTts = config.copy(pitch = it))) } })
             } else {
+                OverlayDropdownPreference(title = stringResource(R.string.speech_voice), items = voiceLabels,
+                    selectedIndex = voiceIndex, onSelectedIndexChange = onVoiceSelected)
                 OverlayDropdownPreference(title = rateTitle, items = labels, selectedIndex = steps.indexOf(config.rate),
                     onSelectedIndexChange = { index -> steps.getOrNull(index)?.let { store.edit(settings.copy(systemTts = config.copy(rate = it))) } })
                 OverlayDropdownPreference(title = pitchTitle, items = labels, selectedIndex = steps.indexOf(config.pitch),
