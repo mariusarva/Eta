@@ -11,6 +11,8 @@ lightColorScheme()/darkColorScheme()，完全不响应 Monet 取色。这两类�
       会绕过 Monet 种子色。这是错误。
   E2  *Screen.kt 里使用固定 hex 且同文件没有任何明暗分支。这是错误
       （确实不随主题变的品牌/语义色请加入 ALLOWED_FIXED_COLOR_FILES 并注明原因）。
+  E3  弹窗/浮层用固定 hex 当底色。这是错误：写死的白/灰不跟随 Monet，
+      应改用 opaqueThemedSurface() / opaquePageSurface()（见 OpaqueSurfaces.kt）。
   W1  页面用了 COUI 组件，但既没有 MiuixScaffoldPage 也没有任何 uiStyle 分支。
       这类页面在 MIUIX 样式下仍渲染 COUI 组件，拿不到 Miuix 的 Monet 配色。
   W2  页面既无主题色引用也无 Scaffold，可能把配色完全交给子组件（多为误报，
@@ -93,6 +95,32 @@ def check_screen(path: Path) -> None:
         warnings.append(f"W2 {name}: 未引用主题色也无 Scaffold，确认配色是否都由子组件负责")
 
 
+def check_dialog_backgrounds() -> None:
+    """E3：弹窗/浮层不得用固定 hex 当底色。
+
+    弹窗底色必须不透明（否则透出下层），但写死 #FFFFFF / #2A2A2E 会绕过 Monet。
+    统一走 opaqueThemedSurface()：把主题容器色合成到背景上，等价不透明且保留色相。
+    """
+    result = subprocess.run(
+        ["grep", "-rn", "-E", r"\.background\(.*Color\(0x[0-9A-Fa-f]{6,8}\)",
+         str(ROOT / "app/src/main/kotlin")],
+        capture_output=True, text=True,
+    )
+    for line in result.stdout.splitlines():
+        path, lineno = line.split(":", 2)[:2]
+        name = path.split("/")[-1]
+        if name in ALLOWED_FIXED_COLOR_FILES:
+            continue
+        # 只在弹窗/浮层相关的文件里报，普通页面由 E2 覆盖
+        src = Path(path).read_text(encoding="utf-8")
+        if not re.search(r"\b(Dialog|Popup|ModalBottomSheet)\s*\(", src):
+            continue
+        errors.append(
+            f"E3 {name}:{lineno} 弹窗底色用了固定色，不跟随 Monet；"
+            f"改用 opaqueThemedSurface() / opaquePageSurface()"
+        )
+
+
 def check_no_bypass() -> None:
     """E1：AgentAppTheme 之外不得直接构造 COUI 基线配色。"""
     result = subprocess.run(
@@ -119,6 +147,7 @@ def main() -> int:
     for screen in screens:
         check_screen(screen)
     check_no_bypass()
+    check_dialog_backgrounds()
 
     print(f"检查 {len(screens)} 个页面")
     for item in warnings:

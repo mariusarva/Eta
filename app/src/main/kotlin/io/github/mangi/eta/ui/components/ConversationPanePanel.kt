@@ -1547,12 +1547,10 @@ private sealed interface ConversationDrawerSection {
     data class Dated(val label: String) : ConversationDrawerSection
 }
 
-/** 对话框实色底：Miuix 的 surface 系列带透明度，弹窗会透出下层列表。 */
+/** 对话框实色底：主题容器色合成到背景，不透明且跟随 Monet。 */
 @Composable
-private fun paneOpaqueDialogColor(): Color {
-    val light = MiuixTheme.colorScheme.surface.luminance() >= 0.5f
-    return if (light) Color(0xFFFFFFFF) else Color(0xFF2A2A2E)
-}
+@androidx.compose.runtime.ReadOnlyComposable
+private fun paneOpaqueDialogColor(): Color = opaqueThemedSurface()
 
 private fun ConversationDrawerSection.key(): String = when (this) {
     is ConversationDrawerSection.Category -> "category-" + id

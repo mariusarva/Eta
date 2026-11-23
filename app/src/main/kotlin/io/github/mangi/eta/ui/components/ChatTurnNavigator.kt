@@ -54,8 +54,6 @@ import io.github.mangi.eta.ui.model.UserMessageUi
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.border
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 
 /**
  * 一轮对话的索引项。
@@ -156,13 +154,9 @@ internal fun ChatTurnNavigator(
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 6.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    // Miuix 的 surface 系列在深色主题下带 alpha，展开后能看穿到底下的聊天气泡，
-                    // 文字全糊在一起；这里用绝对色。
-                    .background(if (MiuixTheme.colorScheme.surface.luminance() >= 0.5f) {
-                        Color(0xFFF7F7FA)
-                    } else {
-                        Color(0xFF1C1C1E)
-                    })
+                    // 展开后会盖住聊天气泡，底色必须不透明；用主题容器色合成到背景上，
+                    // 既挡住下层又跟随 Monet（早期写死 #F7F7FA / #1C1C1E 不跟取色）。
+                    .background(opaqueThemedSurface())
                     .border(
                         width = 0.5.dp,
                         color = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),

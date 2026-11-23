@@ -150,7 +150,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.Spacer
@@ -1370,7 +1369,8 @@ fun AgentAppRoot(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .background(if (MiuixTheme.colorScheme.surface.luminance() >= 0.5f) Color(0xFFFFFFFF) else Color(0xFF2A2A2E))
+                    // 弹窗底色必须不透明（否则透出下层）；走主题容器色合成，跟随 Monet。
+                    .background(io.github.mangi.eta.ui.components.opaqueThemedSurface())
                     .border(0.5.dp, MiuixTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
                     .padding(18.dp),
             ) {

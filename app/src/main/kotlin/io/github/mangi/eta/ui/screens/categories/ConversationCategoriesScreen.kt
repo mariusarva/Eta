@@ -44,7 +44,6 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.border
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import io.github.mangi.eta.data.model.AppearanceUiStyle
@@ -340,12 +339,10 @@ private fun CategoryNameDialog(
     }
 }
 
-/** 对话框实色底：CouiPageDefaults 的 card 带透明度，弹窗会透出下层列表。 */
+/** 对话框实色底：主题容器色合成到背景，不透明且跟随 Monet。 */
 @Composable
-private fun opaqueDialogColor(): Color {
-    val light = MiuixTheme.colorScheme.surface.luminance() >= 0.5f
-    return if (light) Color(0xFFFFFFFF) else Color(0xFF2A2A2E)
-}
+@androidx.compose.runtime.ReadOnlyComposable
+private fun opaqueDialogColor(): Color = io.github.mangi.eta.ui.components.opaqueThemedSurface()
 
 @Composable
 private fun DialogTextButton(text: String, enabled: Boolean, onClick: () -> Unit) {
