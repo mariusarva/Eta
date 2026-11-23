@@ -8,6 +8,19 @@
 
 ---
 
+## fork.66（2026-11-23）发版
+
+fork.63–65 三处修复验证通过后的正式发版，内容同 fork.62 + 上述三修。
+
+- APK `Eta-v3.4.4-fork.66+ad3daaf12fe6ff5578853c19ab2e960fc50b8ed9.apk`，27,197,249 字节
+- SHA-256 `601df3845e32b0d41560fc7b99a2eb239c31623d73d65aa860bd10faee382764`
+- versionName `3.4.4-fork.66` / versionCode `2026112166`，target `ad3daaf`
+- CI：`mariusarva/eta-ci` run `45094375409`，artifact `14782966790`
+
+**发版流程备忘**：Release 附件除 APK 外必须同时挂 `CHANGELOG-FORK.md` 与 `FORK_PATCH_GUIDE.md`。tag 一次性，`v3.4.4-fork.62` 已占用，不能复用。
+
+---
+
 ## fork.62 – fork.65（2026-11-23）发布收尾：分类弹窗与角色选择器
 
 fork.62 是第一次正式发版（含 fork.38–61 全部改动）。之后按真机反馈又修了三处。
