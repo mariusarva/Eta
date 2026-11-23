@@ -152,7 +152,7 @@ internal fun CharacterDetailScreen(
                 CharacterHero(
                     profile = profile,
                     busy = store.busy,
-                    onChangeAvatar = { avatarPicker.launch("image/*") },
+                    onChangeAvatar = { avatarPicker.launch(arrayOf("image/*", "video/*")) },
                     onToggleFavorite = { store.toggleFavorite(id) },
                     onStart = { store.startConversation(id, onStart) },
                     onReadDescription = {
@@ -308,7 +308,7 @@ internal fun CharacterDetailScreen(
                     CharacterHero(
                         profile = profile,
                         busy = store.busy,
-                        onChangeAvatar = { avatarPicker.launch("image/*") },
+                        onChangeAvatar = { avatarPicker.launch(arrayOf("image/*", "video/*")) },
                         onToggleFavorite = { store.toggleFavorite(id) },
                         onStart = { store.startConversation(id, onStart) },
                         onReadDescription = {

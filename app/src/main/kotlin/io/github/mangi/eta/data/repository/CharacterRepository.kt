@@ -6,8 +6,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.media.MediaMetadataRetriever
 import android.util.AtomicFile
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.roleplay.CharacterAvatarKind
 import io.github.mangi.eta.agent.roleplay.CharacterCard
 import io.github.mangi.eta.agent.roleplay.CharacterCardCodec
 import io.github.mangi.eta.agent.roleplay.CharacterCardException
@@ -48,7 +50,7 @@ internal object CharacterRepository {
 
     suspend fun create(card: CharacterCard, avatarBytes: ByteArray? = null): CharacterProfile = withContext(Dispatchers.IO) {
         val validated = validated(card)
-        createStored(validated, avatarBytes?.let(::normalizeAvatar))
+        createStored(validated, avatarBytes)
     }
 
     private suspend fun createStored(card: CharacterCard, avatarBytes: ByteArray?): CharacterProfile {
@@ -70,7 +72,7 @@ internal object CharacterRepository {
             AppStrings.get(R.string.character_repo_not_found, "角色已不存在"),
         )
         val card = validated(profile.card)
-        val avatar = avatarBytes?.let { writeAvatar(profile.id, normalizeAvatar(it), uniqueName = true) }
+        val avatar = avatarBytes?.let { writeAvatar(profile.id, it, uniqueName = true) }
         val saved = profile.copy(card = card, avatarPath = avatar ?: profile.avatarPath,
             createdAt = existing.createdAt, updatedAt = System.currentTimeMillis())
         try {
@@ -152,7 +154,11 @@ internal object CharacterRepository {
         )
         val bytes = when (format) {
             CharacterCardFormat.JSON -> CharacterCardCodec.encodeJson(profile.card).toByteArray(Charsets.UTF_8)
-            CharacterCardFormat.PNG -> CharacterCardPng.write(avatarBytes(profile.avatarPath) ?: defaultAvatar(profile.card.name), profile.card)
+            CharacterCardFormat.PNG -> CharacterCardPng.write(
+                // PNG 角色卡要求底图真的是 PNG；头像换成动图或视频时先取一帧转 PNG。
+                pngAvatarBase(profile.avatarPath) ?: defaultAvatar(profile.card.name),
+                profile.card,
+            )
         }
         output.write(bytes)
         output.flush()
@@ -189,7 +195,7 @@ internal object CharacterRepository {
         )
         val persona = persona()
         return RoleplayBinding(profile.id, CharacterCardCodec.encodeJson(profile.card), profile.card.name,
-            profile.avatarPath, persona.name, persona.description)
+            profile.avatarPath, persona.name, persona.description, profile.card.voiceId)
     }
 
     internal fun avatarBytes(path: String?): ByteArray? {
@@ -206,18 +212,24 @@ internal object CharacterRepository {
         require(id.matches(Regex("[A-Za-z0-9_-]{1,128}"))) {
             AppStrings.get(R.string.character_repo_invalid_id, "角色 ID 无效")
         }
-        require(CharacterCardPng.isPng(bytes)) {
-            AppStrings.get(R.string.character_repo_avatar_must_be_png, "角色图片必须是 PNG")
-        }
+        val kind = CharacterAvatarKind.detect(bytes)
+            ?: throw IllegalArgumentException(
+                AppStrings.get(
+                    R.string.character_repo_avatar_unsupported,
+                    "不支持的图片或视频格式，请用 PNG、JPEG、WebP、GIF、MP4 或 WebM",
+                ),
+            )
+        val extension = kind.extension
+        val stored = if (kind.isAnimated) bytes else normalizeAvatar(bytes)
         val directory = File(appContext().filesDir, "roleplay/$id")
         check(directory.isDirectory || directory.mkdirs()) {
             AppStrings.get(R.string.character_repo_create_dir_failed, "无法创建角色目录")
         }
-        val file = File(directory, if (uniqueName) "avatar-${UUID.randomUUID()}.png" else "avatar.png")
+        val file = File(directory, if (uniqueName) "avatar-${UUID.randomUUID()}.$extension" else "avatar.$extension")
         val atomic = AtomicFile(file)
         val output = atomic.startWrite()
         try {
-            output.write(bytes)
+            output.write(stored)
             atomic.finishWrite(output)
         } catch (failure: Throwable) {
             atomic.failWrite(output)
@@ -226,6 +238,37 @@ internal object CharacterRepository {
         return file.absolutePath
     }
 
+    /**
+     * 取一张真正的 PNG 底图用于 PNG 角色卡导出：头像本身是 PNG 时原样返回，
+     * 是动图/视频时抽第 0 帧再压成 PNG。
+     */
+    private fun pngAvatarBase(path: String?): ByteArray? {
+        val raw = avatarBytes(path) ?: return null
+        if (CharacterAvatarKind.detect(raw) == CharacterAvatarKind.PNG) return raw
+        val bitmap = if (CharacterAvatarKind.detect(raw)?.isVideo == true) {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(path)
+                retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            } catch (_: Throwable) {
+                null
+            } finally {
+                runCatching { retriever.release() }
+            }
+        } else {
+            BitmapFactory.decodeByteArray(raw, 0, raw.size)
+        } ?: return null
+        return try {
+            ByteArrayOutputStream().also { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }.toByteArray()
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /**
+     * 静态位图规整为 PNG。动图与视频不经过这里：转码会丢帧、体积暴涨，
+     * 而且 BitmapFactory 解不出视频。
+     */
     private fun normalizeAvatar(bytes: ByteArray): ByteArray {
         require(bytes.size <= MAX_FILE_BYTES) {
             AppStrings.get(R.string.character_repo_avatar_too_large, "图片超过 32 MiB 限制")

@@ -134,7 +134,7 @@
   <string name="character_error_save">Failed to save character. Please try again</string>
   <string name="character_error_duplicate">Failed to duplicate character. Please try again</string>
   <string name="character_error_favorite">Failed to update favorite status. Please try again</string>
-  <string name="character_error_change_avatar">Failed to change avatar. Try another image</string>
+  <string name="character_error_change_avatar">Failed to change avatar. Try another image or video</string>
   <string name="character_error_restore_default">Failed to restore default character. Please try again</string>
   <string name="character_error_delete">Failed to delete character. Please try again</string>
   <string name="character_error_export">Failed to export character card. Please try again</string>
@@ -185,4 +185,8 @@
   <string name="character_backup_invalid_rewrite_target">Invalid regeneration target in backup</string>
 
   <string name="character_memory_invalid_id">Invalid character memory ID</string>
+  <string name="character_repo_avatar_unsupported">Unsupported image or video format. Use PNG, JPEG, WebP, GIF, MP4 or WebM</string>
+  <string name="character_section_voice">Voice</string>
+  <string name="character_field_voice">Voice ID</string>
+  <string name="character_voice_hint">Leave empty to use the global voice. Fill in a voice ID from the current TTS provider; roleplay replies and read-aloud use it.</string>
 </resources>

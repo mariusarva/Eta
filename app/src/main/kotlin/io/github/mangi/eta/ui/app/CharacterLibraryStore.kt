@@ -207,7 +207,7 @@ internal class CharacterLibraryStore(
     /** 更换头像：图片统一转为 PNG 存入角色目录，导出 PNG 角色卡时即使用新头像。 */
     fun changeAvatar(id: String, uri: Uri) = runOperation(
         R.string.character_error_change_avatar,
-        "头像更换失败，请换一张图片重试",
+        "头像更换失败，请换一张图片或视频重试",
     ) {
         val saved = io {
             context.contentResolver.openInputStream(uri)?.use { CharacterRepository.replaceAvatar(id, it) }

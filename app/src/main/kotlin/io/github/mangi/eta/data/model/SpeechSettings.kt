@@ -154,6 +154,26 @@ data class SpeechSettings(
         const val DEFAULT_AUTO_SEND_SILENCE_MS = 2_000
         val AUTO_SEND_SILENCE_OPTIONS = listOf(1_000, 1_500, 2_000, 3_000, 0)
     }
+
+    /**
+     * 用角色卡指定的音色覆盖当前 TTS 提供方的音色字段；voiceId 为空时原样返回。
+     * 角色音色是跨提供方的裸 id，因此只在同一提供方内生效：id 与该提供方预设不匹配时
+     * 仍然写入，由服务端返回参数错误，避免静默退回全局音色让人误以为设置没生效。
+     */
+    fun withVoiceOverride(voiceId: String?): SpeechSettings {
+        val id = voiceId?.trim().orEmpty()
+        if (id.isEmpty()) return this
+        return when (tts) {
+            TtsProvider.QWEN -> copy(qwenVoice = id)
+            TtsProvider.DOUBAO -> copy(doubaoVoice = id)
+            TtsProvider.GEMINI -> copy(geminiTts = geminiTts.copy(voice = id))
+            TtsProvider.MINIMAX -> copy(minimaxTts = minimaxTts.copy(voice = id))
+            TtsProvider.MIMO -> copy(mimoTts = mimoTts.copy(voice = id))
+            TtsProvider.DEEPSEEK -> copy(deepseekTts = deepseekTts.copy(voice = id))
+            // 系统 TTS 的音色由引擎内部枚举决定，无法用云端 voice id 覆盖。
+            TtsProvider.SYSTEM, TtsProvider.NONE -> this
+        }
+    }
 }
 
 internal enum class SpeechCredentialField {

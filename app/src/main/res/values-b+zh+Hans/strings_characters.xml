@@ -132,7 +132,7 @@
   <string name="character_error_save">角色保存失败，请重试</string>
   <string name="character_error_duplicate">角色复制失败，请重试</string>
   <string name="character_error_favorite">收藏状态保存失败，请重试</string>
-  <string name="character_error_change_avatar">头像更换失败，请换一张图片重试</string>
+  <string name="character_error_change_avatar">头像更换失败，请换一张图片或视频重试</string>
   <string name="character_error_restore_default">默认角色恢复失败，请重试</string>
   <string name="character_error_delete">角色删除失败，请重试</string>
   <string name="character_error_export">角色卡导出失败，请重试</string>
@@ -183,4 +183,8 @@
   <string name="character_backup_invalid_rewrite_target">备份中的重新生成目标无效</string>
 
   <string name="character_memory_invalid_id">角色记忆标识无效</string>
+  <string name="character_repo_avatar_unsupported">不支持的图片或视频格式，请用 PNG、JPEG、WebP、GIF、MP4 或 WebM</string>
+  <string name="character_section_voice">语音</string>
+  <string name="character_field_voice">音色 ID</string>
+  <string name="character_voice_hint">留空则跟随全局音色。填当前 TTS 提供方的音色 ID，该角色的回复朗读会用它。</string>
 </resources>

@@ -16,6 +16,8 @@ internal data class RoleplayBinding(
     val avatarPath: String? = null,
     val userName: String = "用户",
     val userDescription: String = "",
+    /** 绑定时的角色音色快照；为空表示该角色没设，朗读跟随全局设置。 */
+    val voiceId: String? = null,
 )
 
 @Serializable
@@ -78,6 +80,21 @@ internal data class CharacterCard(val raw: JsonObject) {
             if (depth < 0 || role !in setOf("system", "user", "assistant")) return null
             return CharacterDepthPrompt(prompt, depth, role)
         }
+
+    /** 角色专属朗读音色，记在 extensions.eta_voice；为空表示跟随全局设置。 */
+    val voiceId: String?
+        get() = (extensions["eta_voice"] as? JsonPrimitive)?.contentOrNull?.trim()?.ifEmpty { null }
+
+    fun withVoice(voiceId: String?): CharacterCard {
+        val value = voiceId?.trim().orEmpty()
+        val updatedExtensions = JsonObject(extensions.toMutableMap().apply {
+            if (value.isEmpty()) remove("eta_voice") else put("eta_voice", JsonPrimitive(value))
+        })
+        val updatedData = JsonObject(data.toMutableMap().apply { put("extensions", updatedExtensions) })
+        return CharacterCard(JsonObject(raw.toMutableMap().apply {
+            if (raw["data"] is JsonObject) put("data", updatedData) else put("extensions", updatedExtensions)
+        }))
+    }
 
     fun withEdits(
         name: String = this.name,

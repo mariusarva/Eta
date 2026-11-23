@@ -47,7 +47,13 @@ internal class SpeechPlaybackController(
     /** 系统朗读引擎实例复用：每次播报重建会带来数百毫秒初始化延迟。 */
     private var systemPlayback: SystemSpeechPlayback? = null
 
-    fun speak(messageId: String, text: String, settings: SpeechSettings? = null, credentials: SpeechCredentials? = null) {
+    fun speak(
+        messageId: String,
+        text: String,
+        settings: SpeechSettings? = null,
+        credentials: SpeechCredentials? = null,
+        voiceOverride: String? = null,
+    ) {
         stop()
         val session = generation
         mutableState.value = SpeechPlaybackState(messageId, loading = true)
@@ -56,7 +62,9 @@ internal class SpeechPlaybackController(
                 lease = SpeechAudioLease(context, interruptOnScreenOff) { stop() }.also { it.acquire(playback = false) }
                 val rawConfig = settings ?: SpeechSettingsRepository.settings()
                 val rawSecrets = credentials ?: SpeechSettingsRepository.credentials(context)
-                val (config, secrets) = SpeechSettingsRepository.resolveDeepSeekFallback(rawConfig, rawSecrets)
+                val (resolvedConfig, secrets) = SpeechSettingsRepository.resolveDeepSeekFallback(rawConfig, rawSecrets)
+                // 角色卡音色覆盖全局音色；为空时保持全局设置。
+                val config = resolvedConfig.withVoiceOverride(voiceOverride)
                 validateSpeechSettings(config, secrets, synthesis = true)
                 val readable = withContext(Dispatchers.Default) { SpeechText.readable(text) }
                 if (readable.isBlank()) {

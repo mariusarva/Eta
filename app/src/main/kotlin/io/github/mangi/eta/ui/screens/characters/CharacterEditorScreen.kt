@@ -182,6 +182,7 @@ internal fun CharacterEditorScreen(
                 )
                 item(key = "compatibility") { CharacterPageMessage(stringResource(R.string.character_editor_compatibility_note)) }
             }
+            item(key = "voice") { CharacterVoiceField(store) }
             item(key = "save") {
                 val saveText = stringResource(if (store.busy) R.string.character_editor_processing else R.string.character_action_save)
                 if (uiStyle == AppearanceUiStyle.COUI) {
@@ -297,8 +298,24 @@ internal fun CharacterTextField(
 }
 
 @Composable
-internal fun CharacterSectionHeader(text: String) {
-    if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+internal fun CharacterVoiceField(store: CharacterLibraryStore) {
+    val card = store.draft ?: return
+    val voice = card.voiceId.orEmpty()
+    val hint = stringResource(R.string.character_voice_hint)
+    CharacterSectionHeader(stringResource(R.string.character_section_voice))
+    CharacterTextField(
+        label = stringResource(R.string.character_field_voice),
+        value = voice,
+        onChange = { value -> store.updateDraft { it.withVoice(value) } },
+        enabled = !store.busy,
+        singleLine = true,
+        minLines = 1,
+    )
+    CharacterPageMessage(hint)
+}
+
+@Composable
+internal fun CharacterSectionHeader(text: String) {    if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
         CouiSectionTitle(text = text)
     } else {
         SmallTitle(text)

@@ -246,5 +246,10 @@ data class MessageEditUiState(
 
 /** 角色对话在界面上的身份投影；普通对话返回 null。 */
 internal fun AgentChatHomeUiState.roleplayChatUi(): RoleplayChatUi? = roleplay?.let {
-    RoleplayChatUi(characterName = it.characterName, avatarPath = it.avatarPath, userName = it.userName)
+    RoleplayChatUi(
+        characterName = it.characterName,
+        avatarPath = it.avatarPath,
+        userName = it.userName,
+        voiceId = it.voiceId,
+    )
 }

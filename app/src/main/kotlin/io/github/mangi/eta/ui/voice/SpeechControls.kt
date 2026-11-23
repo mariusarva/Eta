@@ -102,6 +102,7 @@ import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.SystemNoticeCode
 import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
+import io.github.mangi.eta.ui.components.LocalRoleplayChat
 import io.github.mangi.eta.ui.components.AnswerActionButton
 import io.github.mangi.eta.ui.components.ChatActionIcons
 import io.github.mangi.eta.ui.components.ChatInputActionIconSize
@@ -787,7 +788,9 @@ internal fun SpeechAutoReadAloud(messages: List<AgentChatMessageUi>, isStreaming
         val interrupted = list.drop(answerIndex + 1).any {
             it is SystemNoticeMessageUi && it.code in setOf(SystemNoticeCode.Stopped, SystemNoticeCode.RuntimeFailed)
         }
-        if (!interrupted && answer.content.isNotBlank()) controller.speak(answer.id, answer.content)
+        if (!interrupted && answer.content.isNotBlank()) {
+            controller.speak(answer.id, answer.content, voiceOverride = LocalRoleplayChat.current?.voiceId)
+        }
     }
     // 关闭自动朗读视同“别再读了”，正在进行的朗读一并停止。
     var wasEnabled by remember { mutableStateOf(enabled) }
@@ -843,12 +846,16 @@ internal fun SpeechReadAloudButton(messageId: String, text: String) {
     if (!LocalSpeechPlaybackEnabled.current) return
     val state by controller.state.collectAsState()
     val active = state.messageId == messageId
+    // 角色对话用角色卡音色，普通对话用全局音色。
+    val characterVoice = LocalRoleplayChat.current?.voiceId
     AnswerActionButton(
         icon = if (active) ChatActionIcons.Stop else ChatActionIcons.Volume,
         contentDescription = stringResource(
             if (active) R.string.speech_read_stop else R.string.speech_read_aloud,
         ),
-        onClick = { if (active) controller.stop() else controller.speak(messageId, text) },
+        onClick = {
+            if (active) controller.stop() else controller.speak(messageId, text, voiceOverride = characterVoice)
+        },
         tint = if (active) MiuixTheme.colorScheme.primary else null,
     )
 }

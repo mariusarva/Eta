@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.mangi.eta.agent.roleplay.CharacterAvatarKind
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -37,6 +38,8 @@ internal data class RoleplayChatUi(
     val characterName: String,
     val avatarPath: String?,
     val userName: String,
+    /** 角色卡指定的朗读音色；为空时朗读跟随全局语音设置。 */
+    val voiceId: String? = null,
 )
 
 /** 当前对话绑定的角色；普通 Agent 对话为 null，消息与空态据此切换为角色样式。 */
@@ -57,6 +60,12 @@ private object CharacterImageCache {
         cache.get(key(path, maxPx))?.let { return@withContext it }
         val file = File(path)
         if (!file.isFile) return@withContext null
+        val kind = CharacterAvatarKind.fromPath(path) ?: return@withContext null
+        // 视频没有可直接解码的位图，用第 0 帧代替；播放由 CharacterAnimatedAvatar 负责。
+        if (kind.isVideo) {
+            return@withContext io.github.mangi.eta.ui.components.decodeVideoFrameBitmap(path, maxPx)
+                ?.also { cache.put(key(path, maxPx), it) }
+        }
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(path, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null

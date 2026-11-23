@@ -44,10 +44,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.roleplay.CharacterAvatarKind
 import io.github.mangi.eta.agent.roleplay.CharacterMacros
 import io.github.mangi.eta.agent.roleplay.CharacterProfile
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.components.CharacterAnimatedAvatar
 import io.github.mangi.eta.ui.components.CharacterAvatar
 import io.github.mangi.eta.ui.components.coui.CouiButton
 import io.github.mangi.eta.ui.components.coui.CouiButtonRole
@@ -84,6 +86,7 @@ internal fun CharacterHero(
     val description = remember(card, userName) { CharacterMacros.expand(card.description, card, userName) }
     val colors = MiuixTheme.colorScheme
     val image = rememberCharacterImage(profile.avatarPath, HeroAvatarHeight)
+    val avatarKind = remember(profile.avatarPath) { CharacterAvatarKind.fromPath(profile.avatarPath) }
     Box(modifier = Modifier.fillMaxWidth()) {
         if (image != null) {
             CharacterAvatar(
@@ -130,6 +133,19 @@ internal fun CharacterHero(
                         .height(HeroAvatarHeight)
                         .squircleClip(CharacterPortraitCorner),
                 )
+                // 动图与视频在主视觉上真实播放；静态图由上面的 CharacterAvatar 直接显示，这里不出层。
+                if (avatarKind?.isAnimated == true) {
+                    CharacterAnimatedAvatar(
+                        path = profile.avatarPath,
+                        kind = avatarKind,
+                        shape = RectangleShape,
+                        modifier = Modifier
+                            .width(HeroAvatarWidth)
+                            .height(HeroAvatarHeight)
+                            .squircleClip(CharacterPortraitCorner),
+                        fallback = {},
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
