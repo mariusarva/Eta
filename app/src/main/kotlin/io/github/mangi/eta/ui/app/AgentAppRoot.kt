@@ -154,6 +154,11 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import io.github.mangi.eta.ui.components.CharacterAvatar
 
 /**
  * Agent App 根组件：持有本地导航栈，并把 Screen actions 交给 [AgentAppState]。
@@ -235,11 +240,17 @@ fun AgentAppRoot(
     var showCharacterPicker by remember { mutableStateOf(false) }
     var characterOptions by remember { mutableStateOf<List<io.github.mangi.eta.agent.roleplay.CharacterProfile>>(emptyList()) }
     var characterPickerLoading by remember { mutableStateOf(false) }
+    var characterPickerError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(showCharacterPicker) {
         if (!showCharacterPicker) return@LaunchedEffect
         characterPickerLoading = true
+        characterPickerError = null
         characterOptions = runCatching {
             io.github.mangi.eta.data.repository.CharacterRepository.list()
+        }.onFailure { error ->
+            // 以前这里直接 getOrDefault，读取失败与「真的没有角色」都显示空态，无法区分。
+            characterPickerError = error.javaClass.simpleName + ": " + (error.message ?: "")
+            AndroidAgentLogger.warn("character picker load_failed type=" + error.javaClass.simpleName)
         }.getOrDefault(emptyList())
         characterPickerLoading = false
         AndroidAgentLogger.info("character picker opened: count=" + characterOptions.size)
@@ -1350,7 +1361,8 @@ fun AgentAppRoot(
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = when {
-                        characterOptions.isEmpty() && characterPickerLoading -> "正在读取角色…"
+                        characterPickerLoading && characterOptions.isEmpty() -> "正在读取角色…"
+                        characterPickerError != null -> "读取角色失败：" + characterPickerError
                         characterOptions.isEmpty() -> "还没有角色卡。"
                         agentState.characterForNewChat != null ->
                             "当前：" + agentState.characterForNewChat!!.second + "；之后点「新建会话」都会用它。"
@@ -1384,32 +1396,50 @@ fun AgentAppRoot(
                         )
                     }
                 }
-                characterOptions.take(12).forEach { profile ->
-                    val selected = agentState.characterForNewChat?.first == profile.id
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                agentState.setCharacterForNewChat(profile.id, profile.card.name)
-                                showCharacterPicker = false
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    characterOptions.forEach { profile ->
+                        val selected = agentState.characterForNewChat?.first == profile.id
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    agentState.setCharacterForNewChat(profile.id, profile.card.name)
+                                    showCharacterPicker = false
+                                }
+                                .padding(horizontal = 4.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CharacterAvatar(
+                                name = profile.card.name,
+                                avatarPath = profile.avatarPath,
+                                size = 40.dp,
+                                shape = RoundedCornerShape(10.dp),
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = profile.card.name,
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = if (selected) MiuixTheme.colorScheme.primary
+                                    else MiuixTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = if (selected) "已选" else profile.card.firstMessage.replace('\n', ' '),
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             }
-                            .padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = profile.card.name,
-                            style = MiuixTheme.textStyles.body2,
-                            color = if (selected) MiuixTheme.colorScheme.primary
-                            else MiuixTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
-                        )
-                        Text(
-                            text = if (selected) "已选" else profile.card.firstMessage.take(18),
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            maxLines = 1,
-                        )
+                        }
                     }
                 }
             }

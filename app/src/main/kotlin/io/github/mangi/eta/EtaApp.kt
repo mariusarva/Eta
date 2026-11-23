@@ -79,6 +79,9 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         ProviderRepository.init(this)
         McpServerRepository.init(this)
         ScheduledTaskRepository.init(this)
+        // 只绑定 context，不读角色库；否则首次点「角色」按钮时 CharacterRepository 未初始化，
+        // list() 抛异常被调用方吞成空列表，表现为「角色列表空白，进一次角色库后才有」。
+        io.github.mangi.eta.data.repository.CharacterRepository.initialize(this)
         applicationScope.launch {
             runCatching {
                 ScheduledTaskRepository.reconcileAfterRestartOrClockChange(
