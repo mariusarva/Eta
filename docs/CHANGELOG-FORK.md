@@ -8,6 +8,50 @@
 
 ---
 
+## fork.67 – fork.74（2026-11-23）角色卡：选择器修复、头像动图/视频、语音
+
+上一版发版后按真机反馈做的一整段角色卡工作。
+
+### 角色选择器
+
+| 版本 | 现象 | 定位与改动 |
+|---|---|---|
+| fork.67 | 点顶栏角色按钮，弹窗里角色列表空白；去设置里进一次角色库后再点就正常 | `CharacterRepository` 的 context 只在进角色库页面时才 `initialize`。首次点击 `list()` 抛 `IllegalStateException`，被 `runCatching{}.getOrDefault(emptyList())` 吞成空列表。改为 `EtaApp.onCreate()` 里就绑定 context；读取失败不再静默，弹窗显示失败原因 |
+| fork.67 | 选择列表没有头像，最多只显示 12 个 | 每行加 40dp `CharacterAvatar`（复用 `CharacterImageCache` 降采样），去掉 `take(12)`，改 `heightIn(360dp)` + 滚动 |
+| fork.70 | 选完角色后看不出选了谁 | 顶栏角色按钮在已选时变成「头像 + 名字 + 箭头」胶囊；弹窗标题下写「当前已选：<名字>」，选中行加主色底 + 描边 + 「✓ 已选」 |
+| fork.73 | 工作台多了「新建会话角色」一行，和顶栏胶囊重复 | 删掉该行，只保留顶栏胶囊 |
+
+### 头像支持动图与视频
+
+| 版本 | 内容 |
+|---|---|
+| fork.68 | 新增 `CharacterAvatarKind`，按魔数识别 PNG/JPEG/WebP/GIF/MP4/WebM（不看扩展名）。`writeAvatar` 不再强制 PNG：动图与视频原样落盘，静态位图仍规整为 PNG |
+| fork.68 | 新增 `CharacterAnimatedAvatar`：GIF/动图 WebP 走 `AnimatedImageDrawable`，视频走 `TextureView` + `MediaPlayer`（静音、循环、自动播放、离开组合即释放）。只在角色详情主视觉播放；列表与消息头像用视频第 0 帧作缩略图，走原缓存 |
+| fork.68 | PNG 角色卡导出遇到动图/视频头像时先抽帧转 PNG，避免写坏文件 |
+| fork.68 | 头像选择器放开 `video/*`（`GetContent` 不收 MIME 数组，改用 `OpenDocument`） |
+
+### 角色卡语音
+
+| 版本 | 内容 |
+|---|---|
+| fork.68 | `CharacterCard` 新增 `extensions.eta_voice`；`RoleplayBinding` / `RoleplayChatUi` 带 `voiceId`；`SpeechPlaybackController.speak` 加 `voiceOverride`；手动朗读与自动朗读都传角色音色 |
+| fork.70 | 修 `binding` 同步只更新名字/头像、不更新 `voiceId`，导致改完音色老会话仍用旧快照 |
+| fork.71 | 新增 `listSystemTtsVoices()` 枚举系统引擎音色（offlineOnly 时只留已安装且不要求联网的）；`SystemTtsConfig` 加 `voiceName`；系统 TTS 设置页加音色下拉；角色编辑器音色改下拉（系统离线音色 + 自定义） |
+| fork.74 | 角色卡可选**朗读服务商**而不只是音色：新增 `extensions.eta_tts_provider`，`withVoiceOverride` 同时覆盖 `tts` 与音色，`speak` 加 `providerOverride`。角色编辑器「语音」改为「服务商 + 音色」两个下拉，换服务商时清空音色 |
+
+### 这一段踩到的坑
+
+- **本地离线语音模型里没有 TTS**：`assets/local_speech/catalog.json` 的 8 个模型全是 ASR（`qwen3_asr` / `sensevoice` / `vosk`），`libeta_transcribe_jni.so` 只做转写。所以「下载的离线模型」无法用于朗读，离线朗读唯一可用的是系统 TTS 引擎音色。
+- **音色 id 是各家自己的标识**：`Cherry` 是千问、`zh_female_vv_uranus_bigtts` 是豆包。只记音色不记服务商，全局换服务商后角色音色必然失效——这是 fork.74 存在的理由。
+- `ActivityResultContracts.GetContent` 的 input 是单个 MIME `String`，传数组会报 `Argument type mismatch: actual type is 'Array<String>', but 'String' was expected`；要多 MIME 用 `OpenDocument`。
+- `CompositionLocal.current` 不能在 `LaunchedEffect` 里读（`@Composable invocations can only happen from the context of a @Composable function`），要先在组合作用域取出再传给 effect。
+- public 函数不能暴露 `internal` 类型（`'public' function exposes its 'internal' parameter type`），`ConversationSidePaneScaffold` 因此改成 `internal`。
+- 编辑工具批量替换时，`*\/` 与后面的 `@Composable` 粘成 `*\/@Composable` 会让注释不闭合，把后面整段函数吞掉；改完要用括号/注释配平脚本过一遍。
+- CI 只认完整 40 位 SHA；构建中转仓库是 `mariusarva/eta-ci`，主仓库 Actions 被平台禁用。
+- 产物下载遇到 `Errno 103 Software caused connection abort` 时，8 段并行重试会卡死；改用单线程 `curl -L --retry 20` 反而更稳。
+
+---
+
 ## fork.66（2026-11-23）发版
 
 fork.63–65 三处修复验证通过后的正式发版，内容同 fork.62 + 上述三修。
