@@ -65,7 +65,7 @@ private object ConversationPaneMetrics {
 }
 
 @Composable
-fun ConversationSidePaneScaffold(
+internal fun ConversationSidePaneScaffold(
     state: ConversationPaneUiState,
     visible: Boolean,
     backHandlerEnabled: Boolean,

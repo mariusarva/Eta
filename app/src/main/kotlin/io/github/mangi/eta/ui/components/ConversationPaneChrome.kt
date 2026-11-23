@@ -402,7 +402,8 @@ private fun PaneSelectedCharacterChip(
     }
 }
 
-/** 顶栏的分类管理入口：新建、改名、排序、删除都在那个对话框里。 *\/@Composable
+/** 顶栏的分类管理入口：新建、改名、排序、删除都在那个对话框里。 */
+@Composable
 private fun PaneManageCategoriesButton(
     hasCouiToolbarBackdrop: Boolean,
     onClick: () -> Unit,

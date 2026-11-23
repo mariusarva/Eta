@@ -269,7 +269,8 @@ fun AgentAppRoot(
         agentState.characterForNewChat?.first?.let { id ->
             characterOptions.firstOrNull { it.id == id }?.avatarPath
         }
-    }    var messageDeleteTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
+    }
+    var messageDeleteTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
     var messageRegenerateTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
     val conversationExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/markdown"),
