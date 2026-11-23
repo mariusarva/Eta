@@ -11,8 +11,8 @@ lightColorScheme()/darkColorScheme()，完全不响应 Monet 取色。这两类�
       会绕过 Monet 种子色。这是错误。
   E2  *Screen.kt 里使用固定 hex 且同文件没有任何明暗分支。这是错误
       （确实不随主题变的品牌/语义色请加入 ALLOWED_FIXED_COLOR_FILES 并注明原因）。
-  W1  页面用了 COUI 组件但没有 MIUIX 版式。AgentAppTheme 已无条件提供 COUITheme，
-      不会整页变浅，但该页在 MIUIX 样式下仍是 COUI 视觉，属于待补的适配债。
+  W1  页面用了 COUI 组件，但既没有 MiuixScaffoldPage 也没有任何 uiStyle 分支。
+      这类页面在 MIUIX 样式下仍渲染 COUI 组件，拿不到 Miuix 的 Monet 配色。
   W2  页面既无主题色引用也无 Scaffold，可能把配色完全交给子组件（多为误报，
       新增页面时人工确认一次）。
 
@@ -41,6 +41,11 @@ ALLOWED_FIXED_COLOR_FILES = {
     "AgentAppTheme.kt": "种子色表",
     "AnsiSgr.kt": "终端 ANSI 调色板",
     "TerminalScreenBuffer.kt": "终端默认前景/背景",
+}
+
+# 只做状态转发、配色完全由子组件负责的页面，不需要自己引用主题色。
+PURE_CONTAINER_SCREENS = {
+    "AgentHomeScreen.kt": "仅把 state 传给 AgentChatBody，配色由后者负责",
 }
 
 errors: list[str] = []
@@ -73,15 +78,18 @@ def check_screen(path: Path) -> None:
                 f"若确属品牌/语义色，加入 ALLOWED_FIXED_COLOR_FILES 并写明原因"
             )
 
-    # W1：COUI 页面缺 MIUIX 版式
-    if uses_coui and not uses_miuix_page:
+    # W1：COUI 页面缺 MIUIX 版式。
+    # 有 uiStyle 分支就说明两套都写了（可能共用 pageContent，也可能各写一套），不算缺失；
+    # 只在「用了 COUI 组件、既没有 MiuixScaffoldPage 也没有任何样式分支」时报警。
+    has_style_branch = "AppearanceUiStyle" in src or "LocalUiStyle" in src
+    if uses_coui and not uses_miuix_page and not has_style_branch:
         warnings.append(
-            f"W1 {name}: 使用 COUI 组件但没有 MIUIX 版式；"
-            f"配色已由 AgentAppTheme 兜底，但 MIUIX 样式下仍是 COUI 视觉"
+            f"W1 {name}: 使用 COUI 组件但没有 MIUIX 版式或 uiStyle 分支；"
+            f"MIUIX 样式下仍走 COUI 视觉，拿不到 Miuix 主题色"
         )
 
     # W2：完全没有主题色引用
-    if not themed and not has_scaffold:
+    if not themed and not has_scaffold and name not in PURE_CONTAINER_SCREENS:
         warnings.append(f"W2 {name}: 未引用主题色也无 Scaffold，确认配色是否都由子组件负责")
 
 
