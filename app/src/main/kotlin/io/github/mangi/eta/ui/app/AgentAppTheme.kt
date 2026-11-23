@@ -156,11 +156,15 @@ fun AgentAppTheme(
                 LocalAppearanceSettings provides appearance,
                 LocalUiStyle provides appearance.uiStyle,
             ) {
-                if (appearance.uiStyle == AppearanceUiStyle.COUI) {
-                    // 使用 colors 重载避免拉入 COUI ThemeController 对 material-color-utilities 5.0
-                    // 旧包的静态引用（Miuix 0.9.5-beta02 已升级至 6.0.0）；显式补齐 COUI LocalContentColor，
-                    // 避免深色模式下 COUI 组件回退到默认黑色内容色。
-                    COUITheme(colors = couiNative) {
+                // COUI 主题无条件提供：会话分类、GitHub 账号两个页面只写了 COUI 版式，
+                // 在 MIUIX 样式下如果没有 COUITheme，COUITheme.colorScheme 会回落到
+                // LocalColors 的默认值 lightColorScheme()，深色模式里整页变成浅色。
+                // 这里统一按当前明暗提供，COUI 分支内的旧包装一并去掉，避免嵌套两层。
+                COUITheme(colors = couiNative) {
+                    if (appearance.uiStyle == AppearanceUiStyle.COUI) {
+                        // 使用 colors 重载避免拉入 COUI ThemeController 对 material-color-utilities 5.0
+                        // 旧包的静态引用（Miuix 0.9.5-beta02 已升级至 6.0.0）；显式补齐 COUI LocalContentColor，
+                        // 避免深色模式下 COUI 组件回退到默认黑色内容色。
                         CompositionLocalProvider(
                             LocalCouiContentColor provides couiNative.labelPrimary,
                             LocalCOUIMaterialEffectEnabled provides
@@ -186,67 +190,67 @@ fun AgentAppTheme(
                                 }
                             }
                         }
-                    }
-                } else if (provideGlassHost) {
-                    val surfaceColor = themedMiuixColors.surface
-                    val delegateBackdrop = rememberGlassBackdrop(surfaceColor)
-                    val sceneBackdrop = remember(delegateBackdrop, surfaceColor) {
-                        delegateBackdrop?.let { DemandSceneBackdrop(it, fallbackColor = surfaceColor) }
-                    }
-                    val topLayer = remember { EtaTopLayerState() }
-                    var hasActiveMiuixPopup by remember { mutableStateOf(false) }
-                    var hasActiveTopLayerOverlay by remember { mutableStateOf(false) }
-                    val hasActiveOverlay = hasActiveMiuixPopup || hasActiveTopLayerOverlay
-                    val captureActive = hasActiveOverlay || sceneBackdrop?.isActive == true
-                    if (sceneBackdrop != null) {
-                        SideEffect {
-                            sceneBackdrop.setDelegateAttached(captureActive)
+                    } else if (provideGlassHost) {
+                        val surfaceColor = themedMiuixColors.surface
+                        val delegateBackdrop = rememberGlassBackdrop(surfaceColor)
+                        val sceneBackdrop = remember(delegateBackdrop, surfaceColor) {
+                            delegateBackdrop?.let { DemandSceneBackdrop(it, fallbackColor = surfaceColor) }
                         }
-                        LaunchedEffect(sceneBackdrop.isActive, hasActiveOverlay) {
-                            if (!sceneBackdrop.isActive || hasActiveOverlay) return@LaunchedEffect
-                            while (sceneBackdrop.isActive && !hasActiveOverlay) {
-                                delay(250L)
-                                sceneBackdrop.refreshIdleState()
+                        val topLayer = remember { EtaTopLayerState() }
+                        var hasActiveMiuixPopup by remember { mutableStateOf(false) }
+                        var hasActiveTopLayerOverlay by remember { mutableStateOf(false) }
+                        val hasActiveOverlay = hasActiveMiuixPopup || hasActiveTopLayerOverlay
+                        val captureActive = hasActiveOverlay || sceneBackdrop?.isActive == true
+                        if (sceneBackdrop != null) {
+                            SideEffect {
+                                sceneBackdrop.setDelegateAttached(captureActive)
                             }
-                        }
-                    }
-                    Scaffold(
-                        modifier = Modifier.fillMaxSize(),
-                        containerColor = Color.Transparent,
-                        contentWindowInsets = WindowInsets(0),
-                        popupHost = {
-                            Box(
-                                modifier = Modifier.onSizeChanged { size ->
-                                    hasActiveMiuixPopup = size.width > 0 && size.height > 0
-                                },
-                            ) {
-                                MiuixPopupHost()
-                            }
-                        },
-                    ) {
-                        CompositionLocalProvider(
-                            LocalGlassSceneBackdrop provides sceneBackdrop,
-                            LocalEtaTopLayer provides topLayer,
-                        ) {
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .captureGlassBackdrop(
-                                            if (captureActive) delegateBackdrop else null,
-                                        ),
-                                ) {
-                                    scopedContent()
+                            LaunchedEffect(sceneBackdrop.isActive, hasActiveOverlay) {
+                                if (!sceneBackdrop.isActive || hasActiveOverlay) return@LaunchedEffect
+                                while (sceneBackdrop.isActive && !hasActiveOverlay) {
+                                    delay(250L)
+                                    sceneBackdrop.refreshIdleState()
                                 }
-                                EtaTopLayerHost(
-                                    state = topLayer,
-                                    onActiveOverlayChanged = { hasActiveTopLayerOverlay = it },
-                                )
                             }
                         }
+                        Scaffold(
+                            modifier = Modifier.fillMaxSize(),
+                            containerColor = Color.Transparent,
+                            contentWindowInsets = WindowInsets(0),
+                            popupHost = {
+                                Box(
+                                    modifier = Modifier.onSizeChanged { size ->
+                                        hasActiveMiuixPopup = size.width > 0 && size.height > 0
+                                    },
+                                ) {
+                                    MiuixPopupHost()
+                                }
+                            },
+                        ) {
+                            CompositionLocalProvider(
+                                LocalGlassSceneBackdrop provides sceneBackdrop,
+                                LocalEtaTopLayer provides topLayer,
+                            ) {
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .captureGlassBackdrop(
+                                                if (captureActive) delegateBackdrop else null,
+                                            ),
+                                    ) {
+                                        scopedContent()
+                                    }
+                                    EtaTopLayerHost(
+                                        state = topLayer,
+                                        onActiveOverlayChanged = { hasActiveTopLayerOverlay = it },
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        scopedContent()
                     }
-                } else {
-                    scopedContent()
                 }
             }
         }
