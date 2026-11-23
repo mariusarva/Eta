@@ -35,8 +35,11 @@ import io.github.suqi8.coui.kmp.effect.LocalCOUIMaterialEffectEnabled
 import io.github.suqi8.coui.kmp.squircle.LocalSquircleEnabled as LocalCouiSquircleEnabled
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.theme.LocalContentColor as LocalCouiContentColor
+import io.github.suqi8.coui.kmp.theme.ThemeColorSpec as CouiThemeColorSpec
+import io.github.suqi8.coui.kmp.theme.colorsFromSeed
 import io.github.suqi8.coui.kmp.theme.darkColorScheme
 import io.github.suqi8.coui.kmp.theme.lightColorScheme
+import io.github.suqi8.coui.kmp.theme.platformDynamicColors as couiPlatformDynamicColors
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
@@ -104,7 +107,23 @@ fun AgentAppTheme(
     MiuixTheme(controller = controller) {
         val baseMiuixColors = MiuixTheme.colorScheme
         val pureBlack = appearance.monetEnabled && appearance.pureBlackEnabled && isDark
-        val couiNative = remember(isDark) { if (isDark) darkColorScheme() else lightColorScheme() }
+        // COUI 的配色跟 Miuix 走同一套开关：开了 Monet 就用种子色（系统取色或手选色）
+        // 经 colorsFromSeed 生成，关掉则用 COUI 自带的浅/深基线。
+        // 之前这里固定 lightColorScheme()/darkColorScheme()，COUI 样式完全不响应 Monet 取色。
+        val couiNative = remember(isDark, appearance.monetEnabled, appearance.accentColor, appearance.paletteStyle, keyColor) {
+            when {
+                !appearance.monetEnabled -> if (isDark) darkColorScheme() else lightColorScheme()
+                // 系统取色且调色板为 TonalSpot 时，直接采用系统 MD3 角色色，与桌面完全一致。
+                appearance.accentColor == AppearanceAccentColor.SYSTEM &&
+                    appearance.paletteStyle == AppearancePaletteStyle.TONAL_SPOT -> couiPlatformDynamicColors(isDark)
+                else -> colorsFromSeed(
+                    keyColor ?: appearance.accentColor.seedColor(),
+                    CouiThemeColorSpec.Spec2025,
+                    appearance.paletteStyle.toMiuixPaletteStyle(),
+                    isDark,
+                )
+            }
+        }
         val themedMiuixColors = remember(
             baseMiuixColors,
             appearance.uiStyle,
