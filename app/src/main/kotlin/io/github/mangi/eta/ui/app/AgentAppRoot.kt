@@ -144,6 +144,15 @@ import io.github.mangi.eta.ui.screens.categories.ConversationCategoriesScreen
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 /**
  * Agent App 根组件：持有本地导航栈，并把 Screen actions 交给 [AgentAppState]。
@@ -232,6 +241,7 @@ fun AgentAppRoot(
             io.github.mangi.eta.data.repository.CharacterRepository.list()
         }.getOrDefault(emptyList())
         characterPickerLoading = false
+        AndroidAgentLogger.info("character picker opened: count=" + characterOptions.size)
     }
     var conversationExportTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     var messageDeleteTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
@@ -415,7 +425,10 @@ fun AgentAppRoot(
             onOpenMemory = { pushRoute(AppRoute.Memory) },
             onOpenMcpServers = { pushRoute(AppRoute.McpServers) },
             onOpenCharacters = { pushRoute(AppRoute.Characters) },
-            onPickCharacterForNewConversation = { showCharacterPicker = true },
+            onPickCharacterForNewConversation = {
+                AndroidAgentLogger.info("character picker requested")
+                showCharacterPicker = true
+            },
             onOpenPermissions = { pushRoute(AppRoute.Permissions) },
             onOpenSettings = { pushRoute(AppRoute.Settings) },
             onOpenModelProviders = { pushRoute(AppRoute.ModelProviders) },
@@ -1310,72 +1323,93 @@ fun AgentAppRoot(
         }
     }
 
-    // 角色选择对话框：与界面风格无关，COUI 与 MIUIX 共用（上游已把 Miuix 设为默认样式，
-    // 之前只写在 COUI 分支里，MIUIX 下点按钮没有任何反应）。
-    GlassDialog(
-        show = showCharacterPicker,
-        backdrop = currentGlassOverlayBackdrop(),
-        title = "新建对话的角色",
-        summary = when {
-            characterOptions.isEmpty() && characterPickerLoading -> "正在读取角色…"
-            characterOptions.isEmpty() -> "还没有角色卡。"
-            agentState.characterForNewChat != null ->
-                "当前：" + agentState.characterForNewChat!!.second + "；之后点「新建会话」都会用它。"
-            else -> "选一个角色后，之后每次「新建会话」都直接进入该角色剧情。"
-        },
-        onDismissRequest = { showCharacterPicker = false },
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
+    // 角色选择对话框：与界面风格无关，两种样式共用。
+    //
+    // 这里不能用 GlassDialog：它依赖 Miuix 的 glass overlay 宿主，放在 when (LocalUiStyle)
+    // 之外时拿不到该宿主，弹窗会出现后立刻消失（表现为「点了没反应」）。
+    // 改用系统 Dialog 窗口，与「会话分类」的对话框同一套做法。
+    if (showCharacterPicker) {
+        Dialog(
+            onDismissRequest = { showCharacterPicker = false },
+            properties = DialogProperties(),
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        showCharacterPicker = false
-                        agentState.setCharacterForNewChat(null, null)
-                    }
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (MiuixTheme.colorScheme.surface.luminance() >= 0.5f) Color(0xFFFFFFFF) else Color(0xFF2A2A2E))
+                    .border(0.5.dp, MiuixTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                    .padding(18.dp),
             ) {
                 Text(
-                    text = "不使用角色",
-                    style = MiuixTheme.textStyles.body2,
+                    text = "新建对话的角色",
+                    style = MiuixTheme.textStyles.title4,
                     color = MiuixTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
                 )
-                if (agentState.characterForNewChat == null) {
-                    Text(
-                        text = "已选",
-                        style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.primary,
-                    )
-                }
-            }
-            characterOptions.take(12).forEach { profile ->
-                val selected = agentState.characterForNewChat?.first == profile.id
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = when {
+                        characterOptions.isEmpty() && characterPickerLoading -> "正在读取角色…"
+                        characterOptions.isEmpty() -> "还没有角色卡。"
+                        agentState.characterForNewChat != null ->
+                            "当前：" + agentState.characterForNewChat!!.second + "；之后点「新建会话」都会用它。"
+                        else -> "选一个角色后，之后每次「新建会话」都直接进入该角色剧情。"
+                    },
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                Spacer(Modifier.height(10.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
+                            agentState.setCharacterForNewChat(null, null)
                             showCharacterPicker = false
-                            agentState.setCharacterForNewChat(profile.id, profile.card.name)
                         }
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = profile.card.name,
+                        text = "不使用角色",
                         style = MiuixTheme.textStyles.body2,
-                        color = if (selected) MiuixTheme.colorScheme.primary
-                        else MiuixTheme.colorScheme.onSurface,
+                        color = MiuixTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f),
-                        maxLines = 1,
                     )
-                    Text(
-                        text = if (selected) "已选" else profile.card.firstMessage.take(18),
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        maxLines = 1,
-                    )
+                    if (agentState.characterForNewChat == null) {
+                        Text(
+                            text = "已选",
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                characterOptions.take(12).forEach { profile ->
+                    val selected = agentState.characterForNewChat?.first == profile.id
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                agentState.setCharacterForNewChat(profile.id, profile.card.name)
+                                showCharacterPicker = false
+                            }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = profile.card.name,
+                            style = MiuixTheme.textStyles.body2,
+                            color = if (selected) MiuixTheme.colorScheme.primary
+                            else MiuixTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                        )
+                        Text(
+                            text = if (selected) "已选" else profile.card.firstMessage.take(18),
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }
