@@ -104,34 +104,15 @@ fun AgentAppTheme(
     MiuixTheme(controller = controller) {
         val baseMiuixColors = MiuixTheme.colorScheme
         val pureBlack = appearance.monetEnabled && appearance.pureBlackEnabled && isDark
-        // COUI 配色必须跟随 Monet，但不能走 COUI 自己的 ThemeController：
-        // 它会拉 com.materialkolor.scheme.DynamicScheme（material-color-utilities 5.0.0），
-        // 而 Miuix 0.9.5-beta03 依赖 6.0.0，该类已移到 com.materialkolor.dynamiccolor，
-        // 两个版本无法共存，R8 会报 Missing class。
+        // COUI 不接 Monet，保持 COUI 自带的浅/深基线配色——它的整套槽位（容器、分隔、
+        // 按压态、滑块）是按自家 MD3 推导配好的，套 Miuix 的种子色只会让对比度和层次变差。
+        // 这里只按明暗切换，不读 appearance 的取色设置。
         //
-        // 因此改为「用 Miuix 已算好的 Monet 配色覆盖 COUI 基线」：baseMiuixColors 已由
-        // ThemeController 按 keyColor/paletteStyle/isDark 生成，这里只把强调色、容器色、
-        // 文字色映射过去，COUI 的其余语义槽位保持自带基线。两条链路共享同一份种子色，
-        // 不会出现 Miuix 变了、COUI 没变的情况。
-        val couiNative = remember(baseMiuixColors, isDark) {
-            val base = if (isDark) darkColorScheme() else lightColorScheme()
-            base.copy(
-                primary = baseMiuixColors.primary,
-                onPrimary = baseMiuixColors.onPrimary,
-                primaryText = baseMiuixColors.primary,
-                primaryTextOnPopup = baseMiuixColors.primary,
-                secondaryContainer = baseMiuixColors.secondaryContainer,
-                error = baseMiuixColors.error,
-                onError = baseMiuixColors.onError,
-                outline = baseMiuixColors.outline,
-                labelPrimary = baseMiuixColors.onSurface,
-                labelSecondary = baseMiuixColors.onSurfaceVariantSummary,
-                backgroundWithCard = baseMiuixColors.background,
-                cardBackground = baseMiuixColors.surfaceContainer,
-                cardPressed = baseMiuixColors.surfaceContainerHigh,
-                containerSolid = baseMiuixColors.surfaceContainerHighest,
-                divider = baseMiuixColors.outline,
-            )
+        // 另：也不能改走 COUI 的 ThemeController 来接 Monet，它会拉
+        // com.materialkolor.scheme.DynamicScheme（material-color-utilities 5.0.0），
+        // 而 Miuix 依赖 6.0.0（类已移到 dynamiccolor 包），两者无法共存，R8 报 Missing class。
+        val couiNative = remember(isDark) {
+            if (isDark) darkColorScheme() else lightColorScheme()
         }
         val themedMiuixColors = remember(
             baseMiuixColors,
