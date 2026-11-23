@@ -2307,6 +2307,7 @@ internal class AgentAppState(
                         val updatedBinding = binding.copy(
                             cardSnapshotJson = CharacterCardCodec.encodeJson(profile.card),
                             characterName = profile.card.name, avatarPath = profile.avatarPath,
+                            voiceId = profile.card.voiceId,
                         )
                         val saved = withContext(Dispatchers.Main) {
                             conversationsById[conversationId]?.let { current ->
