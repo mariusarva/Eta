@@ -43,6 +43,8 @@ import io.github.mangi.eta.ui.model.ConversationCategoryUi
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.luminance
 
 private val CategoryIconColor = Color(0xFF4285F4)
 
@@ -221,11 +223,18 @@ private fun CategoryNameDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(),
     ) {
+        // 底色必须不透明：CouiPageDefaults 的 card 在深色主题下带 alpha，
+        // 弹窗会直接透出后面的分类列表，文字糊成一片。
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
-                .background(colors.card)
+                .background(opaqueDialogColor())
+                .border(
+                    width = 0.5.dp,
+                    color = colors.divider,
+                    shape = RoundedCornerShape(20.dp),
+                )
                 .padding(18.dp),
         ) {
             Text(
@@ -256,6 +265,13 @@ private fun CategoryNameDialog(
             }
         }
     }
+}
+
+/** 对话框实色底：CouiPageDefaults 的 card 带透明度，弹窗会透出下层列表。 */
+@Composable
+private fun opaqueDialogColor(): Color {
+    val light = MiuixTheme.colorScheme.surface.luminance() >= 0.5f
+    return if (light) Color(0xFFFFFFFF) else Color(0xFF2A2A2E)
 }
 
 @Composable
