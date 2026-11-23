@@ -135,6 +135,25 @@ REQUIRED_IMPORTS = {
     "Spacer": "import androidx.compose.foundation.layout.Spacer",
 }
 
+# Modifier.xxx 扩展函数 → 必需 import。fork.82/84 连续两次因漏 padding 挂掉，
+# 这类错误编译器一次只报一批，逐个人肉补太低效，直接按用法全量核对。
+MODIFIER_EXTENSION_IMPORTS = {
+    "padding": "import androidx.compose.foundation.layout.padding",
+    "fillMaxWidth": "import androidx.compose.foundation.layout.fillMaxWidth",
+    "fillMaxHeight": "import androidx.compose.foundation.layout.fillMaxHeight",
+    "fillMaxSize": "import androidx.compose.foundation.layout.fillMaxSize",
+    "width": "import androidx.compose.foundation.layout.width",
+    "height": "import androidx.compose.foundation.layout.height",
+    "size": "import androidx.compose.foundation.layout.size",
+    "widthIn": "import androidx.compose.foundation.layout.widthIn",
+    "heightIn": "import androidx.compose.foundation.layout.heightIn",
+    "offset": "import androidx.compose.foundation.layout.offset",
+    "clip": "import androidx.compose.ui.draw.clip",
+    "background": "import androidx.compose.foundation.background",
+    "border": "import androidx.compose.foundation.border",
+    "clickable": "import androidx.compose.foundation.clickable",
+}
+
 
 def check_missing_imports() -> None:
     """E4：用了基础符号却没有对应 import，编译必然失败。
@@ -158,6 +177,12 @@ def check_missing_imports() -> None:
                 used = re.search(r"\b" + symbol + r"\b", code)
             if used:
                 errors.append(f"E4 {path.name}: 用了 {symbol} 但缺少 {imp}")
+        # Modifier.xxx 扩展
+        for ext, imp in MODIFIER_EXTENSION_IMPORTS.items():
+            if imp in src:
+                continue
+            if re.search(r"\bModifier\." + ext + r"\b", code):
+                errors.append(f"E4 {path.name}: 用了 Modifier.{ext} 但缺少 {imp}")
 
 
 def check_dialog_backgrounds() -> None:
