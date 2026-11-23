@@ -37,6 +37,7 @@ app/src/main/kotlin/io/github/mangi/eta/ui/components/CapabilityCapsule.kt
 app/src/main/kotlin/io/github/mangi/eta/ui/components/ChatTurnNavigator.kt
 app/src/main/kotlin/io/github/mangi/eta/agent/roleplay/CharacterAvatarKind.kt  头像类型识别（魔数）
 app/src/main/kotlin/io/github/mangi/eta/ui/components/CharacterAnimatedAvatar.kt 动图/视频头像播放层
+scripts/check-theme-coverage.py                                   主题覆盖检查（明暗 + Monet）
 app/src/main/assets/prompt_presets/                              7 个预设
 app/src/main/assets/local_speech/                                模型清单 + 许可证
 app/src/main/jniLibs/arm64-v8a/                                  7 个离线语音 so
@@ -175,6 +176,10 @@ pm install -r -d /data/local/tmp/eta-forkN.apk
 | 下载产物报 `Errno 103 connection abort` | 8 段并行重试会卡死，改单线程 `curl -L --retry 20 --retry-all-errors` |
 | 本地离线语音模型不能朗读 | 那 8 个模型全是 ASR（`qwen3_asr`\/`sensevoice`\/`vosk`），没有 TTS；离线朗读只能用系统 TTS 引擎音色 |
 | 角色音色换全局服务商后失效 | 音色 id 是各家自己的标识；角色卡要同时记 `eta_tts_provider` |
+| 某页面在深色模式整页浅色 | 该页只写了 COUI 版式但没拿到 `COUITheme`，`COUITheme.colorScheme` 回落到 `LocalColors` 默认值 `lightColorScheme()` |
+| MIUIX 样式下某页没有 Monet 取色 | 同上：该页只渲染 COUI 组件，从不读 `MiuixTheme`。需补 MIUIX 分支 |
+| COUI 想接 Monet 报 `colorsFromSeed is internal` | COUI 只暴露 `ThemeController`，`colorsFromSeed`/`monetSystemColors` 都是 internal |
+| R8 报 `Missing class com.materialkolor.scheme.DynamicScheme` | COUI 要 material-color-utilities 5.0.0（`scheme.*`），Miuix 要 6.0.0（`dynamiccolor.*`），不能共存；升级任一库前先对齐版本 |
 
 ---
 

@@ -8,6 +8,48 @@
 
 ---
 
+## fork.75 – fork.81（2026-11-23）主题：深色模式与 Monet 取色排查
+
+按「排查哪个页面没适配夜间/日间模式」的要求做的一轮全量审计。
+
+### 排查方法
+
+1. 39 个 `*Screen.kt` 逐一检查是否引用主题色来源、是否有 COUI/MIUIX 双分支
+2. 全仓 115 处固定 `Color(0x…)` 逐个查是否同文件存在明暗分支
+3. 拉取 `coui-ui-android-2.1.0-sources.jar` 与两个版本的 `material-color-utilities` AAR，
+   用 `javap` 核对 `COUITheme.isDark` / `LocalColors` 默认值 / `DynamicScheme` 类路径
+4. 把上述规则固化成 `scripts/check-theme-coverage.py`
+
+### 发现与修复
+
+| 版本 | 现象 | 定位与改动 |
+|---|---|---|
+| fork.76 | 深色模式下**会话分类**、**GitHub 账号**两页整页浅色 | 两页只写了 COUI 版式。`COUITheme` 此前只在 `uiStyle == COUI` 时提供，MIUIX 样式下 `COUITheme.colorScheme` 回落到 `LocalColors` 的默认值 `lightColorScheme()`。改为无条件提供 `COUITheme` |
+| fork.77 | 深色已生效，但 COUI 配色不跟 Monet | `couiNative` 固定为 `lightColorScheme()/darkColorScheme()`，与 `monetEnabled`/`accentColor`/`paletteStyle` 全无关 |
+| fork.78 | fork.77 编译失败（3 处） | 直接调 `colorsFromSeed` 不行：它是 `internal`、`platformDynamicColors` 是 `@Composable`、两个库的 `ThemePaletteStyle` 是不同类型。改用 COUI 公开的 `ThemeController` |
+| fork.79 | fork.78 编译通过但 R8 失败：`Missing class com.materialkolor.scheme.DynamicScheme` | COUI 2.1.0 依赖 material-color-utilities **5.0.0**（`com.materialkolor.scheme`），Miuix beta03 依赖 **6.0.0**（`com.materialkolor.dynamiccolor`），Gradle 取高版本后 COUI 的旧包名消失。`force` 到 5.0.0 会反向让 Miuix 报错 |
+| fork.80 | — | 按要求回退：**COUI 不接 Monet**，恢复自带浅/深基线。COUI 整套槽位按自家 MD3 推导，套 Miuix 种子色后对比度和层次明显变差 |
+| fork.81 | MIUIX 样式下**会话分类页没有 Monet 取色** | 该页只有 COUI 版式，MIUIX 下仍渲染 `CouiScaffoldPage`/`CouiPreferenceGroup`，取的是 COUI 基线色。补 MIUIX 分支：`MiuixScaffoldPage` + `Card` + `ArrowPreference` + `BasicComponent`，颜色全走 `MiuixTheme.colorScheme`；新增 `MiuixIconAction` 与 COUI 版 `IconAction` 同尺寸 |
+
+### 审计结论
+
+- 真正缺适配的只有 2 个页面（会话分类、GitHub 账号），其余 37 个都是双样式
+- 6 处固定 hex 且无明暗分支的，是品牌色/语义色/字标渐变，设计上不随主题变，不是缺陷
+- `values-night` 只有 `styles.xml`，主题全走 Compose，不涉及系统资源切换
+- `EtaPreferenceTheme` 的固定色有 `!monetEnabled` 守卫，Monet 开启时不生效
+- 剩余待补 MIUIX 版式：`AgentBrowserScreen`、`GitHubAccountScreen`、`AgentMemoryScreen`、`UserTerminalScreen`、`AgentToolsScreen`
+
+### 这一段踩到的坑
+
+- **COUI 的 `colorsFromSeed` / `monetSystemColors` 都是 `internal`**，外部模块无法调用；要接 Monet 只能用公开的 `ThemeController`。
+- **`ThemeController.currentColors()` 是 `@Composable`**，不能在 `remember` 块里调用。
+- **两个库的 `ThemePaletteStyle` / `ThemeColorSpec` 是各自独立的枚举**，不能互相传；COUI 还有 Miuix 没有的 `CMF` 变体。
+- **`material-color-utilities` 5.0.0 与 6.0.0 类路径不兼容**：`scheme.DynamicScheme` vs `dynamiccolor.DynamicScheme`。升级任一库前必须先确认两者版本一致。
+- **`COUITheme.colorScheme` 的默认值来自 `LocalColors`，而 `LocalColors` 默认是 `lightColorScheme()`**——这是「深色模式里某页整页浅色」的根因模式，遇到先查该页有没有拿到 COUITheme。
+- 排查主题问题不能只看代码里有没有 `MiuixTheme`，要看**实际渲染路径**：只写 COUI 版式的页面在 MIUIX 样式下根本不会读 Miuix 主题。
+
+---
+
 ## fork.67 – fork.74（2026-11-23）角色卡：选择器修复、头像动图/视频、语音
 
 上一版发版后按真机反馈做的一整段角色卡工作。
