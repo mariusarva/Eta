@@ -57,6 +57,11 @@ import io.github.mangi.eta.agent.voice.listSystemTtsVoices
 import io.github.mangi.eta.ui.components.EtaGlassSpinnerPreference
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
 import top.yukonga.miuix.kmp.basic.DropdownItem
+import androidx.compose.runtime.collectAsState
+import io.github.mangi.eta.data.model.TtsProvider
+import io.github.mangi.eta.data.repository.SpeechSettingsRepository
+import io.github.mangi.eta.ui.voice.SpeechVoicePresets
+import io.github.mangi.eta.ui.voice.label
 
 @Composable
 internal fun CharacterEditorScreen(
@@ -311,67 +316,122 @@ internal fun CharacterVoiceField(store: CharacterLibraryStore) {
     val card = store.draft ?: return
     val context = LocalContext.current
     val voice = card.voiceId.orEmpty()
-    val hint = stringResource(R.string.character_voice_hint)
+    // 未设服务商时按全局当前服务商显示，符合「跟随全局」的直觉。
+    val globalSettings by remember { SpeechSettingsRepository.settingsFlow() }.collectAsState(initial = null)
+    val providerName = card.voiceProvider ?: globalSettings?.tts?.name.orEmpty()
+    val provider = TtsProvider.entries.firstOrNull { it.name == providerName }
     val uiStyle = LocalUiStyle.current
-    // 系统 TTS 是唯一真正离线的朗读通道：本地语音模型目录里 8 个模型全是 ASR，没有合成。
-    // 这里枚举引擎声明的音色，离线标记为已安装的那些才列出来。
-    var voices by remember { mutableStateOf<List<SystemTtsVoiceOption>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
+
+    CharacterSectionHeader(stringResource(R.string.character_section_voice))
+    // 服务商下拉：与设置页「语音播报」同一套枚举，选完再选该家的音色。
+    val providerLabels = listOf(stringResource(R.string.character_voice_follow_global)) +
+        TtsProvider.entries.filter { it != TtsProvider.NONE }.map { it.label() }
+    val providerIndex = if (card.voiceProvider == null) 0 else {
+        TtsProvider.entries.filter { it != TtsProvider.NONE }.indexOf(provider).let { if (it >= 0) it + 1 else 0 }
+    }
+    val onProviderSelected: (Int) -> Unit = { index ->
+        if (index == 0) {
+            store.updateDraft { it.withVoice(null, null) }
+        } else {
+            val picked = TtsProvider.entries.filter { it != TtsProvider.NONE }.getOrNull(index - 1)
+            // 换服务商时旧音色 id 一定不匹配，清空让用户重新选。
+            if (picked != null) store.updateDraft { it.withVoice(null, picked.name) }
+        }
+    }
+    if (uiStyle == AppearanceUiStyle.COUI) {
+        CouiDropdownPreference(
+            title = stringResource(R.string.character_field_voice_provider),
+            items = providerLabels,
+            selectedIndex = providerIndex,
+            onSelectedIndexChange = onProviderSelected,
+        )
+    } else {
+        EtaGlassSpinnerPreference(
+            title = stringResource(R.string.character_field_voice_provider),
+            items = providerLabels.map { DropdownItem(text = it) },
+            selectedIndex = providerIndex,
+            onSelectedIndexChange = onProviderSelected,
+        )
+    }
+
+    // 该服务商下的音色候选：系统 TTS 枚举引擎音色，其余用设置页同一套预设列表。
+    var systemVoices by remember { mutableStateOf<List<SystemTtsVoiceOption>>(emptyList()) }
+    var loading by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(provider) {
+        if (provider != TtsProvider.SYSTEM) {
+            systemVoices = emptyList()
+            loading = false
+            failed = false
+            return@LaunchedEffect
+        }
         loading = true
         failed = false
-        voices = runCatching { listSystemTtsVoices(context) }
+        systemVoices = runCatching { listSystemTtsVoices(context) }
             .onFailure { failed = true }
             .getOrDefault(emptyList())
         loading = false
     }
-
-    CharacterSectionHeader(stringResource(R.string.character_section_voice))
-    if (voices.isNotEmpty()) {
-        val customLabel = stringResource(R.string.character_voice_custom)
-        val labels = voices.map { it.label } + customLabel
-        val selectedIndex = voices.indexOfFirst { it.name == voice }.takeIf { it >= 0 } ?: voices.size
-        val onSelect: (Int) -> Unit = { index ->
-            val picked = voices.getOrNull(index)
-            // 选「自定义」时保留当前值不动，让下面的输入框接管。
-            if (picked != null) store.updateDraft { it.withVoice(picked.name) }
+    val presetIds: List<Pair<String, String>> = when (provider) {
+        null, TtsProvider.NONE -> emptyList()
+        TtsProvider.SYSTEM -> systemVoices.map { it.name to it.label }
+        else -> SpeechVoicePresets.forProvider(provider).map { it.id to stringResource(it.name) }
+    }
+    when {
+        provider == null || provider == TtsProvider.NONE -> CharacterPageMessage(
+            stringResource(R.string.character_voice_follow_global_hint),
+        )
+        provider == TtsProvider.SYSTEM && loading -> CharacterPageMessage(
+            stringResource(R.string.character_voice_loading),
+        )
+        provider == TtsProvider.SYSTEM && failed -> CharacterPageMessage(
+            stringResource(R.string.character_voice_load_failed),
+        )
+        provider == TtsProvider.SYSTEM && systemVoices.isEmpty() -> CharacterPageMessage(
+            stringResource(R.string.character_voice_empty),
+        )
+        else -> {
+            val customLabel = stringResource(R.string.character_voice_custom)
+            val labels = presetIds.map { it.second } + customLabel
+            val selectedIndex = presetIds.indexOfFirst { it.first == voice }.takeIf { it >= 0 } ?: presetIds.size
+            val onSelect: (Int) -> Unit = { index ->
+                val picked = presetIds.getOrNull(index)
+                // 选「自定义」时保留当前值不动，让下面的输入框接管。
+                if (picked != null) {
+                    store.updateDraft { it.withVoice(picked.first, provider.name) }
+                }
+            }
+            if (uiStyle == AppearanceUiStyle.COUI) {
+                CouiDropdownPreference(
+                    title = stringResource(R.string.character_field_voice),
+                    items = labels,
+                    selectedIndex = selectedIndex,
+                    onSelectedIndexChange = onSelect,
+                )
+            } else {
+                EtaGlassSpinnerPreference(
+                    title = stringResource(R.string.character_field_voice),
+                    items = labels.map { DropdownItem(text = it) },
+                    selectedIndex = selectedIndex,
+                    onSelectedIndexChange = onSelect,
+                )
+            }
         }
-        if (uiStyle == AppearanceUiStyle.COUI) {
-            CouiDropdownPreference(
-                title = stringResource(R.string.character_field_voice),
-                items = labels,
-                selectedIndex = selectedIndex,
-                onSelectedIndexChange = onSelect,
-            )
-        } else {
-            EtaGlassSpinnerPreference(
-                title = stringResource(R.string.character_field_voice),
-                items = labels.map { DropdownItem(text = it) },
-                selectedIndex = selectedIndex,
-                onSelectedIndexChange = onSelect,
-            )
-        }
-    } else if (loading) {
-        CharacterPageMessage(stringResource(R.string.character_voice_loading))
-    } else if (failed) {
-        CharacterPageMessage(stringResource(R.string.character_voice_load_failed))
-    } else {
-        CharacterPageMessage(stringResource(R.string.character_voice_empty))
     }
     CharacterTextField(
         label = stringResource(R.string.character_field_voice),
         value = voice,
-        onChange = { value -> store.updateDraft { it.withVoice(value) } },
+        onChange = { value -> store.updateDraft { it.withVoice(value, card.voiceProvider) } },
         enabled = !store.busy,
         singleLine = true,
         minLines = 1,
     )
-    CharacterPageMessage(hint)
+    CharacterPageMessage(stringResource(R.string.character_voice_hint))
 }
 
 @Composable
-internal fun CharacterSectionHeader(text: String) {    if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+internal fun CharacterSectionHeader(text: String) {
+    if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
         CouiSectionTitle(text = text)
     } else {
         SmallTitle(text)

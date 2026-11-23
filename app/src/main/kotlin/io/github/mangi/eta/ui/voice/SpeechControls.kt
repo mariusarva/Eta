@@ -769,6 +769,7 @@ internal fun SpeechAutoReadAloud(messages: List<AgentChatMessageUi>, isStreaming
     val controller = LocalSpeechPlayback.current ?: return
     // CompositionLocal 只能在 @Composable 上下文读取，先在这里取出来给 LaunchedEffect 用。
     val characterVoice = LocalRoleplayChat.current?.voiceId
+    val characterProvider = LocalRoleplayChat.current?.voiceProvider
     val settings by remember { SpeechSettingsRepository.settingsFlow() }.collectAsState(initial = null)
     val enabled = settings?.let { it.chatAutoSpeak && it.tts != TtsProvider.NONE } == true
     var watchedId by remember { mutableStateOf<String?>(null) }
@@ -791,7 +792,12 @@ internal fun SpeechAutoReadAloud(messages: List<AgentChatMessageUi>, isStreaming
             it is SystemNoticeMessageUi && it.code in setOf(SystemNoticeCode.Stopped, SystemNoticeCode.RuntimeFailed)
         }
         if (!interrupted && answer.content.isNotBlank()) {
-            controller.speak(answer.id, answer.content, voiceOverride = characterVoice)
+            controller.speak(
+                answer.id,
+                answer.content,
+                voiceOverride = characterVoice,
+                providerOverride = characterProvider,
+            )
         }
     }
     // 关闭自动朗读视同“别再读了”，正在进行的朗读一并停止。
@@ -848,15 +854,20 @@ internal fun SpeechReadAloudButton(messageId: String, text: String) {
     if (!LocalSpeechPlaybackEnabled.current) return
     val state by controller.state.collectAsState()
     val active = state.messageId == messageId
-    // 角色对话用角色卡音色，普通对话用全局音色。
-    val characterVoice = LocalRoleplayChat.current?.voiceId
+    // 角色对话用角色卡的服务商与音色，普通对话用全局设置。
+    val character = LocalRoleplayChat.current
     AnswerActionButton(
         icon = if (active) ChatActionIcons.Stop else ChatActionIcons.Volume,
         contentDescription = stringResource(
             if (active) R.string.speech_read_stop else R.string.speech_read_aloud,
         ),
         onClick = {
-            if (active) controller.stop() else controller.speak(messageId, text, voiceOverride = characterVoice)
+            if (active) controller.stop() else controller.speak(
+                messageId,
+                text,
+                voiceOverride = character?.voiceId,
+                providerOverride = character?.voiceProvider,
+            )
         },
         tint = if (active) MiuixTheme.colorScheme.primary else null,
     )

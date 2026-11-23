@@ -195,7 +195,7 @@ internal object CharacterRepository {
         )
         val persona = persona()
         return RoleplayBinding(profile.id, CharacterCardCodec.encodeJson(profile.card), profile.card.name,
-            profile.avatarPath, persona.name, persona.description, profile.card.voiceId)
+            profile.avatarPath, persona.name, persona.description, profile.card.voiceId, profile.card.voiceProvider)
     }
 
     internal fun avatarBytes(path: String?): ByteArray? {

@@ -161,24 +161,31 @@ data class SpeechSettings(
     }
 
     /**
-     * 用角色卡指定的音色覆盖当前 TTS 提供方的音色字段；voiceId 为空时原样返回。
-     * 角色音色是跨提供方的裸 id，因此只在同一提供方内生效：id 与该提供方预设不匹配时
-     * 仍然写入，由服务端返回参数错误，避免静默退回全局音色让人误以为设置没生效。
+     * 用角色卡指定的服务商与音色覆盖朗读配置；两者都为空时原样返回。
+     *
+     * 服务商与音色必须成对覆盖：音色 id 是各家自己的标识（`Cherry` 是千问、
+     * `zh_female_vv_uranus_bigtts` 是豆包），只覆盖音色会在全局切换服务商后失效。
+     * providerName 无法解析成枚举时退回只覆盖音色，避免旧卡里的未知值让朗读整体失效。
      */
-    fun withVoiceOverride(voiceId: String?): SpeechSettings {
+    fun withVoiceOverride(voiceId: String?, providerName: String? = null): SpeechSettings {
         val id = voiceId?.trim().orEmpty()
-        if (id.isEmpty()) return this
-        return when (tts) {
-            TtsProvider.QWEN -> copy(qwenVoice = id)
-            TtsProvider.DOUBAO -> copy(doubaoVoice = id)
-            TtsProvider.GEMINI -> copy(geminiTts = geminiTts.copy(voice = id))
-            TtsProvider.MINIMAX -> copy(minimaxTts = minimaxTts.copy(voice = id))
-            TtsProvider.MIMO -> copy(mimoTts = mimoTts.copy(voice = id))
-            TtsProvider.DEEPSEEK -> copy(deepseekTts = deepseekTts.copy(voice = id))
-            // 系统 TTS 的音色就是引擎声明的 Voice.name，可直接用角色卡的音色 id 覆盖。
-            TtsProvider.SYSTEM -> copy(systemTts = systemTts.copy(voiceName = id))
-            TtsProvider.NONE -> this
-        }
+        val provider = providerName?.trim()
+            ?.let { name -> TtsProvider.entries.firstOrNull { it.name.equals(name, ignoreCase = true) } }
+        val base = if (provider != null && provider != TtsProvider.NONE) copy(tts = provider) else this
+        if (id.isEmpty()) return base
+        return base.withVoiceId(id)
+    }
+
+    private fun withVoiceId(id: String): SpeechSettings = when (tts) {
+        TtsProvider.QWEN -> copy(qwenVoice = id)
+        TtsProvider.DOUBAO -> copy(doubaoVoice = id)
+        TtsProvider.GEMINI -> copy(geminiTts = geminiTts.copy(voice = id))
+        TtsProvider.MINIMAX -> copy(minimaxTts = minimaxTts.copy(voice = id))
+        TtsProvider.MIMO -> copy(mimoTts = mimoTts.copy(voice = id))
+        TtsProvider.DEEPSEEK -> copy(deepseekTts = deepseekTts.copy(voice = id))
+        // 系统 TTS 的音色就是引擎声明的 Voice.name，可直接用角色卡的音色 id 覆盖。
+        TtsProvider.SYSTEM -> copy(systemTts = systemTts.copy(voiceName = id))
+        TtsProvider.NONE -> this
     }
 }
 

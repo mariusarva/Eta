@@ -191,4 +191,7 @@
   <string name="character_voice_loading">正在讀取系統音色清單…</string>
   <string name="character_voice_load_failed">讀取系統音色失敗，可在下方手填音色 ID。</string>
   <string name="character_voice_empty">沒有找到已安裝的離線音色。可在系統文字轉語音設定中安裝語音資料，或在下方手填音色 ID。</string>
+  <string name="character_field_voice_provider">朗讀服務商</string>
+  <string name="character_voice_follow_global">跟隨全域設定</string>
+  <string name="character_voice_follow_global_hint">跟隨設定裡的語音播報服務商與音色。</string>
 </resources>

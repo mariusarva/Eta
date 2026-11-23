@@ -193,4 +193,7 @@
   <string name="character_voice_loading">Reading system voice list…</string>
   <string name="character_voice_load_failed">Could not read the system voice list. Type a voice ID below.</string>
   <string name="character_voice_empty">No installed offline voice found. Install voice data in system text-to-speech settings, or type a voice ID.</string>
+  <string name="character_field_voice_provider">TTS provider</string>
+  <string name="character_voice_follow_global">Follow global setting</string>
+  <string name="character_voice_follow_global_hint">Follows the global speech synthesis provider and voice.</string>
 </resources>

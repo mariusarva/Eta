@@ -40,6 +40,8 @@ internal data class RoleplayChatUi(
     val userName: String,
     /** 角色卡指定的朗读音色；为空时朗读跟随全局语音设置。 */
     val voiceId: String? = null,
+    /** 角色卡指定的朗读服务商（TtsProvider 名）；与 voiceId 成对使用。 */
+    val voiceProvider: String? = null,
 )
 
 /** 当前对话绑定的角色；普通 Agent 对话为 null，消息与空态据此切换为角色样式。 */

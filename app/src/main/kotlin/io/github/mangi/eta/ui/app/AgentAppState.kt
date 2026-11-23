@@ -2308,6 +2308,7 @@ internal class AgentAppState(
                             cardSnapshotJson = CharacterCardCodec.encodeJson(profile.card),
                             characterName = profile.card.name, avatarPath = profile.avatarPath,
                             voiceId = profile.card.voiceId,
+                            voiceProvider = profile.card.voiceProvider,
                         )
                         val saved = withContext(Dispatchers.Main) {
                             conversationsById[conversationId]?.let { current ->

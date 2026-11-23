@@ -53,6 +53,7 @@ internal class SpeechPlaybackController(
         settings: SpeechSettings? = null,
         credentials: SpeechCredentials? = null,
         voiceOverride: String? = null,
+        providerOverride: String? = null,
     ) {
         stop()
         val session = generation
@@ -63,8 +64,8 @@ internal class SpeechPlaybackController(
                 val rawConfig = settings ?: SpeechSettingsRepository.settings()
                 val rawSecrets = credentials ?: SpeechSettingsRepository.credentials(context)
                 val (resolvedConfig, secrets) = SpeechSettingsRepository.resolveDeepSeekFallback(rawConfig, rawSecrets)
-                // 角色卡音色覆盖全局音色；为空时保持全局设置。
-                val config = resolvedConfig.withVoiceOverride(voiceOverride)
+                // 角色卡的服务商与音色成对覆盖全局设置；都为空时保持全局设置。
+                val config = resolvedConfig.withVoiceOverride(voiceOverride, providerOverride)
                 validateSpeechSettings(config, secrets, synthesis = true)
                 val readable = withContext(Dispatchers.Default) { SpeechText.readable(text) }
                 if (readable.isBlank()) {

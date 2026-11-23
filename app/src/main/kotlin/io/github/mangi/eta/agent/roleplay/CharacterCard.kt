@@ -18,6 +18,8 @@ internal data class RoleplayBinding(
     val userDescription: String = "",
     /** 绑定时的角色音色快照；为空表示该角色没设，朗读跟随全局设置。 */
     val voiceId: String? = null,
+    /** 绑定时的角色朗读服务商（TtsProvider 名）；与 voiceId 成对使用。 */
+    val voiceProvider: String? = null,
 )
 
 @Serializable
@@ -85,10 +87,21 @@ internal data class CharacterCard(val raw: JsonObject) {
     val voiceId: String?
         get() = (extensions["eta_voice"] as? JsonPrimitive)?.contentOrNull?.trim()?.ifEmpty { null }
 
-    fun withVoice(voiceId: String?): CharacterCard {
+    /**
+     * 角色专属朗读服务商，记在 extensions.eta_tts_provider（TtsProvider 名）。
+     * 与 [voiceId] 成对使用：音色 id 是各家服务商自己的标识，换了服务商就换了一套 id，
+     * 只记音色不记服务商会让角色音色在全局切换服务商后失效。
+     */
+    val voiceProvider: String?
+        get() = (extensions["eta_tts_provider"] as? JsonPrimitive)?.contentOrNull?.trim()?.ifEmpty { null }
+
+    fun withVoice(voiceId: String?, provider: String? = voiceProvider): CharacterCard {
         val value = voiceId?.trim().orEmpty()
+        val providerValue = provider?.trim().orEmpty()
         val updatedExtensions = JsonObject(extensions.toMutableMap().apply {
             if (value.isEmpty()) remove("eta_voice") else put("eta_voice", JsonPrimitive(value))
+            if (providerValue.isEmpty()) remove("eta_tts_provider")
+            else put("eta_tts_provider", JsonPrimitive(providerValue))
         })
         val updatedData = JsonObject(data.toMutableMap().apply { put("extensions", updatedExtensions) })
         return CharacterCard(JsonObject(raw.toMutableMap().apply {

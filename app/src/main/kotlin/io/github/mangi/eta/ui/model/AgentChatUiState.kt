@@ -251,5 +251,6 @@ internal fun AgentChatHomeUiState.roleplayChatUi(): RoleplayChatUi? = roleplay?.
         avatarPath = it.avatarPath,
         userName = it.userName,
         voiceId = it.voiceId,
+        voiceProvider = it.voiceProvider,
     )
 }
