@@ -8,6 +8,48 @@
 
 ---
 
+## fork.82 – fork.85（2026-11-23）主题收尾：GitHub 页与弹窗
+
+fork.81 之后按「GitHub 页面没有接入莫奈」「轮次列表这种弹出窗口也要接入」两条反馈继续。
+
+### 改动
+
+| 版本 | 内容 |
+|---|---|
+| fork.82 | **GitHub 账号页补 MIUIX 版式**。该页此前只写 COUI 版式，MIUIX 样式下渲染 `CouiScaffoldPage`/`CouiPreferenceGroup`，取 COUI 基线色，拿不到 Monet。按 `when (LocalUiStyle.current)` 拆两分支，MIUIX 用 `MiuixScaffoldPage` + `Card` + `ArrowPreference`/`BasicComponent`/`SwitchPreference`/`SmallTitle`/`HorizontalDivider`，覆盖未连接、申请设备码、等待验证码、已连接、失败五态 |
+| fork.83 | **弹窗/浮层底色改用主题合成**。新增 `OpaqueSurfaces.kt`：`opaqueThemedSurface()` 把主题容器色按自身 alpha 合成到 `background`，等价不透明且保留色相。替换 4 处写死的绝对色：轮次列表（`#F7F7FA`/`#1C1C1E`）、角色选择弹窗、侧栏对话框、分类弹窗（均为 `#FFFFFF`/`#2A2A2E`） |
+| fork.85 | 检查脚本 E4 扩展到 13 个 `Modifier.xxx` 扩展函数 |
+
+### 为什么弹窗底色要特殊处理
+
+Miuix 的 `surface` / `surfaceContainer` 系列在深色下带 alpha（MD3 容器色本就是叠加色），直接当弹窗底色会透出下层列表，文字糊成一片。早期各处用写死的白/灰兜底，能挡住透底但**绕过了 Monet**。合成法同时满足两个约束：不透明 + 跟随色相。alpha 为 1 时结果即原色，无偏移。
+
+### 排查方法修正
+
+fork.81 的脚本把 `AgentBrowserScreen`、`AgentMemoryScreen`、`UserTerminalScreen`、`AgentToolsScreen` 误判为「缺 MIUIX 版式」——它们实际都写了 `when (LocalUiStyle.current) { COUI -> ...; MIUIX -> ... }`，只是主体内容共用 `pageContent(modifier)`，没有各自调 `MiuixScaffoldPage`。W1 规则改为「既无 `MiuixScaffoldPage` 也无任何样式分支」才报警。`AgentHomeScreen` 只转发 state 给 `AgentChatBody`，加入 `PURE_CONTAINER_SCREENS` 白名单。
+
+### 检查脚本当前规则
+
+| 规则 | 级别 | 内容 |
+|---|---|---|
+| E1 | 错误 | `AgentAppTheme` 之外直接构造 COUI 基线配色 |
+| E2 | 错误 | 页面用固定 hex 且无明暗分支 |
+| E3 | 错误 | 弹窗/浮层用固定 hex 当底色 |
+| E4 | 错误 | `@Composable` 文件用了 `Modifier`/`dp`/`sp`/`Spacer` 或 13 个 `Modifier.xxx` 扩展却缺 import |
+| W1 | 警告 | COUI 页面既无 MIUIX 版式也无样式分支 |
+| W2 | 警告 | 无主题色引用也无 Scaffold |
+
+当前 47 个页面：**0 错误 0 警告**。
+
+### 这一段踩到的坑
+
+- **连续两次因漏 import 挂构建**（fork.82 漏 `Modifier`/`dp`，fork.84 漏 `padding`）。编译器一次只报一批，人肉逐个补效率极低——这是 E4 规则存在的理由。
+- **E4 第一版误报 4 个 xposed 文件**：`dp` 被当成参数名 `dp: Int` 匹配、`Modifier` 出现在注释里。修法是加 `strip_comments()` 去掉注释与字符串字面量，且 `dp`/`sp` 用 `(?<![\w.])` + `(?![\w:])` 双重边界。
+- **`__pycache__` 会跟着 `git add -A` 进仓库**，`.gitignore` 要显式加一条。
+- 脚本跑得比编译快，把低级错误挡在 CI 之前能省一整轮 6–8 分钟的构建。
+
+---
+
 ## fork.75 – fork.81（2026-11-23）主题：深色模式与 Monet 取色排查
 
 按「排查哪个页面没适配夜间/日间模式」的要求做的一轮全量审计。

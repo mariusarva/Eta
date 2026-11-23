@@ -37,7 +37,8 @@ app/src/main/kotlin/io/github/mangi/eta/ui/components/CapabilityCapsule.kt
 app/src/main/kotlin/io/github/mangi/eta/ui/components/ChatTurnNavigator.kt
 app/src/main/kotlin/io/github/mangi/eta/agent/roleplay/CharacterAvatarKind.kt  头像类型识别（魔数）
 app/src/main/kotlin/io/github/mangi/eta/ui/components/CharacterAnimatedAvatar.kt 动图/视频头像播放层
-scripts/check-theme-coverage.py                                   主题覆盖检查（明暗 + Monet）
+app/src/main/kotlin/io/github/mangi/eta/ui/components/OpaqueSurfaces.kt        弹窗不透明底色（主题合成）
+scripts/check-theme-coverage.py                                   主题覆盖检查（明暗 + Monet + import）
 app/src/main/assets/prompt_presets/                              7 个预设
 app/src/main/assets/local_speech/                                模型清单 + 许可证
 app/src/main/jniLibs/arm64-v8a/                                  7 个离线语音 so
@@ -180,6 +181,8 @@ pm install -r -d /data/local/tmp/eta-forkN.apk
 | MIUIX 样式下某页没有 Monet 取色 | 同上：该页只渲染 COUI 组件，从不读 `MiuixTheme`。需补 MIUIX 分支 |
 | COUI 想接 Monet 报 `colorsFromSeed is internal` | COUI 只暴露 `ThemeController`，`colorsFromSeed`/`monetSystemColors` 都是 internal |
 | R8 报 `Missing class com.materialkolor.scheme.DynamicScheme` | COUI 要 material-color-utilities 5.0.0（`scheme.*`），Miuix 要 6.0.0（`dynamiccolor.*`），不能共存；升级任一库前先对齐版本 |
+| 弹窗底色写死 `#FFFFFF` / `#2A2A2E` 后不跟 Monet | 用 `opaqueThemedSurface()`：把主题容器色按自身 alpha 合成到 `background`，不透明且保留色相 |
+| 补版式后 CI 报一批 `Unresolved reference` | 多半是漏 import（`Modifier`/`dp`/`padding`）。跑 `scripts/check-theme-coverage.py` 的 E4 规则先自查 |
 
 ---
 
