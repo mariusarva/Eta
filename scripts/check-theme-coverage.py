@@ -13,6 +13,8 @@ lightColorScheme()/darkColorScheme()，完全不响应 Monet 取色。这两类�
       （确实不随主题变的品牌/语义色请加入 ALLOWED_FIXED_COLOR_FILES 并注明原因）。
   E3  弹窗/浮层用固定 hex 当底色。这是错误：写死的白/灰不跟随 Monet，
       应改用 opaqueThemedSurface() / opaquePageSurface()（见 OpaqueSurfaces.kt）。
+  E4  页面用了 Modifier / dp / Spacer 等基础符号但没有对应 import。这是错误：
+      CI 编译会失败（曾因 GitHub 账号页补版式时漏 Modifier/dp 而挂过一次）。
   W1  页面用了 COUI 组件，但既没有 MiuixScaffoldPage 也没有任何 uiStyle 分支。
       这类页面在 MIUIX 样式下仍渲染 COUI 组件，拿不到 Miuix 的 Monet 配色。
   W2  页面既无主题色引用也无 Scaffold，可能把配色完全交给子组件（多为误报，
@@ -54,6 +56,36 @@ errors: list[str] = []
 warnings: list[str] = []
 
 
+def strip_comments(src: str) -> str:
+    """去掉 // 与 /* */ 注释和字符串字面量，避免注释里的词被当成代码使用。"""
+    out = []
+    i, n = 0, len(src)
+    while i < n:
+        c = src[i]
+        if c == "/" and i + 1 < n and src[i + 1] == "/":
+            j = src.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        if c == "/" and i + 1 < n and src[i + 1] == "*":
+            j = src.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+            continue
+        if c == '"':
+            i += 1
+            while i < n:
+                if src[i] == "\\":
+                    i += 2
+                    continue
+                if src[i] == '"':
+                    i += 1
+                    break
+                i += 1
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
 def check_screen(path: Path) -> None:
     src = path.read_text(encoding="utf-8")
     name = path.name
@@ -93,6 +125,39 @@ def check_screen(path: Path) -> None:
     # W2：完全没有主题色引用
     if not themed and not has_scaffold and name not in PURE_CONTAINER_SCREENS:
         warnings.append(f"W2 {name}: 未引用主题色也无 Scaffold，确认配色是否都由子组件负责")
+
+
+# 基础符号 → 必需 import 的映射；只在源码里出现该符号时才检查。
+REQUIRED_IMPORTS = {
+    "Modifier": "import androidx.compose.ui.Modifier",
+    "dp": "import androidx.compose.ui.unit.dp",
+    "sp": "import androidx.compose.ui.unit.sp",
+    "Spacer": "import androidx.compose.foundation.layout.Spacer",
+}
+
+
+def check_missing_imports() -> None:
+    """E4：用了基础符号却没有对应 import，编译必然失败。
+
+    主题检查脚本跑得比编译快，把这类低级错误挡在 CI 之前。
+    用词边界匹配，避免把 "dpi"/"Modifier.xyz 之外的词" 误判。
+    """
+    for path in sorted(UI.rglob("*.kt")):
+        src = path.read_text(encoding="utf-8")
+        # 只检查 Compose 文件：没有 @Composable 的文件不会用到这些符号
+        if "@Composable" not in src:
+            continue
+        code = strip_comments(src)
+        for symbol, imp in REQUIRED_IMPORTS.items():
+            if imp in src:
+                continue
+            if symbol in ("dp", "sp"):
+                # 要求前面是空白、括号或运算符，排除 `dp: Int` 这种参数名与 a.dp
+                used = re.search(r"(?<![\w.])" + symbol + r"(?![\w:])", code)
+            else:
+                used = re.search(r"\b" + symbol + r"\b", code)
+            if used:
+                errors.append(f"E4 {path.name}: 用了 {symbol} 但缺少 {imp}")
 
 
 def check_dialog_backgrounds() -> None:
@@ -148,6 +213,7 @@ def main() -> int:
         check_screen(screen)
     check_no_bypass()
     check_dialog_backgrounds()
+    check_missing_imports()
 
     print(f"检查 {len(screens)} 个页面")
     for item in warnings:

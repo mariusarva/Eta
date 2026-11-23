@@ -32,6 +32,8 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
 /** 账号页图标色：与设置页保持一致的蓝。 */
 private object GitHubIconColors {
