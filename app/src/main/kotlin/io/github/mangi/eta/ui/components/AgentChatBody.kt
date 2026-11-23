@@ -134,7 +134,6 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.ui.zIndex
-import androidx.compose.foundation.layout.offset
 import kotlin.math.exp
 import kotlin.math.min
 import io.github.suqi8.coui.kmp.basic.IconButton as CouiIconButton
@@ -446,16 +445,6 @@ private fun AgentChatScaffold(
         ),
         bottomBar = {
             Column(modifier = Modifier.fillMaxWidth()) {
-            // 轮次横条放在输入栏正上方：消息区里 align 到 Box 底部时会被输入栏吃掉，
-            // 放在 bottomBar 里则跟着输入栏一起排，任何屏幕高度都看得见。
-            ChatTurnNavigator(
-                messages = visibleMessages,
-                allTurns = allTurns,
-                onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
-                onJumpToMessage = onJumpRequest,
-                // 视觉上再往下贴：横条与输入框之间原本隔着输入栏的 14dp 顶部内边距。
-                modifier = Modifier.offset(y = 10.dp),
-            )
             AgentChatBottomBar(
                 input = input,
                 isCompacting = isCompacting,
@@ -492,6 +481,15 @@ private fun AgentChatScaffold(
                 onAttachFilePath = onAttachFilePath,
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
+                // 轮次横条放进输入栏上沿的左侧插槽：与能力胶囊同一行、左对齐。
+                topStartSlot = {
+                    ChatTurnNavigator(
+                        messages = visibleMessages,
+                        allTurns = allTurns,
+                        onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
+                        onJumpToMessage = onJumpRequest,
+                    )
+                },
             )
             }
         },
@@ -1203,6 +1201,7 @@ private fun AgentChatBottomBar(
     onAttachFilePath: (String) -> Unit,
     onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
+    topStartSlot: (@Composable () -> Unit)? = null,
 ) {
     val surface = MiuixTheme.colorScheme.surface
     val bottomBarInsets = rememberFloatingBottomBarInsets(
@@ -1271,6 +1270,7 @@ private fun AgentChatBottomBar(
                 onCancelMessageEdit = onCancelMessageEdit,
                 glassBackdrop = glassBackdrop,
                 couiBackdrop = couiBackdrop,
+                topStartSlot = topStartSlot,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

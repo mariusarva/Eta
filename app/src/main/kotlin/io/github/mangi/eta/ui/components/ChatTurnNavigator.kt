@@ -141,7 +141,12 @@ internal fun ChatTurnNavigator(
         }
     }
 
-    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+    // 未展开时只占把手宽度并靠左（放进输入栏上沿插槽，与能力胶囊同一行）；
+    // 展开后的面板自己 fillMaxWidth，仍铺满整行。
+    Box(
+        modifier = if (expanded) modifier.fillMaxWidth() else modifier,
+        contentAlignment = if (expanded) Alignment.BottomCenter else Alignment.CenterStart,
+    ) {
         // 展开后的轮次面板
         AnimatedVisibility(
             visible = expanded,
