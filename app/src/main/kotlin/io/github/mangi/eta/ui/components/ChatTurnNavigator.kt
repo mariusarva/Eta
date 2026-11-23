@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -114,9 +115,71 @@ internal fun List<AgentChatMessageUi>.toChatTurns(): List<ChatTurnEntry> {
  *
  * 点击任一轮滚到该轮用户消息；横条本身不占内容区点击范围。
  */
+/**
+ * 轮次导航的共享状态：把手在输入栏上沿左侧、面板在 bottomBar 里铺满整行，
+ * 两处必须读同一份 expanded，否则点把手面板不会出现。
+ */
+@Stable
+internal class ChatTurnNavigatorState {
+    var expanded by mutableStateOf(false)
+    var pendingDeleteTurn by mutableStateOf<ChatTurnEntry?>(null)
+}
+
 @Composable
-internal fun ChatTurnNavigator(
+internal fun rememberChatTurnNavigatorState(): ChatTurnNavigatorState =
+    remember { ChatTurnNavigatorState() }
+
+/** 把手：输入框上沿左侧的小横条，与能力胶囊同一行、左对齐。 */
+@Composable
+internal fun ChatTurnHandle(
+    turns: List<ChatTurnEntry>,
+    state: ChatTurnNavigatorState,
+    modifier: Modifier = Modifier,
+) {
+    if (turns.isEmpty()) return
+    val haptics = LocalHapticFeedback.current
+    Box(
+        modifier = modifier
+            .width(96.dp)
+            .heightIn(min = 18.dp)
+            .semantics { contentDescription = if (state.expanded) "收起对话轮次" else "展开对话轮次" }
+            .pointerInput(state.expanded) {
+                detectVerticalDragGestures { change, dragAmount ->
+                    change.consume()
+                    if (dragAmount < -6f && !state.expanded) {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        state.expanded = true
+                    } else if (dragAmount > 6f && state.expanded) {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        state.expanded = false
+                    }
+                }
+            }
+            .clickable(
+                interactionSource = null,
+                indication = null,
+                onClickLabel = if (state.expanded) "收起对话轮次" else "展开对话轮次",
+            ) {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                state.expanded = !state.expanded
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(44.dp)
+                .height(5.dp)
+                .clip(CircleShape)
+                .background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.42f)),
+        )
+    }
+}
+
+/** 面板：展开后的轮次列表，放在 bottomBar 里铺满整行（保持原宽度）。 */
+@Composable
+internal fun ChatTurnPanel(
     messages: List<AgentChatMessageUi>,
+    state: ChatTurnNavigatorState,
     onJumpToMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
     allTurns: List<ChatTurnEntry> = emptyList(),
@@ -126,13 +189,12 @@ internal fun ChatTurnNavigator(
     val turns = remember(messages, allTurns) {
         if (allTurns.isNotEmpty()) allTurns else messages.toChatTurns()
     }
-    var expanded by remember { mutableStateOf(false) }
-    // 删除会连带这一轮之后的所有轮次（与消息菜单里的「删除本轮」同一语义），所以先确认。
-    var pendingDeleteTurn by remember { mutableStateOf<ChatTurnEntry?>(null) }
+    val expanded = state.expanded
+    val pendingDeleteTurn = state.pendingDeleteTurn
     val haptics = LocalHapticFeedback.current
     val listState = rememberLazyListState()
 
-    // 没有任何轮次时才不显示：只要求有一轮就给一个可上拉查看的把手。
+    // 没有任何轮次时不渲染。
     if (turns.isEmpty()) return
 
     LaunchedEffect(expanded) {
@@ -141,13 +203,8 @@ internal fun ChatTurnNavigator(
         }
     }
 
-    // 未展开时只占把手宽度并靠左（放进输入栏上沿插槽，与能力胶囊同一行）；
-    // 展开后的面板自己 fillMaxWidth，仍铺满整行。
-    Box(
-        modifier = if (expanded) modifier.fillMaxWidth() else modifier,
-        contentAlignment = if (expanded) Alignment.BottomCenter else Alignment.CenterStart,
-    ) {
-        // 展开后的轮次面板
+    // 面板放在 bottomBar 里，铺满整行——与改造前一致，不再受输入栏插槽宽度限制。
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
         AnimatedVisibility(
             visible = expanded,
             enter = fadeIn(tween(140)) + slideInVertically(tween(200)) { it / 3 },
@@ -212,7 +269,7 @@ internal fun ChatTurnNavigator(
                                     .clickable(onClickLabel = "跳到第 ${position + 1} 轮") {
                                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                         onJumpToMessage(turn.firstMessageId)
-                                        expanded = false
+                                        state.expanded = false
                                     }
                                     .padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -260,7 +317,7 @@ internal fun ChatTurnNavigator(
                                     .clip(CircleShape)
                                     .clickable(role = Role.Button) {
                                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        pendingDeleteTurn = turn
+                                        state.pendingDeleteTurn = turn
                                     },
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -277,43 +334,6 @@ internal fun ChatTurnNavigator(
                 Spacer(Modifier.size(4.dp))
             }
         }
-
-        // 底部小横条：向上拖或轻点展开/收起
-        Box(
-            modifier = Modifier
-                .width(96.dp)
-                .heightIn(min = 18.dp)
-                .semantics { contentDescription = if (expanded) "收起对话轮次" else "展开对话轮次" }
-                .pointerInput(expanded) {
-                    detectVerticalDragGestures { change, dragAmount ->
-                        change.consume()
-                        if (dragAmount < -6f && !expanded) {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            expanded = true
-                        } else if (dragAmount > 6f && expanded) {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            expanded = false
-                        }
-                    }
-                }
-                .clickable(
-                    interactionSource = null,
-                    indication = null,
-                    onClickLabel = if (expanded) "收起对话轮次" else "展开对话轮次",
-                ) {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    expanded = !expanded
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(44.dp)
-                    .height(5.dp)
-                    .clip(CircleShape)
-                    .background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.42f)),
-            )
-        }
     }
 
     pendingDeleteTurn?.let { turn ->
@@ -322,7 +342,7 @@ internal fun ChatTurnNavigator(
         EtaWindowDialog(
             show = true,
             title = "删除第 " + (turns.indexOfFirst { it.firstMessageId == turn.firstMessageId } + 1) + " 轮",
-            onDismissRequest = { pendingDeleteTurn = null },
+            onDismissRequest = { state.pendingDeleteTurn = null },
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
@@ -339,14 +359,14 @@ internal fun ChatTurnNavigator(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
-                    TurnChip(text = "取消", onClick = { pendingDeleteTurn = null })
+                    TurnChip(text = "取消", onClick = { state.pendingDeleteTurn = null })
                     Spacer(Modifier.width(8.dp))
                     TurnChip(
                         text = "删除",
                         onClick = {
                             val id = turn.firstMessageId
-                            pendingDeleteTurn = null
-                            expanded = false
+                            state.pendingDeleteTurn = null
+                            state.expanded = false
                             onDeleteTurn(id)
                         },
                     )

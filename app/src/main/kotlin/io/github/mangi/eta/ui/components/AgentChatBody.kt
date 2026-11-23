@@ -434,6 +434,9 @@ private fun AgentChatScaffold(
     val couiChatBackdrop = if (isCoui) rememberCouiPageBackdrop(CouiTheme.colorScheme.backgroundWithCard) else null
     val couiCapture = if (couiChatBackdrop == null) Modifier else Modifier.layerBackdrop(couiChatBackdrop)
 
+    // 把手与面板分处两行，共享同一份展开状态。
+    val turnNavigatorState = rememberChatTurnNavigatorState()
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = Color.Transparent,
@@ -445,6 +448,14 @@ private fun AgentChatScaffold(
         ),
         bottomBar = {
             Column(modifier = Modifier.fillMaxWidth()) {
+            // 展开的轮次面板放在这里，铺满整行（与改造前一致）。
+            ChatTurnPanel(
+                messages = visibleMessages,
+                state = turnNavigatorState,
+                onJumpToMessage = onJumpRequest,
+                allTurns = allTurns,
+                onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
+            )
             AgentChatBottomBar(
                 input = input,
                 isCompacting = isCompacting,
@@ -481,13 +492,13 @@ private fun AgentChatScaffold(
                 onAttachFilePath = onAttachFilePath,
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
-                // 轮次横条放进输入栏上沿的左侧插槽：与能力胶囊同一行、左对齐。
+                // 只有把手进插槽（与能力胶囊同一行、左对齐）；面板在 bottomBar 里铺满整行。
                 topStartSlot = {
-                    ChatTurnNavigator(
-                        messages = visibleMessages,
-                        allTurns = allTurns,
-                        onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
-                        onJumpToMessage = onJumpRequest,
+                    ChatTurnHandle(
+                        turns = remember(visibleMessages, allTurns) {
+                            if (allTurns.isNotEmpty()) allTurns else visibleMessages.toChatTurns()
+                        },
+                        state = turnNavigatorState,
                     )
                 },
             )
