@@ -10,8 +10,10 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.Serializable
 
 @Entity(tableName = "mcp_servers")
+@Serializable
 internal data class McpServerEntity(
     @PrimaryKey val id: String,
     val name: String,

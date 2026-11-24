@@ -785,7 +785,8 @@ private fun AutoBackupHistoryList(
 /** 自动备份状态一行文案：优先显示失败原因，其次显示上次成功时间。 */
 private fun autoStatusLabel(settings: AutoBackupSettings): String = when {
     settings.lastError.isNotBlank() -> "上次失败：${settings.lastError}"
-    settings.lastAt > 0L -> "上次备份：" + SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
+    // 带年份：跨年备份只看 MM-dd 会误读。
+    settings.lastAt > 0L -> "上次备份：" + SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
         .format(Date(settings.lastAt))
     else -> "还没有备份过。"
 }

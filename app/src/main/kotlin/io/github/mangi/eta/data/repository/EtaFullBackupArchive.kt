@@ -75,6 +75,9 @@ internal object EtaFullBackupArchive {
         var fileCount = 0
         var byteCount = 0L
         var conversations = 0
+        // 复制 databases/ 前必须把 WAL 落盘：否则 eta.db 是旧快照、新数据还在 -wal 里，
+        // 而恢复端会删掉 -wal（避免旧库配新日志），那部分数据就丢了。
+        EtaDatabase.checkpointForBackup(appContext)
         val zip = ZipOutputStream(output.buffered(), Charsets.UTF_8)
         try {
             onPhase("full_json")

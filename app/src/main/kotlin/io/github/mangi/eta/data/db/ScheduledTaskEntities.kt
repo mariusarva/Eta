@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 @Entity(
     tableName = "scheduled_tasks",
@@ -12,6 +13,7 @@ import androidx.room.PrimaryKey
         Index(value = ["enabled", "next_run_at"]),
     ],
 )
+@Serializable
 internal data class ScheduledTaskEntity(
     @PrimaryKey val id: String,
     val name: String,
@@ -57,6 +59,7 @@ internal data class ScheduledTaskEntity(
         Index(value = ["status"]),
     ],
 )
+@Serializable
 internal data class ScheduledTaskRunEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "task_id") val taskId: String,

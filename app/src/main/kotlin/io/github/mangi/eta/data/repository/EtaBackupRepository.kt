@@ -7,11 +7,19 @@ import io.github.mangi.eta.data.db.ConversationEntity
 import io.github.mangi.eta.data.db.ConversationMessageEntity
 import io.github.mangi.eta.data.db.ConversationStateEntity
 import io.github.mangi.eta.data.db.EtaDatabase
+import io.github.mangi.eta.data.db.McpServerEntity
 import io.github.mangi.eta.data.db.ProviderEntity
 import io.github.mangi.eta.data.db.ProviderModelEntity
 import io.github.mangi.eta.data.db.ProviderWithModelsSeed
+import io.github.mangi.eta.data.db.ScheduledTaskEntity
+import io.github.mangi.eta.data.db.ScheduledTaskRunEntity
+import io.github.mangi.eta.data.db.SkillRegistryEntity
 import io.github.mangi.eta.data.datastore.SettingsDataStore
+import io.github.mangi.eta.data.model.AssistantOverlaySettings
+import io.github.mangi.eta.data.model.ConversationTitleSettings
 import io.github.mangi.eta.data.model.ProviderAuthModes
+import io.github.mangi.eta.data.model.SpeechSettings
+import io.github.mangi.eta.agent.scheduler.ScheduledTaskAlarmScheduler
 import io.github.mangi.eta.R
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.AppStrings
@@ -46,11 +54,24 @@ internal data class EtaBackupDocument(
     val conversationState: ConversationStateEntity? = null,
     val memoryMd: String = "",
     val roleplay: CharacterBackupData? = null,
+    /** 定时任务（含运行记录）。 */
+    val scheduledTasks: List<ScheduledTaskEntity> = emptyList(),
+    val scheduledTaskRuns: List<ScheduledTaskRunEntity> = emptyList(),
+    /** 技能启用状态（技能文件本身在 files/skills，全量包才带）。 */
+    val skills: List<SkillRegistryEntity> = emptyList(),
+    /** MCP 服务器配置；凭据不进备份，恢复后需重新授权。 */
+    val mcpServers: List<McpServerEntity> = emptyList(),
+    /** 语音、朗读、助手浮窗等设置。 */
+    val speechSettings: SpeechSettings? = null,
+    val assistantOverlaySettings: AssistantOverlaySettings? = null,
+    /** 会话自动标题（含所用模型与推理强度）。 */
+    val conversationTitleSettings: ConversationTitleSettings? = null,
 ) {
     companion object {
         const val FORMAT = "eta-backup"
         // 旧版会把未知原生 Provider 当作 OpenAI-compatible，必须通过备份版本阻止错误恢复。
-        const val SCHEMA_VERSION = 4
+        // v5：新增定时任务、技能、MCP、语音设置；旧版文件缺这些字段，按空处理即可。
+        const val SCHEMA_VERSION = 5
     }
 }
 
@@ -129,6 +150,35 @@ internal object EtaBackupRepository {
                     phase = "export_roleplay"
                     val roleplay = CharacterBackupTransfer.snapshot(appContext, boundAvatars)
                     writer.value("roleplay", CharacterBackupData.serializer().nullable, roleplay)
+                    // 定时任务、技能、MCP、语音设置：数量都很小，直接进 header。
+                    phase = "export_scheduled"
+                    val tasks = runCatching { database.scheduledTaskDao().allTasks() }.getOrDefault(emptyList())
+                    val taskRuns = runCatching {
+                        tasks.flatMap { task -> database.scheduledTaskDao().listRuns(task.id, SCHEDULED_RUN_LIMIT) }
+                    }.getOrDefault(emptyList())
+                    writer.value("scheduledTasks", ListSerializer(ScheduledTaskEntity.serializer()), tasks)
+                    writer.value("scheduledTaskRuns", ListSerializer(ScheduledTaskRunEntity.serializer()), taskRuns)
+                    phase = "export_skills"
+                    val skills = runCatching { database.skillDao().registryEntries() }.getOrDefault(emptyList())
+                    writer.value("skills", ListSerializer(SkillRegistryEntity.serializer()), skills)
+                    phase = "export_mcp"
+                    val mcpServers = runCatching { database.mcpServerDao().serverRows() }.getOrDefault(emptyList())
+                    writer.value("mcpServers", ListSerializer(McpServerEntity.serializer()), mcpServers)
+                    phase = "export_speech"
+                    val speech = runCatching { SettingsDataStore.speechSettings() }.getOrNull()
+                    val overlay = runCatching { SettingsDataStore.assistantOverlaySettings() }.getOrNull()
+                    writer.value("speechSettings", SpeechSettings.serializer().nullable, speech)
+                    writer.value(
+                        "assistantOverlaySettings",
+                        AssistantOverlaySettings.serializer().nullable,
+                        overlay,
+                    )
+                    val titleSettings = runCatching { SettingsDataStore.conversationTitleSettings() }.getOrNull()
+                    writer.value(
+                        "conversationTitleSettings",
+                        ConversationTitleSettings.serializer().nullable,
+                        titleSettings,
+                    )
                     EtaBackupSummary(providers.size, providers.sumOf { it.models.size }, conversationCount,
                         messageCount, memory.toByteArray(Charsets.UTF_8).size, roleplay.characters.size)
                 }
@@ -209,6 +259,9 @@ internal object EtaBackupRepository {
                             document.roleplay?.let { CharacterBackupTransfer.restoreMemories(appContext, it) }
                             cancellation.ensureActive()
                         }
+                        // 定时任务 / 技能 / MCP / 语音设置：各自独立事务，
+                        // 某一类失败不连累已恢复的会话数据，只把错误累积到日志。
+                        restoreAuxiliary(appContext, database, document)
                     } catch (failure: Throwable) {
                         if (memoryWriteStarted) {
                             try { AgentMemoryRepository.replaceAll(previousMemory) } catch (restoreFailure: Throwable) {
@@ -299,5 +352,68 @@ internal object EtaBackupRepository {
         if (failure is CancellationException) return
         AndroidAgentLogger.error("Agent backup failed: operation=$operation phase=$phase " +
             "type=${failure.safeLogType()}\n${failure.safeStackTrace()}")
+    }
+
+    /**
+     * 恢复定时任务、技能、MCP、语音设置。
+     *
+     * 每一类各自独立事务：某一类失败只记录日志，不连累已经恢复的会话数据。
+     * 旧版备份没有这些字段时全部为空列表/空值，跳过即可。
+     */
+    private suspend fun restoreAuxiliary(
+        context: Context,
+        database: EtaDatabase,
+        document: EtaBackupDocument,
+    ) {
+        if (document.scheduledTasks.isNotEmpty() || document.scheduledTaskRuns.isNotEmpty()) {
+            runCatching {
+                database.withTransaction {
+                    val dao = database.scheduledTaskDao()
+                    dao.deleteAllRuns()
+                    dao.deleteAllTasks()
+                    document.scheduledTasks.forEach { dao.upsertTask(it) }
+                    document.scheduledTaskRuns.forEach { dao.upsertRun(it) }
+                }
+                ScheduledTaskAlarmScheduler.syncNextAlarm(context)
+            }.onFailure {
+                AndroidAgentLogger.warn("Backup restore scheduled tasks skipped: type=${it.safeLogType()}")
+            }
+        }
+        if (document.skills.isNotEmpty()) {
+            runCatching {
+                database.withTransaction { database.skillDao().replaceRegistry(document.skills) }
+            }.onFailure {
+                AndroidAgentLogger.warn("Backup restore skills skipped: type=${it.safeLogType()}")
+            }
+        }
+        if (document.mcpServers.isNotEmpty()) {
+            runCatching {
+                database.withTransaction {
+                    val dao = database.mcpServerDao()
+                    dao.deleteAllRows()
+                    // 凭据不进备份：恢复的服务器一律先停用，等用户重新授权。
+                    document.mcpServers.forEach { row ->
+                        dao.insert(row.copy(enabled = false, toolsJson = "[]"))
+                    }
+                }
+            }.onFailure {
+                AndroidAgentLogger.warn("Backup restore mcp skipped: type=${it.safeLogType()}")
+            }
+        }
+        document.speechSettings?.let { settings ->
+            runCatching { SettingsDataStore.setSpeechSettings(settings) }.onFailure {
+                AndroidAgentLogger.warn("Backup restore speech skipped: type=${it.safeLogType()}")
+            }
+        }
+        document.assistantOverlaySettings?.let { settings ->
+            runCatching { SettingsDataStore.setAssistantOverlaySettings(settings) }.onFailure {
+                AndroidAgentLogger.warn("Backup restore overlay skipped: type=${it.safeLogType()}")
+            }
+        }
+        document.conversationTitleSettings?.let { settings ->
+            runCatching { SettingsDataStore.setConversationTitleSettings(settings) }.onFailure {
+                AndroidAgentLogger.warn("Backup restore title settings skipped: type=${it.safeLogType()}")
+            }
+        }
     }
 }

@@ -144,6 +144,31 @@ internal abstract class EtaDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * 把 WAL 落盘到主库文件。
+         *
+         * 全量备份直接复制 `databases/` 目录：如果新数据还留在 `-wal` 里，复制出的 `eta.db`
+         * 是旧快照，而恢复端会删掉 `-wal`（避免旧库配新日志），那部分数据就丢了。
+         * 导出前先 checkpoint 一次，保证主库文件是完整的。
+         */
+        internal fun checkpointForBackup(context: Context) {
+            runCatching {
+                val dbFile = context.getDatabasePath("eta.db")
+                if (!dbFile.exists()) return
+                android.database.sqlite.SQLiteDatabase.openDatabase(
+                    dbFile.path,
+                    null,
+                    android.database.sqlite.SQLiteDatabase.OPEN_READWRITE,
+                ).use { database ->
+                    runCatching { database.execSQL("PRAGMA wal_checkpoint(TRUNCATE)") }
+                }
+            }.onFailure {
+                io.github.mangi.eta.core.AndroidAgentLogger.warn(
+                    "Backup checkpoint skipped: type=" + it.javaClass.simpleName,
+                )
+            }
+        }
+
         internal val MIGRATION_19_20 = Migration(19, 20) { database ->
             database.execSQL("ALTER TABLE conversation_context_checkpoints ADD COLUMN journal_json TEXT NOT NULL DEFAULT ''")
             database.execSQL("ALTER TABLE runtime_inflight_runs ADD COLUMN transcript_json TEXT NOT NULL DEFAULT '[]'")

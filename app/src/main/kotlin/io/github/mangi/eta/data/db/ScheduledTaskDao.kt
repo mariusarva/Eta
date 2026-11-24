@@ -55,4 +55,11 @@ internal interface ScheduledTaskDao {
             ")"
     )
     suspend fun trimRuns(taskId: String, keepCount: Int = 100)
+
+    /** 备份恢复用：整体替换前先清空。 */
+    @Query("DELETE FROM scheduled_tasks")
+    suspend fun deleteAllTasks()
+
+    @Query("DELETE FROM scheduled_task_runs")
+    suspend fun deleteAllRuns()
 }

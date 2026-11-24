@@ -42,6 +42,10 @@ internal interface McpServerDao : ChunkedTextDao {
     @Query("DELETE FROM mcp_servers WHERE id = :id")
     suspend fun delete(id: String): Int
 
+    /** 备份恢复用：整体替换前先清空。 */
+    @Query("DELETE FROM mcp_servers")
+    suspend fun deleteAllRows()
+
     suspend fun storeServer(row: McpServerEntity): McpServerEntity = row.copy(
         toolsJson = storeText("mcp_servers", row.id, "tools", row.toolsJson),
         enabledToolNamesJson = storeText("mcp_servers", row.id, "enabled_tools", row.enabledToolNamesJson),
