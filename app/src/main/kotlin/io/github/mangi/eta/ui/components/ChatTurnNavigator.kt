@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.foundation.layout.width
@@ -276,10 +277,14 @@ internal fun ChatTurnPanel(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        // 26dp 才放得下两位数：22dp 时「10」「11」会被圆形裁掉边缘。
-                                        .size(26.dp)
+                                        // 不用固定 size：位数涨上去就放不下（26dp 只够两位，
+                                        // 四位数会被 CircleShape 裁掉）。改成按内容自适应，
+                                        // 一位/两位保持圆形，三位以上自动拉成胶囊。
+                                        .heightIn(min = 26.dp)
+                                        .widthIn(min = 26.dp)
                                         .clip(CircleShape)
-                                        .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                                        .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.14f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Text(
