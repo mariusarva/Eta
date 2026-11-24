@@ -120,6 +120,58 @@ internal class SkillMarketStore(
         searchMode = null
         searchNeedsAuth = false
         searchQuery = ""
+        expandedRepo = null
+        expanding = false
+    }
+
+    /** 当前展开的仓库（仓库搜索结果的「展开」态）。 */
+    var expandedRepo by mutableStateOf<String?>(null)
+        private set
+    var expanding by mutableStateOf(false)
+        private set
+
+    /**
+     * 展开仓库：列出它内部所有技能。
+     *
+     * 仓库搜索只知道仓库名，展开后用 `git/trees?recursive=1` 拿到全部 SKILL.md 路径，
+     * 逐个可装，不依赖必须认证的代码搜索。
+     */
+    fun expandRepository(entry: SkillMarketEntry) {
+        if (expanding) return
+        expanding = true
+        expandedRepo = entry.repo
+        scope.launch(Dispatchers.IO) {
+            val token = runCatching { GitHubAccountStore(appContext).load()?.token }.getOrNull()
+            val result = GitHubSkillSearch.expandRepository(entry.repo, entry.ref, token)
+            withContext(Dispatchers.Main) {
+                expanding = false
+                when (result) {
+                    is GitHubSkillSearch.Result.Ok -> {
+                        if (result.entries.isEmpty()) {
+                            expandedRepo = null
+                            notice = SkillMarketNotice(
+                                "这个仓库里没有技能",
+                                "${entry.repo} 中没有找到 SKILL.md",
+                                isError = false,
+                            )
+                        } else {
+                            // 展开结果替换搜索列表，并标记为精确路径（可直接安装）。
+                            searchResults = result.entries
+                            searchMode = GitHubSkillSearch.Mode.CODE
+                            notice = SkillMarketNotice(
+                                "找到 ${result.entries.size} 个技能",
+                                "来自 ${entry.repo}，点任意一项即可安装",
+                                isError = false,
+                            )
+                        }
+                    }
+                    is GitHubSkillSearch.Result.Failed -> {
+                        expandedRepo = null
+                        notice = SkillMarketNotice("展开失败", result.message, isError = true)
+                    }
+                }
+            }
+        }
     }
 
     fun loadCatalog() {

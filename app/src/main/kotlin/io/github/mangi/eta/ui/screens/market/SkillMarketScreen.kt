@@ -75,6 +75,9 @@ internal fun SkillMarketScreen(
     searchNeedsAuth: Boolean = false,
     onSearch: (String) -> Unit = {},
     onClearSearch: () -> Unit = {},
+    expanding: Boolean = false,
+    expandedRepo: String? = null,
+    onExpand: (SkillMarketEntry) -> Unit = {},
 ) {
     var tag by rememberSaveable { mutableStateOf(ALL_TAG) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -157,6 +160,9 @@ internal fun SkillMarketScreen(
                             entry = entry,
                             installingId = installingId,
                             onInstall = onInstall,
+                            expanding = expanding,
+                            expandedRepo = expandedRepo,
+                            onExpand = onExpand,
                         )
                     }
                 }
@@ -226,7 +232,13 @@ private fun SkillMarketRow(
     entry: SkillMarketEntry,
     installingId: String?,
     onInstall: (SkillMarketEntry) -> Unit,
+    expanding: Boolean = false,
+    expandedRepo: String? = null,
+    onExpand: ((SkillMarketEntry) -> Unit)? = null,
 ) {
+    // 仓库模式的条目只知道仓库名（path = "."），先展开成具体技能再装更可靠。
+    val canExpand = onExpand != null && entry.path == "." && entry.repo.isNotBlank()
+    val isExpanding = expanding && expandedRepo == entry.repo
     CouiPreference(
         title = entry.title,
         summary = if (entry.tags.isEmpty()) {
@@ -235,15 +247,23 @@ private fun SkillMarketRow(
             entry.summary + "  ·  " + entry.tags.joinToString(" / ")
         },
         value = entry.author,
-        enabled = installingId == null,
+        enabled = installingId == null && !expanding,
         onClick = { onInstall(entry) },
         showChevron = false,
         trailing = {
             when {
-                installingId == entry.id -> InfiniteProgressIndicator(size = 20.dp)
+                installingId == entry.id || isExpanding -> InfiniteProgressIndicator(size = 20.dp)
                 installingId != null -> Unit
                 else -> Row {
-                    Spacer(Modifier.width(4.dp))
+                    if (canExpand) {
+                        CouiButton(
+                            text = "展开",
+                            onClick = { onExpand?.invoke(entry) },
+                            role = CouiButtonRole.Secondary,
+                            minHeight = 30.dp,
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
                     CouiButton(
                         text = "安装",
                         onClick = { onInstall(entry) },

@@ -733,6 +733,9 @@ fun AgentAppRoot(
                             searchNeedsAuth = skillMarketStore.searchNeedsAuth,
                             onSearch = skillMarketStore::search,
                             onClearSearch = skillMarketStore::clearSearch,
+                            expanding = skillMarketStore.expanding,
+                            expandedRepo = skillMarketStore.expandedRepo,
+                            onExpand = skillMarketStore::expandRepository,
                         )
                     }
                     entry<AppRoute.Characters>(swipeDismiss = activeSwipeDismiss) {

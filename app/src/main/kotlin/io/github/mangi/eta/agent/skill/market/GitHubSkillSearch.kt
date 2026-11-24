@@ -35,7 +35,10 @@ internal object GitHubSkillSearch {
         data class Failed(val message: String, val needsAuth: Boolean = false) : Result
     }
 
-    internal enum class Mode { REPOSITORY, CODE }
+    internal enum class Mode { REPOSITORY, CODE, TOPIC }
+
+    /** 官方话题聚合的技能仓库，比关键词更精准。 */
+    private val SKILL_TOPICS = listOf("claude-skills", "agent-skills", "mcp-skills")
 
     /**
      * @param token GitHub token；为空时只走仓库搜索。
@@ -53,7 +56,94 @@ internal object GitHubSkillSearch {
                 }
             }
         }
-        searchRepositories(trimmed, token)
+        // 关键词仓库搜索 + 话题仓库搜索合并去重，覆盖面更广。
+        val byKeyword = searchRepositories(trimmed, token)
+        val byTopic = searchTopics(token)
+        val keywordEntries = (byKeyword as? Result.Ok)?.entries.orEmpty()
+        val topicEntries = (byTopic as? Result.Ok)?.entries.orEmpty()
+        if (keywordEntries.isEmpty() && topicEntries.isEmpty()) {
+            return@withContext byKeyword
+        }
+        val merged = (keywordEntries + topicEntries).distinctBy { it.repo.lowercase() }
+        Result.Ok(merged, Mode.REPOSITORY)
+    }
+
+    /**
+     * 列出某个仓库里所有技能（`git/trees?recursive=1`）。
+     *
+     * 仓库搜索只知道仓库名，用这个接口一次请求就能拿到全部 SKILL.md 路径，
+     * 不依赖必须认证的 code search。
+     */
+    suspend fun expandRepository(repo: String, ref: String, token: String?): Result =
+        withContext(Dispatchers.IO) {
+            if (!repoPattern.matches(repo)) return@withContext Result.Failed("仓库名不合法")
+            val safeRef = ref.trim().ifBlank { "main" }
+            if (!refPattern.matches(safeRef)) return@withContext Result.Failed("分支名不合法")
+            val url = "$API/repos/$repo/git/trees/$safeRef?recursive=1"
+            runCatching {
+                val body = get(url, token)
+                val root = JSONObject(body)
+                if (root.has("message")) return@withContext Result.Failed(root.optString("message"))
+                val tree = root.optJSONArray("tree") ?: return@withContext Result.Ok(emptyList(), Mode.CODE)
+                val entries = buildList {
+                    for (i in 0 until tree.length()) {
+                        val item = tree.optJSONObject(i) ?: continue
+                        if (item.optString("type") != "blob") continue
+                        val path = item.optString("path").trim()
+                        if (!path.endsWith("/SKILL.md") && path != "SKILL.md") continue
+                        val dir = path.removeSuffix("/SKILL.md").removeSuffix("SKILL.md").trimEnd('/')
+                        val skillPath = dir.ifBlank { "." }
+                        if (!pathPattern.matches(skillPath)) continue
+                        val name = skillPath.substringAfterLast('/')
+                        add(
+                            SkillMarketEntry(
+                                id = (repo.replace('/', '-') + "-" + name).lowercase().take(64),
+                                title = name,
+                                summary = "来自 $repo 的技能（$skillPath）",
+                                repo = repo,
+                                ref = safeRef,
+                                path = skillPath,
+                                author = repo.substringBefore('/'),
+                                tags = listOf("GitHub"),
+                                homepage = "https://github.com/$repo/tree/$safeRef/$skillPath",
+                            ),
+                        )
+                    }
+                }.distinctBy { it.path }
+                Result.Ok(entries, Mode.CODE)
+            }.getOrElse { Result.Failed(it.message ?: "读取仓库目录失败") }
+        }
+
+    private fun searchTopics(token: String?): Result {
+        val entries = mutableListOf<SkillMarketEntry>()
+        var lastError: Result.Failed? = null
+        for (topic in SKILL_TOPICS) {
+            val url = buildString {
+                append(API).append("/search/repositories")
+                append("?q=").append(encode("topic:$topic"))
+                append("&sort=stars&order=desc&per_page=10")
+            }
+            val one = runCatching {
+                val body = get(url, token)
+                val root = JSONObject(body)
+                if (root.has("message")) return@runCatching null
+                val items = root.optJSONArray("items") ?: return@runCatching null
+                buildList {
+                    for (i in 0 until items.length()) {
+                        parseRepositoryItem(items.optJSONObject(i))?.let(::add)
+                    }
+                }
+            }.getOrElse {
+                lastError = Result.Failed(it.message ?: "话题搜索失败")
+                null
+            }
+            one?.let(entries::addAll)
+        }
+        return if (entries.isEmpty() && lastError != null) {
+            lastError!!
+        } else {
+            Result.Ok(entries.distinctBy { it.repo.lowercase() }, Mode.TOPIC)
+        }
     }
 
     private fun searchCode(query: String, token: String): Result {
@@ -63,7 +153,7 @@ internal object GitHubSkillSearch {
             append("&per_page=").append(PER_PAGE)
         }
         return runCatching {
-            val body = get(url, token) ?: return Result.Failed("代码搜索无响应")
+            val body = get(url, token)
             val root = JSONObject(body)
             if (root.has("message")) {
                 val message = root.optString("message")
@@ -87,7 +177,7 @@ internal object GitHubSkillSearch {
             append("&sort=stars&order=desc&per_page=").append(PER_PAGE)
         }
         return runCatching {
-            val body = get(url, token) ?: return Result.Failed("仓库搜索无响应")
+            val body = get(url, token)
             val root = JSONObject(body)
             if (root.has("message")) return Result.Failed(root.optString("message"))
             val items = root.optJSONArray("items") ?: return Result.Ok(emptyList(), Mode.REPOSITORY)
@@ -156,7 +246,7 @@ internal object GitHubSkillSearch {
         )
     }
 
-    private fun get(url: String, token: String?): String? {
+    private fun get(url: String, token: String?): String {
         val builder = Request.Builder()
             .url(url)
             .header("Accept", "application/vnd.github+json")
