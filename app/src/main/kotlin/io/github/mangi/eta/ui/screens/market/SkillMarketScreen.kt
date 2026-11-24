@@ -72,18 +72,21 @@ internal fun SkillMarketScreen(
     val searchState = rememberDraftTextFieldState(query) { query = it }
     val filtered = remember(catalog.entries, query, tag) { catalog.entries.matching(query, tag) }
 
-    CouiNoticeDialog(
-        visible = notice != null,
-        title = notice?.title,
-        message = notice?.message,
-        confirmText = stringResource(R.string.ui_knew_cb63c6),
-        onDismissRequest = onDismissNotice,
-    )
-
     CouiScaffoldPage(
         title = stringResource(R.string.route_skill_market),
         onBack = onBack,
         modifier = modifier,
+        overlay = {
+            // 弹窗必须挂在页面 overlay 槽里：写在 CouiScaffoldPage 外面时没有 overlay 宿主，
+            // 安装结果提示不会出现，表现为「点了安装什么都不发生」。
+            CouiNoticeDialog(
+                visible = notice != null,
+                title = notice?.title,
+                message = notice?.message,
+                confirmText = stringResource(R.string.ui_knew_cb63c6),
+                onDismissRequest = onDismissNotice,
+            )
+        },
     ) {
         CouiTextField(
             state = searchState,

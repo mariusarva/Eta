@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.mangi.eta.agent.model.AgentHttpClient
+import io.github.mangi.eta.core.AndroidAgentLogger
+import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.agent.skill.SkillInstallConflict
 import io.github.mangi.eta.agent.skill.SkillInstallErrorCode
 import io.github.mangi.eta.agent.skill.SkillInstallResult
@@ -74,9 +76,11 @@ internal class SkillMarketStore(
         if (installingId != null) return
         installingId = entry.id
         notice = null
+        AndroidAgentLogger.info("Skill market install start: id=${entry.id}, path=${entry.path}, url=${entry.archiveUrl}")
         scope.launch(Dispatchers.IO) {
             val result = runCatching {
                 val archive = downloadArchive(entry)
+                AndroidAgentLogger.info("Skill market archive downloaded: id=${entry.id}, bytes=${archive.length()}")
                 try {
                     installer.installRepositoryZip(
                         openStream = { archive.inputStream() },
@@ -86,6 +90,9 @@ internal class SkillMarketStore(
                     archive.delete()
                 }
             }.getOrElse { failure ->
+                AndroidAgentLogger.warn(
+                    "Skill market install threw: id=${entry.id}, type=${failure.safeLogType()}, msg=${failure.message}",
+                )
                 withContext(Dispatchers.Main) {
                     installingId = null
                     notice = SkillMarketNotice(
@@ -96,6 +103,7 @@ internal class SkillMarketStore(
                 }
                 return@launch
             }
+            AndroidAgentLogger.info("Skill market install result: id=${entry.id}, result=${result::class.simpleName}")
             withContext(Dispatchers.Main) {
                 installingId = null
                 notice = when (result) {
