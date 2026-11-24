@@ -150,7 +150,9 @@ internal fun SkillMarketScreen(
             CouiPreferenceGroup(
                 title = when (searchMode) {
                     GitHubSkillSearch.Mode.CODE -> "GitHub 找到 ${searchResults.size} 个技能"
-                    GitHubSkillSearch.Mode.REPOSITORY -> "GitHub 找到 ${searchResults.size} 个仓库"
+                    GitHubSkillSearch.Mode.REPOSITORY,
+                    GitHubSkillSearch.Mode.TOPIC,
+                    -> "GitHub 找到 ${searchResults.size} 个仓库"
                     null -> "GitHub 结果"
                 },
             ) {
