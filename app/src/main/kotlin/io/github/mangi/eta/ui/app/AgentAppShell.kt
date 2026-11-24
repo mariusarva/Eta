@@ -673,6 +673,7 @@ private fun titleForRoute(route: AppRoute?): String = when (route) {
     is AppRoute.ScheduledTaskEditor -> stringResource(
         if (route.taskId.isNullOrBlank()) R.string.route_scheduled_task_new else R.string.route_scheduled_task_edit,
     )
+    is AppRoute.SkillMarket -> stringResource(R.string.route_skill_market)
     is AppRoute.Subagents -> stringResource(R.string.ui_misc_route_subagents)
     is AppRoute.PromptPresets -> "提示词预设"
     is AppRoute.PromptStudio -> "提示词 Studio"
