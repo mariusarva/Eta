@@ -7,13 +7,20 @@ import java.io.InputStream
 internal fun ChunkedTextDao.openTextStream(table: String, owner: String, field: String, stored: String): InputStream {
     if (!stored.startsWith(ChunkedTextDao.REFERENCE_PREFIX)) return stored.byteInputStream(Charsets.UTF_8)
     val sizes = stored.removePrefix(ChunkedTextDao.REFERENCE_PREFIX).split(':')
-    check(sizes.size == 2) { "Invalid history payload reference" }
-    val count = sizes[0].toInt()
-    val length = sizes[1].toInt()
-    check(count > 0 && length > 0) { "Invalid history payload size" }
+    if (sizes.size != 2) return "".byteInputStream(Charsets.UTF_8)
+    val count = sizes[0].toIntOrNull() ?: return "".byteInputStream(Charsets.UTF_8)
+    val length = sizes[1].toIntOrNull() ?: return "".byteInputStream(Charsets.UTF_8)
+    if (count <= 0 || length <= 0) return "".byteInputStream(Charsets.UTF_8)
     return ChunkedTextInputStream(textChunkCursor(table, owner, field), count, length)
 }
 
+/**
+ * 按引用逐块读取。
+ *
+ * 历史数据里存在悬空引用或长度偏差（旧库迁移、分块被清理等）。这类问题只应影响
+ * 对应字段的内容，不能让整次导出/备份抛异常中断，所以读到缺失或越界就提前收尾，
+ * 返回已读到的部分。
+ */
 private class ChunkedTextInputStream(
     private val cursor: Cursor,
     private val expectedCount: Int,
@@ -40,15 +47,19 @@ private class ChunkedTextInputStream(
     private fun ensureChunk(): Boolean {
         while (position == chunk.size && !ended) {
             if (!cursor.moveToNext()) {
-                check(chunkCount == expectedCount && textLength == expectedLength) { "History payload length mismatch" }
+                // 分块不足：不再断言，直接结束。
                 ended = true
                 chunk = byteArrayOf()
                 break
             }
-            check(cursor.getInt(0) == chunkCount && chunkCount < expectedCount) { "History payload chunk out of order" }
+            // 块序不符或超出声明数量时停止，保留已读内容。
+            if (cursor.getInt(0) != chunkCount || chunkCount >= expectedCount) {
+                ended = true
+                chunk = byteArrayOf()
+                break
+            }
             val text = cursor.getString(1)
             textLength += text.length
-            check(textLength <= expectedLength) { "History payload length mismatch" }
             chunk = text.toByteArray(Charsets.UTF_8)
             chunkCount++
             position = 0

@@ -49,21 +49,27 @@ internal interface ChunkedTextDao {
     suspend fun restoreText(table: String, owner: String, field: String, stored: String): String {
         if (!stored.startsWith(REFERENCE_PREFIX)) return stored
         val parts = stored.removePrefix(REFERENCE_PREFIX).split(':')
-        check(parts.size == 2) { "Invalid history payload reference" }
-        val count = parts[0].toInt()
-        val length = parts[1].toInt()
-        check(count > 0 && length > 0) { "Invalid history payload size" }
+        if (parts.size != 2) return ""
+        val count = parts[0].toIntOrNull() ?: return ""
+        val length = parts[1].toIntOrNull() ?: return ""
+        if (count <= 0 || length <= 0) return ""
         val result = StringBuilder()
         var offset = 0
         while (offset < count) {
             val page = textChunks(table, owner, field, minOf(32, count - offset), offset)
-            check(page.isNotEmpty()) { "History payload chunk missing" }
+            // 分块缺失时返回已恢复的部分，不让整次读取失败：
+            // 历史数据里存在悬空引用（例如 images_json 引用分块但分块被清理掉），
+            // 抛异常会让整个备份/导出直接中断，代价远大于丢掉个别字段。
+            if (page.isEmpty()) break
+            var progressed = false
             page.forEach { chunk ->
-                check(chunk.chunkIndex == offset++) { "History payload chunk out of order" }
+                if (chunk.chunkIndex != offset) return@forEach
+                offset++
+                progressed = true
                 result.append(chunk.content)
             }
+            if (!progressed) break
         }
-        check(result.length == length) { "History payload length mismatch" }
         return result.toString()
     }
 
