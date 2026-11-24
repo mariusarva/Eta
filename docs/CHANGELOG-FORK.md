@@ -8,6 +8,62 @@
 
 ---
 
+## fork.96 – fork.101（2026-11-24）技能市场：合入、修安装失败、加 GitHub 搜索
+
+### fork.96：技能市场合入 rebase（保持 schema v31）
+
+原 `feat/skill-market` 分支基于 v30 时代，落后 rebase 38 个提交。从它直接出包（fork.97）会出大问题：
+
+**现象**：装到已装 fork.96（v31）的设备上，数据全丢。
+
+**根因**：`feat/skill-market` 的 `EtaDatabase.version = 30`，缺 `MIGRATION_30_31`。Room 检测到数据库从 v31 降到 v30，判定为降级，`fallbackToDestructiveMigration(dropAllTables = true)` 直接清空所有表。签名、包名、versionCode 都没问题，不是覆盖安装冲突。
+
+**改法**：不回退版本，把技能市场 cherry-pick 到 `rebase`（v31）之上，只取 UI/资源改动，数据库版本保持 v31。
+
+合入时连带修了三处阻断编译的问题：
+
+| 问题 | 改法 |
+|---|---|
+| `SkillMarketScreen.kt` 用 `com.itos.coui` 旧包名 + `CouiChipTabs` / `Group` | 改新包 `io.github.suqi8.coui.kmp`，适配 `CouiTextField(state=)` / `CouiPreferenceGroup` + `item` |
+| `strings.xml` 与 `strings_fork_prompt_github.xml` 有 399 个重复键 | 从 `strings.xml` 移除（1867 → 1468），`packageReleaseResources` 不再报 Duplicate resources |
+| `AgentSkillsScreen.kt` 的 `Group(title=...)` 未解析 | 改 `CouiPreferenceGroup` + `item(key)` |
+
+### fork.98 – fork.99：安装失败「Skill description 必填且不能超过 1024 字符」
+
+**现象**：点「PDF 处理」安装，弹窗报 description 超限，但 pdf 的 description 只有 437 字符。
+
+**根因**：`SkillPackageInstaller.discoverCandidates` 对仓库里**每一个** `SKILL.md` 都调 `parseAndValidateSkill`。`anthropics/skills` 里 `claude-api` 的 description 是 1068 字符，超 1024 上限，直接抛 `INVALID_SKILL`，导致装任何技能都失败——一个坏技能拖垮整个仓库。
+
+**改法**：
+
+- `discoverCandidates` 改 `mapNotNull` + `runCatching`，单个不合规的 SKILL.md 跳过，不影响其他技能
+- 选中路径若不在候选里，单独再解析一次，把真实原因原样报出来，而不是笼统说「路径无效」
+- `SkillMarketScreen` 的 `CouiNoticeDialog` 从 `CouiScaffoldPage` 外部移进 `overlay` 槽（与其他页面一致）
+- 安装流程补 start / downloaded / result / throw 四条日志
+
+### fork.100 – fork.101：GitHub 搜索技能
+
+新增 `GitHubSkillSearch`，五条途径：
+
+| 途径 | 需要登录 | 精度 |
+|---|---|---|
+| 内置目录 `skill_market.json` | 否 | 直接可装 |
+| `/search/code?q=filename:SKILL.md` | **是**（GitHub 强制） | 精确到技能目录 |
+| `/search/repositories?q=xxx skill` | 否 | 仓库级 |
+| `/search/repositories?q=topic:claude-skills` 等 3 个话题 | 否 | 仓库级 |
+| `/repos/{r}/git/trees/{ref}?recursive=1` | 否 | 精确到技能目录 |
+
+有 token 时优先代码搜索；没 token 走仓库搜索 + 话题聚合，再点条目「展开」用 git/trees 把仓库拆成具体技能。
+
+仓库搜索结果只知道仓库名（`path = "."`），`SkillPackageInstaller` 为此加了自动模式：路径为 `.` 且仓库里恰好一个技能就直接装，多个则报 `MULTIPLE_SKILLS_FOUND`。
+
+**编译错误**（两次）：
+
+- `buildList { ... ::add }` 用方法引用推断不出元素类型 → 五处 `buildList` 显式标注 `<SkillMarketEntry>` / `<String>`
+- 新增 `Mode.TOPIC` 后 `when (searchMode)` 不再穷尽 → 补 `TOPIC` 分支
+
+---
+
 ## fork.91 – fork.92（2026-11-24）工作台提示词入口 / 通知暂停失效
 
 ### fork.91：工作台「工具能力」→「提示词设置」
