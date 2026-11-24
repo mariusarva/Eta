@@ -85,7 +85,7 @@ internal object GitHubSkillSearch {
                 val root = JSONObject(body)
                 if (root.has("message")) return@withContext Result.Failed(root.optString("message"))
                 val tree = root.optJSONArray("tree") ?: return@withContext Result.Ok(emptyList(), Mode.CODE)
-                val entries = buildList {
+                val entries = buildList<SkillMarketEntry> {
                     for (i in 0 until tree.length()) {
                         val item = tree.optJSONObject(i) ?: continue
                         if (item.optString("type") != "blob") continue
@@ -123,14 +123,14 @@ internal object GitHubSkillSearch {
                 append("?q=").append(encode("topic:$topic"))
                 append("&sort=stars&order=desc&per_page=10")
             }
-            val one = runCatching {
+            val one: List<SkillMarketEntry>? = runCatching {
                 val body = get(url, token)
                 val root = JSONObject(body)
                 if (root.has("message")) return@runCatching null
                 val items = root.optJSONArray("items") ?: return@runCatching null
-                buildList {
+                buildList<SkillMarketEntry> {
                     for (i in 0 until items.length()) {
-                        parseRepositoryItem(items.optJSONObject(i))?.let(::add)
+                        parseRepositoryItem(items.optJSONObject(i))?.let { add(it) }
                     }
                 }
             }.getOrElse {
@@ -161,7 +161,7 @@ internal object GitHubSkillSearch {
                 return Result.Failed(message, needsAuth)
             }
             val items = root.optJSONArray("items") ?: return Result.Ok(emptyList(), Mode.CODE)
-            val entries = buildList {
+            val entries = buildList<SkillMarketEntry> {
                 for (i in 0 until items.length()) {
                     parseCodeItem(items.optJSONObject(i))?.let(::add)
                 }
@@ -181,7 +181,7 @@ internal object GitHubSkillSearch {
             val root = JSONObject(body)
             if (root.has("message")) return Result.Failed(root.optString("message"))
             val items = root.optJSONArray("items") ?: return Result.Ok(emptyList(), Mode.REPOSITORY)
-            val entries = buildList {
+            val entries = buildList<SkillMarketEntry> {
                 for (i in 0 until items.length()) {
                     parseRepositoryItem(items.optJSONObject(i))?.let(::add)
                 }
@@ -224,7 +224,7 @@ internal object GitHubSkillSearch {
         if (!refPattern.matches(ref)) return null
         val name = item.optString("name").trim().ifBlank { repoFull.substringAfterLast('/') }
         val description = item.optString("description").orEmpty().trim()
-        val topics = buildList {
+        val topics = buildList<String> {
             item.optJSONArray("topics")?.let { array ->
                 for (i in 0 until minOf(array.length(), 6)) {
                     val tag = array.optString(i).trim()
