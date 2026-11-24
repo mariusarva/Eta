@@ -8,6 +8,53 @@
 
 ---
 
+## fork.106 – fork.107（2026-11-24）全量备份两个致命 bug
+
+### fork.106：SAF 改名失败 + 体积过大
+
+**现象**：全量备份报「备份文件改名失败」，目录里没有 zip。
+
+日志证据：
+
+```
+W Eta: Full backup skip file: type=FileNotFoundException
+W ModernMediaScanner: .../Eta-全量备份-20261124-220044.eta-fullbackup.zip.part.json: NoSuchFileException
+```
+
+**三个根因**：
+
+1. **SAF 按 MIME 补扩展名** —— `tree.createFile(MIME_JSON, "xxx.zip.part")` 用 `application/json`，DocumentsProvider 自动补成 `xxx.zip.part.json`，随后 `renameTo("xxx.zip")` 按名字找不到源文件。全量包改用 `application/zip`。
+2. **临时文件清理匹配不到** —— `endsWith(".part")` 匹配不了 `.part.json`，残留越积越多。改 `contains`。
+3. **体积过大** —— `files/db-snapshot`（本机 215 MB，库快照冗余）与 `files/local_speech_models`（241 MB，可重下）不该进备份。排除后全量包从 ~550 MB 降到 ~150 MB。
+
+另：私有目录遍历改成先打开流再 `putNextEntry`，避免活跃目录里的文件消失时留下写了一半的 zip 条目导致整包损坏。
+
+### fork.107：全量包被 prune 立刻删掉
+
+**现象**：设置里 `lastFileName` 是 `.eta-fullbackup.zip`、`lastError` 为空（流程报告成功），但目录里只有 JSON，zip 不存在。
+
+**根因**：`backups()` 按整串文件名倒序排序。`Eta-全量备份-` 的「全」是 U+5168，`Eta-自动备份-` 的「自」是 U+81EA，U+5168 < U+81EA，所以倒序后全量包永远垫底：
+
+```
+Eta-自动备份-222740  ← 1
+Eta-自动备份-215615  ← 2
+Eta-自动备份-205847  ← 3
+Eta-自动备份-204558  ← 4
+Eta-自动备份-094850  ← 5
+Eta-全量备份-222756  ← 6，keepCount=5 裁掉
+```
+
+刚写完的全量包被 `prune()` 当成最旧的删掉。`renameTo` 成功、`succeed()` 被调用、`lastError` 为空，所以从状态上看「备份成功」。
+
+这个 bug 从 fork.88 引入全量备份时就存在，早期 keepCount 大、目录里文件少所以没暴露。
+
+**改法**：
+
+- 排序改用文件名里的 `yyyyMMdd-HHmmss` 时间戳键，不依赖中文字符的 Unicode 顺序
+- `prune` 按格式分组，全量 zip 与 JSON 各自独立计算保留份数——两者体积差一倍以上（150 MB vs 84 MB），混着删会让用户切一次格式就把另一种历史全挤掉
+
+---
+
 ## fork.103 – fork.105（2026-11-24）备份覆盖扩展 / 全量包恢复入口 / 角色会话自动标题
 
 ### 一、备份覆盖面（schema v4 → v5）
