@@ -192,14 +192,30 @@ class SkillPackageInstaller internal constructor(
             }
             val selected = normalizedSelections.map { relativePath ->
                 candidatesByPath[relativePath]
-                    ?: fail(
-                        SkillInstallErrorCode.INVALID_SELECTION,
-                        AppStrings.get(
-                            R.string.skill_i18n_invalid_selected_skill_root,
-                            "所选路径不是有效的 Skill 根目录：%1\$s",
-                            relativePath,
-                        ),
-                    )
+                    ?: run {
+                        // 候选列表已跳过不合规的 SKILL.md，这里再单独解析一次选中路径，
+                        // 把「描述超长」这类真实原因原样报出来，而不是笼统说路径无效。
+                        val selectedDir = File(repositoryRoot, relativePath)
+                        val selectedSkillFile = File(selectedDir, SKILL_FILE_NAME)
+                        if (selectedSkillFile.isFile) {
+                            val metadata = parseAndValidateSkill(selectedSkillFile)
+                            return@run PreparedCandidate(
+                                id = metadata.name,
+                                name = metadata.name,
+                                description = metadata.description,
+                                relativePath = relativePath,
+                                directory = selectedDir.canonicalFile,
+                            )
+                        }
+                        fail(
+                            SkillInstallErrorCode.INVALID_SELECTION,
+                            AppStrings.get(
+                                R.string.skill_i18n_invalid_selected_skill_root,
+                                "所选路径不是有效的 Skill 根目录：%1\$s",
+                                relativePath,
+                            ),
+                        )
+                    }
             }
             rejectNestedCandidateSelections(selected, allCandidates)
             val selectedIds = selected.mapTo(linkedSetOf()) { it.id }
@@ -441,13 +457,16 @@ class SkillPackageInstaller internal constructor(
             .onEnter { !Files.isSymbolicLink(it.toPath()) }
             .filter { it.isFile && it.name == SKILL_FILE_NAME }
             .toList()
-        return skillFiles.map { skillFile ->
+        return skillFiles.mapNotNull { skillFile ->
             checkCancelled(isCancelled)
             val directory = requireNotNull(skillFile.parentFile).canonicalFile
             val relativePath = directory.relativeTo(relativeRoot.canonicalFile)
                 .invariantSeparatorsPath
                 .ifBlank { "." }
-            val metadata = parseAndValidateSkill(skillFile)
+            // 单个 SKILL.md 不合规时跳过，不让它拖垮整个仓库：
+            // 市场里的仓库常含多个技能，其中一个描述超长不该导致安装别的技能也失败。
+            // 真正被选中的路径稍后仍会逐个校验，不合规的会明确报错。
+            val metadata = runCatching { parseAndValidateSkill(skillFile) }.getOrNull() ?: return@mapNotNull null
             PreparedCandidate(
                 id = metadata.name,
                 name = metadata.name,
