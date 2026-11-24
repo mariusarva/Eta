@@ -1838,4 +1838,5 @@
     <string name="speech_asr_local_engine">本机离线</string>
     <string name="speech_tts_system">系统朗读（离线）</string>
   <string name="conversation_category_none">移出分类</string>
+  <string name="route_skill_market">技能市场</string>
 </resources>

@@ -54,6 +54,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun AgentSkillsScreen(
     state: AgentSkillsUiState,
     onAction: (AgentSkillsAction) -> Unit,
+    onOpenMarket: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var deleteTarget by remember { mutableStateOf<SkillItemUi?>(null) }
@@ -106,6 +107,15 @@ fun AgentSkillsScreen(
                         },
                         enabled = !operationPending,
                         onClick = openZipPicker,
+                    )
+                }
+
+                Group(title = "技能市场") {
+                    CouiPreference(
+                        title = "打开技能市场",
+                        summary = "浏览内置技能目录，从公开仓库一键安装",
+                        enabled = !operationPending,
+                        onClick = onOpenMarket,
                     )
                 }
 
@@ -287,6 +297,22 @@ fun AgentSkillsScreen(
                             },
                             enabled = !operationPending,
                             onClick = openZipPicker,
+                        )
+                    }
+                }
+
+                item(key = "skill-market") {
+                    SmallTitle("技能市场")
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
+                        ArrowPreference(
+                            title = "打开技能市场",
+                            summary = "浏览内置技能目录，从公开仓库一键安装",
+                            enabled = !operationPending,
+                            onClick = onOpenMarket,
                         )
                     }
                 }

@@ -106,6 +106,7 @@ import io.github.mangi.eta.ui.screens.permissions.PermissionHealthScreen
 import io.github.mangi.eta.ui.screens.settings.AssistantOverlaySettingsScreen
 import io.github.mangi.eta.ui.screens.settings.ConversationTitleSettingsScreen
 import io.github.mangi.eta.ui.screens.skills.AgentSkillsScreen
+import io.github.mangi.eta.ui.screens.market.SkillMarketScreen
 import io.github.mangi.eta.ui.screens.subagent.SubagentSettingsScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxEnvironmentScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxFilesScreen
@@ -179,6 +180,7 @@ fun AgentAppRoot(
         onDispose { view.keepScreenOn = false }
     }
     val skills = appViewModel.skills
+    val skillMarketStore = remember(context) { SkillMarketStore(context, uiScope) }
     val memory = appViewModel.memory
     val permissionHealth = appViewModel.permissionHealth
     val toolsState = remember { buildToolsState(context) }
@@ -582,6 +584,24 @@ fun AgentAppRoot(
                                     is AgentSkillsAction.ReinstallBuiltin -> skills.reinstallBuiltin(action.skillId)
                                 }
                             },
+                            onOpenMarket = { pushRoute(AppRoute.SkillMarket) },
+                        )
+                    }
+                    entry<AppRoute.SkillMarket>(swipeDismiss = activeSwipeDismiss) {
+                        LaunchedEffect(Unit) {
+                            skillMarketStore.loadCatalog()
+                        }
+                        LaunchedEffect(skillMarketStore.installedVersion) {
+                            if (skillMarketStore.installedVersion > 0) skills.refreshSkills()
+                        }
+                        SkillMarketScreen(
+                            catalog = skillMarketStore.catalog,
+                            loading = skillMarketStore.loading,
+                            installingId = skillMarketStore.installingId,
+                            notice = skillMarketStore.notice,
+                            onBack = ::popRoute,
+                            onInstall = skillMarketStore::install,
+                            onDismissNotice = skillMarketStore::dismissNotice,
                         )
                     }
                     entry<AppRoute.Characters>(swipeDismiss = activeSwipeDismiss) {

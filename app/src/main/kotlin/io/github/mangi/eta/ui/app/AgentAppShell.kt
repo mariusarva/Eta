@@ -671,6 +671,7 @@ private fun titleForRoute(route: AppRoute?): String = when (route) {
     is AppRoute.Tools -> stringResource(R.string.route_tools)
     is AppRoute.WebToolsSettings -> stringResource(R.string.web_tools_settings_title)
     is AppRoute.Skills -> stringResource(R.string.route_skills)
+    is AppRoute.SkillMarket -> stringResource(R.string.route_skill_market)
     is AppRoute.Subagents -> "Subagent"
     is AppRoute.PromptPresets -> "提示词预设"
     is AppRoute.PromptStudio -> "提示词 Studio"

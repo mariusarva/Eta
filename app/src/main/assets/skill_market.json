@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "title": { "zh": "Eta 技能市场", "en": "Eta skill market" },
+  "updatedAt": "2026-11-24",
+  "sources": [
+    { "id": "anthropic", "repo": "anthropics/skills", "ref": "main", "label": "Anthropic Skills" }
+  ],
+  "skills": [
+    {
+      "id": "pdf",
+      "title": "PDF 处理",
+      "summary": "读取、提取文字表格、合并拆分、旋转加密、填表单、OCR。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/pdf",
+      "author": "Anthropic", "tags": ["文档"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/pdf"
+    },
+    {
+      "id": "docx",
+      "title": "Word 文档",
+      "summary": "创建、读取、编辑 .docx，处理目录、页眉页脚、批注与修订。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/docx",
+      "author": "Anthropic", "tags": ["文档"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/docx"
+    },
+    {
+      "id": "xlsx",
+      "title": "电子表格",
+      "summary": "读写 Excel，公式、透视、图表与数据清洗。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/xlsx",
+      "author": "Anthropic", "tags": ["文档"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/xlsx"
+    },
+    {
+      "id": "pptx",
+      "title": "演示文稿",
+      "summary": "生成与修改 PPT，版式、母版、图表与讲稿。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/pptx",
+      "author": "Anthropic", "tags": ["文档"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/pptx"
+    },
+    {
+      "id": "doc-coauthoring",
+      "title": "文档协作撰写",
+      "summary": "按结构协作起草长文档，分节推进与一致性检查。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/doc-coauthoring",
+      "author": "Anthropic", "tags": ["文档"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/doc-coauthoring"
+    },
+    {
+      "id": "frontend-design",
+      "title": "前端界面设计",
+      "summary": "生成有品味的 Web 界面，布局、排版与动效。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/frontend-design",
+      "author": "Anthropic", "tags": ["设计"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/frontend-design"
+    },
+    {
+      "id": "canvas-design",
+      "title": "画布设计稿",
+      "summary": "在画布上做视觉稿：海报、卡片、信息图。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/canvas-design",
+      "author": "Anthropic", "tags": ["设计"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/canvas-design"
+    },
+    {
+      "id": "algorithmic-art",
+      "title": "算法艺术",
+      "summary": "用生成式算法出图，参数化与随机风格探索。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/algorithmic-art",
+      "author": "Anthropic", "tags": ["设计"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/algorithmic-art"
+    },
+    {
+      "id": "theme-factory",
+      "title": "主题工厂",
+      "summary": "批量产出配色主题与视觉变量，统一产品风格。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/theme-factory",
+      "author": "Anthropic", "tags": ["设计"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/theme-factory"
+    },
+    {
+      "id": "brand-guidelines",
+      "title": "品牌规范",
+      "summary": "把品牌规范落到文案与视觉输出，保持一致性。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/brand-guidelines",
+      "author": "Anthropic", "tags": ["设计"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/brand-guidelines"
+    },
+    {
+      "id": "web-artifacts-builder",
+      "title": "Web 组件构建",
+      "summary": "构建可交互 Web 组件与页面，含构建与预览流程。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/web-artifacts-builder",
+      "author": "Anthropic", "tags": ["开发"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/web-artifacts-builder"
+    },
+    {
+      "id": "webapp-testing",
+      "title": "Web 应用测试",
+      "summary": "驱动浏览器做端到端测试，定位交互问题。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/webapp-testing",
+      "author": "Anthropic", "tags": ["开发"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/webapp-testing"
+    },
+    {
+      "id": "mcp-builder",
+      "title": "MCP 服务构建",
+      "summary": "按规范搭建 MCP 服务，工具定义、传输与调试。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/mcp-builder",
+      "author": "Anthropic", "tags": ["开发"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/mcp-builder"
+    },
+    {
+      "id": "claude-api",
+      "title": "Claude API",
+      "summary": "Claude 接口调用要点：模型、工具调用、流式与计费。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/claude-api",
+      "author": "Anthropic", "tags": ["开发"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/claude-api"
+    },
+    {
+      "id": "skill-creator",
+      "title": "技能创建器",
+      "summary": "按规范写一份新技能：frontmatter、流程与资源组织。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/skill-creator",
+      "author": "Anthropic", "tags": ["元技能"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/skill-creator"
+    },
+    {
+      "id": "academy-guide",
+      "title": "技能学院指南",
+      "summary": "技能编写与教学材料的结构化指南。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/academy-guide",
+      "author": "Anthropic", "tags": ["元技能"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/academy-guide"
+    },
+    {
+      "id": "discernment-nudge",
+      "title": "判断力提示",
+      "summary": "在高风险提问上补一层自检与取舍提示。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/discernment-nudge",
+      "author": "Anthropic", "tags": ["元技能"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/discernment-nudge"
+    },
+    {
+      "id": "internal-comms",
+      "title": "内部沟通文案",
+      "summary": "写公告、周报、变更说明等内部沟通材料。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/internal-comms",
+      "author": "Anthropic", "tags": ["写作"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/internal-comms"
+    },
+    {
+      "id": "slack-gif-creator",
+      "title": "Slack GIF",
+      "summary": "生成适配 Slack 的短 GIF 与表情素材。",
+      "repo": "anthropics/skills", "ref": "main", "path": "skills/slack-gif-creator",
+      "author": "Anthropic", "tags": ["设计"], "homepage": "https://github.com/anthropics/skills/tree/main/skills/slack-gif-creator"
+    }
+  ]
+}

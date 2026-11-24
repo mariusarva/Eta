@@ -24,6 +24,10 @@ sealed interface AppRoute : NavKey {
     @Serializable
     data object Skills : AppRoute
 
+    /** 技能市场：内置目录 + 从公开仓库安装技能。 */
+    @Serializable
+    data object SkillMarket : AppRoute
+
     @Serializable
     data object Subagents : AppRoute
 
