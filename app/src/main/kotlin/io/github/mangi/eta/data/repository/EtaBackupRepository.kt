@@ -96,6 +96,9 @@ internal class EtaBackupException(message: String, cause: Throwable? = null) :
 internal object EtaBackupRepository {
     private const val EXPORT_PAGE_SIZE = 64
 
+    /** 每个定时任务最多带多少条运行记录进备份，避免备份被历史记录撑大。 */
+    private const val SCHEDULED_RUN_LIMIT = 50
+
     suspend fun export(context: Context, output: OutputStream): EtaBackupSummary = withContext(Dispatchers.IO) {
         var phase = "prepare_export"
         try {
