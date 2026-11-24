@@ -115,6 +115,15 @@ internal object AutoBackupRunner {
         }
     }
 
+    /**
+     * 备份名里的时间戳键（`yyyyMMdd-HHmmss`），排序用。
+     *
+     * 不能直接按整串文件名倒序：`Eta-全量备份-` 的「全」在 Unicode 里排在
+     * `Eta-自动备份-` 的「自」之后，两种格式混排时新生成的全量包会被当成最旧的删掉。
+     */
+    private fun backupSortKey(name: String): String =
+        Regex("(\\d{8}-\\d{6})").find(name)?.groupValues?.get(1) ?: name
+
     /** 已存在的自动备份，最新在前。 */
     fun backups(context: Context, settings: AutoBackupSettings): List<AutoBackupFile> {
         val tree = treeDirectory(context, settings)
@@ -128,14 +137,14 @@ internal object AutoBackupRunner {
                         deleteAction = { doc.delete() },
                     )
                 }
-                .sortedByDescending { it.name }
+                .sortedByDescending { backupSortKey(it.name) }
         }
         return defaultDirectory(context)
             .listFiles { file: File -> file.isFile && isBackupName(file.name) }
             ?.map { file ->
                 AutoBackupFile(file.name, file.length(), deleteAction = { file.delete() })
             }
-            ?.sortedByDescending { it.name }
+            ?.sortedByDescending { backupSortKey(it.name) }
             .orEmpty()
     }
 
@@ -340,9 +349,17 @@ internal object AutoBackupRunner {
         return AutoBackupResult.Failed(message)
     }
 
+    /**
+     * 按保留份数清理旧备份。
+     *
+     * 全量 zip 和 JSON 各自独立计数：两者体积差一倍以上（本机 150 MB vs 84 MB），
+     * 混在一起按一个上限删，用户切一次格式就会把另一种格式的历史全挤掉。
+     */
     private fun prune(context: Context, settings: AutoBackupSettings): Int {
+        val keep = settings.keepCount.coerceAtLeast(1)
         val pool = backups(context, settings)
-        pool.drop(settings.keepCount.coerceAtLeast(1)).forEach { stale ->
+        val (fulls, jsons) = pool.partition { EtaFullBackupArchive.isFullBackup(it.name) }
+        (fulls.drop(keep) + jsons.drop(keep)).forEach { stale ->
             if (!stale.delete()) {
                 AndroidAgentLogger.warn("Auto backup prune skipped: ~" + stale.length + "B")
             }
