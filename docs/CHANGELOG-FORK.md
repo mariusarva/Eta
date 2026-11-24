@@ -8,6 +8,32 @@
 
 ---
 
+## fork.102（2026-11-24）备份报「History payload chunk missing」
+
+**现象**：手动导出 / 自动备份直接失败，提示 `History payload chunk missing`。
+
+**根因**：大字段被拆成 16384 字符的块存进 `agent_text_chunks`，正文列只留 `@eta:chunks:v1:<块数>:<总长>` 引用。读取侧（`ChunkedTextDao.restoreText` 与 `ChunkedTextInputStream`）对分块做的是**硬断言** `check(...)`：只要有一条引用找不到对应分块、块序不符或长度偏差，就抛异常，整次导出中断。
+
+真机上查到的实际情况：71 条分块引用里 1 条悬空——
+
+```
+user-run-659b951a-0bf1-4047-ba14-359ea3346c67
+images_json = @eta:chunks:v1:10:157989
+→ 声明 10 块 / 157989 字符，agent_text_chunks 里 0 块
+```
+
+其余 60 条 `images` 引用与分块数量完全匹配；4 条 checkpoint 有轻微长度偏差（声明 2464878、实际 2464876，`storeText` 拆 UTF-16 代理对时少算），不致命。
+
+**改法**：
+
+- `restoreText`：引用格式非法返回空串而不是抛异常；读到缺失 / 块序不符 / 越界时提前收尾，返回已读到的部分
+- `ChunkedTextInputStream.ensureChunk`：同样去掉断言，分块不足或越界就结束流
+- 就地清理了那条悬空引用（`images_json` 置 `[]`），清理前整库备份到 `/data/local/tmp/eta-before-fix.db`
+
+**取舍**：个别字段内容丢失，好过整次备份失败。备份本身就是为了保数据，不能因为一条坏记录而完全不产出。
+
+---
+
 ## fork.96 – fork.101（2026-11-24）技能市场：合入、修安装失败、加 GitHub 搜索
 
 ### fork.96：技能市场合入 rebase（保持 schema v31）
