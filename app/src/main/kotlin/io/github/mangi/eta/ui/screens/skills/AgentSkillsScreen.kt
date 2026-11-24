@@ -154,13 +154,15 @@ fun AgentSkillsScreen(
                     }
                 }
 
-                Group(title = "技能市场") {
-                    CouiPreference(
-                        title = "打开技能市场",
-                        summary = "浏览内置技能目录，从公开仓库一键安装",
-                        enabled = !operationPending,
-                        onClick = onOpenMarket,
-                    )
+                CouiPreferenceGroup(title = "技能市场") {
+                    item(key = "skill_market_entry") {
+                        CouiPreference(
+                            title = "打开技能市场",
+                            summary = "浏览内置技能目录，从公开仓库一键安装",
+                            enabled = !operationPending,
+                            onClick = onOpenMarket,
+                        )
+                    }
                 }
 
                 if (builtinInstalled.isNotEmpty()) {

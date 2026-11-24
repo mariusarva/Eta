@@ -1,6 +1,5 @@
 package io.github.mangi.eta.ui.screens.market
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +22,7 @@ import io.github.mangi.eta.agent.skill.market.SkillMarketEntry
 import io.github.mangi.eta.ui.app.SkillMarketNotice
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.components.coui.CouiButton
+import io.github.mangi.eta.ui.components.coui.CouiChipTabs
 import io.github.mangi.eta.ui.components.coui.CouiButtonRole
 import io.github.mangi.eta.ui.components.coui.CouiNoticeDialog
 import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
@@ -99,23 +98,12 @@ internal fun SkillMarketScreen(
                 catalog.tags.forEach { add(it to it) }
             }
         }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            tabs.forEach { (key, label) ->
-                val active = key == tag
-                CouiButton(
-                    text = label,
-                    onClick = { tag = key },
-                    role = if (active) CouiButtonRole.Primary else CouiButtonRole.Secondary,
-                    minHeight = 32.dp,
-                )
-            }
-        }
+        CouiChipTabs(
+            items = tabs,
+            selectedKey = tag,
+            onSelectedKeyChange = { tag = it },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+        )
         Spacer(Modifier.height(4.dp))
 
         CouiText(
