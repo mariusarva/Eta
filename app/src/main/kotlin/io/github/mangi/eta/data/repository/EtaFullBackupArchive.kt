@@ -3,6 +3,7 @@ package io.github.mangi.eta.data.repository
 import android.content.Context
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
+import io.github.mangi.eta.data.db.EtaDatabase
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
