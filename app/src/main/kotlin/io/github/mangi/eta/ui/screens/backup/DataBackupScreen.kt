@@ -220,15 +220,21 @@ internal fun DataBackupScreen(
                     val input = context.contentResolver.openInputStream(uri)
                         ?: error(context.getString(R.string.data_backup_file_open_failed))
                     val summary = input.use { onImport(it) }
-                    Toast.makeText(
-                        context,
+                    // 全量包：私有文件已落暂存区，必须重启才生效，提示要明确。
+                    val message = if (summary.pendingRestart) {
+                        context.getString(
+                            R.string.data_backup_imported_restart,
+                            summary.conversationCount,
+                            summary.providerCount,
+                        )
+                    } else {
                         context.getString(
                             R.string.data_backup_imported,
                             summary.conversationCount,
                             summary.providerCount,
-                        ),
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                        )
+                    }
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 } catch (throwable: Throwable) {
                     showFailure(throwable)
                 } finally {
@@ -291,7 +297,7 @@ internal fun DataBackupScreen(
                             summary = stringResource(R.string.data_backup_import_summary),
                             enabled = !busy,
                             onClick = {
-                                importLauncher.launch(arrayOf("application/json", "text/plain"))
+                                importLauncher.launch(arrayOf("application/json", "text/plain", "application/zip", "application/octet-stream"))
                             },
                         )
                     }
@@ -417,7 +423,7 @@ internal fun DataBackupScreen(
                             summary = stringResource(R.string.data_backup_import_summary),
                             enabled = !busy,
                             onClick = {
-                                importLauncher.launch(arrayOf("application/json", "text/plain"))
+                                importLauncher.launch(arrayOf("application/json", "text/plain", "application/zip", "application/octet-stream"))
                             },
                         )
                     }

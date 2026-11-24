@@ -173,6 +173,15 @@ internal object EtaFullBackupArchive {
                     zip.closeEntry()
                     continue
                 }
+                // eta-backup.json 也要留下来：调用方拿它走正常导入链路，
+                // 否则解完 private/ 就再也拿不到这份 JSON 了（流是一次性的）。
+                if (entry.name.substringAfterLast('/') == JSON_ENTRY) {
+                    val jsonTarget = File(staging, JSON_ENTRY)
+                    jsonTarget.parentFile?.mkdirs()
+                    jsonTarget.outputStream().use { out -> zip.copyTo(out) }
+                    zip.closeEntry()
+                    continue
+                }
                 if (!name.startsWith("$PRIVATE_DIR/")) {
                     zip.closeEntry()
                     continue
@@ -206,6 +215,9 @@ internal object EtaFullBackupArchive {
 
     /** 有没有等待应用的还原。 */
     fun hasPendingRestore(context: Context): Boolean = File(stagingDirectory(context), PRIVATE_DIR).isDirectory
+
+    /** [stage] 留在暂存区根目录的 eta-backup.json，供调用方走正常导入链路。 */
+    fun stagedDocumentFile(context: Context): File = File(stagingDirectory(context), JSON_ENTRY)
 
     /**
      * 进程启动最早期调用：把暂存区里的私有目录内容覆盖回 dataDir。

@@ -88,6 +88,8 @@ internal data class EtaBackupSummary(
     val messageCount: Int,
     val memoryBytes: Int,
     val characterCount: Int = 0,
+    /** 全量包恢复后，私有文件已落暂存区，需要重启应用才生效。 */
+    val pendingRestart: Boolean = false,
 )
 
 internal class EtaBackupException(message: String, cause: Throwable? = null) :

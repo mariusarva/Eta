@@ -1159,6 +1159,7 @@
   <string name="data_backup_import_confirm_summary">当前对话、模型提供商和 MEMORY.md 将被替换，备份文件可能包含 API Key。</string>
   <string name="data_backup_working">处理中…</string>
   <string name="data_backup_exported">已导出 %1$d 个对话和 %2$d 个模型提供商</string>
+  <string name="data_backup_imported_restart">已恢复 %1$d 个对话和 %2$d 个模型提供商；私有文件需要重启 Eta 后生效。</string>
   <string name="data_backup_imported">已导入 %1$d 个对话和 %2$d 个模型提供商</string>
   <string name="data_backup_failed">备份操作失败</string>
   <string name="data_backup_file_open_failed">无法打开所选文件</string>

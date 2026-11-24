@@ -1175,6 +1175,7 @@
   <string name="data_backup_import_confirm_summary">Current conversations, providers, and MEMORY.md will be replaced. The backup may contain API keys.</string>
   <string name="data_backup_working">Working…</string>
   <string name="data_backup_exported">Exported %1$d conversations and %2$d providers</string>
+  <string name="data_backup_imported_restart">Restored %1$d conversations and %2$d providers. Private files will apply after restarting Eta.</string>
   <string name="data_backup_imported">Imported %1$d conversations and %2$d providers</string>
   <string name="data_backup_failed">Backup operation failed</string>
   <string name="data_backup_file_open_failed">Unable to open the selected file</string>
