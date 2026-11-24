@@ -1551,4 +1551,8 @@
   <string name="scheduled_action_run_now">Run now</string>
   <string name="scheduled_action_stop">Stop</string>
   <string name="route_skill_market" translatable="false">Skill market</string>
+  <string name="settings_github_account">GitHub account</string>
+  <string name="settings_prompt_studio">Prompts & tool boundaries</string>
+  <string name="settings_search_hint">Search settings</string>
+  <string name="settings_search_empty">No matching settings</string>
 </resources>

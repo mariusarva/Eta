@@ -1897,4 +1897,8 @@
     <string name="speech_tts_system">系统朗读（离线）</string>
   <string name="conversation_category_none">移出分类</string>
   <string name="route_skill_market">技能市场</string>
+  <string name="settings_github_account">GitHub 账号</string>
+  <string name="settings_prompt_studio">提示词与工具边界</string>
+  <string name="settings_search_hint">搜索设置</string>
+  <string name="settings_search_empty">没有匹配的设置项</string>
 </resources>

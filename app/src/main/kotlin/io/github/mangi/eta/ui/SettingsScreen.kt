@@ -49,6 +49,7 @@ import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VerifiedUser
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -126,6 +127,9 @@ import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.runtime.saveable.rememberSaveable
+import io.github.mangi.eta.ui.components.ListEmptyState
+import io.github.mangi.eta.ui.components.coui.CouiPageSearch
 
 private object SettingsIconColors {
     val Blue = Color(0xFF4285F4)
@@ -212,6 +216,8 @@ private fun SettingsPageContent(
     // 关于组：版本信息与更新检查。结果对话框在列表外渲染，状态需要页面级 owner。
     val appVersionName = BuildConfig.VERSION_NAME
     val appVersionSummary = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+    // 设置搜索：两种 UI 样式共用同一个查询串。
+    var settingsQuery by rememberSaveable { mutableStateOf("") }
     val openUrl: (String) -> Unit = { url ->
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }
@@ -598,7 +604,49 @@ private fun SettingsPageContent(
                         onDismissFinished = { if (availableUpdate == null) retainedUpdate = null },
                     )
                 },
-            ) {
+                search = CouiPageSearch(
+                    settingsQuery,
+                    { settingsQuery = it },
+                    stringResource(R.string.settings_search_hint),
+                ),
+            ) { searching ->
+                if (searching) {
+                    // 搜索态只渲染命中项：原页面条目是内联写死的，没法逐条过滤，
+                    // 用索引表 + 跳转代替，点一下就进对应页面。
+                    val resolved = { id: Int -> context.getString(id) }
+                    val matched = SettingsSearchIndex.search(settingsQuery, resolved)
+                    if (matched.isEmpty()) {
+                        item(key = "settings_search_empty") {
+                            ListEmptyState(
+                                title = context.getString(R.string.settings_search_empty),
+                                summary = settingsQuery.trim(),
+                            )
+                        }
+                    } else {
+                        CouiPreferenceGroup(title = context.getString(R.string.settings_search_hint)) {
+                            matched.forEach { entry ->
+                                item(key = "search_" + entry.titleRes) {
+                                    CouiPreference(
+                                        title = context.getString(entry.titleRes),
+                                        summary = context.getString(entry.groupRes),
+                                        icon = { CouiSettingsIcon(Icons.Rounded.Search, SettingsIconColors.Blue) },
+                                        onClick = {
+                                            settingsQuery = ""
+                                            when (val target = entry.route) {
+                                                is SettingsSearchRoute.Navigate -> onNavigate(target.route)
+                                                SettingsSearchRoute.CheckForUpdate -> checkForUpdate()
+                                                SettingsSearchRoute.Feedback ->
+                                                    openUrl("https://github.com/mariusarva/Eta/issues")
+                                                SettingsSearchRoute.StarOnGitHub ->
+                                                    openUrl("https://github.com/mariusarva/Eta")
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
                 CouiPreferenceGroup(title = stringResource(R.string.settings_llm_providers)) {
                     item {
                         CouiPreference(
@@ -1071,6 +1119,7 @@ private fun SettingsPageContent(
                 }
 
                 CouiPageBottomSpacer()
+                }
             }
         }
 
@@ -1103,6 +1152,52 @@ private fun SettingsPageContent(
                     }
                 },
             ) {
+                item(key = "settings_search") {
+                    MiuixSettingsSearchBar(
+                        query = settingsQuery,
+                        onQueryChange = { settingsQuery = it },
+                        hint = stringResource(R.string.settings_search_hint),
+                    )
+                }
+                if (settingsQuery.isNotBlank()) {
+                    // 搜索态只渲染命中项，点一下跳到对应页面。
+                    val resolved = { id: Int -> context.getString(id) }
+                    val matched = SettingsSearchIndex.search(settingsQuery, resolved)
+                    if (matched.isEmpty()) {
+                        item(key = "settings_search_empty") {
+                            ListEmptyState(
+                                title = context.getString(R.string.settings_search_empty),
+                                summary = settingsQuery.trim(),
+                            )
+                        }
+                    } else {
+                        item(key = "settings_search_title") {
+                            SmallTitle(context.getString(R.string.settings_search_hint))
+                        }
+                        item(key = "settings_search_results") {
+                            SettingsGroupCard {
+                                matched.forEach { entry ->
+                                    ArrowPreference(
+                                        title = context.getString(entry.titleRes),
+                                        summary = context.getString(entry.groupRes),
+                                        startAction = { SettingsIcon(Icons.Rounded.Search) },
+                                        onClick = {
+                                            settingsQuery = ""
+                                            when (val target = entry.route) {
+                                                is SettingsSearchRoute.Navigate -> onNavigate(target.route)
+                                                SettingsSearchRoute.CheckForUpdate -> checkForUpdate()
+                                                SettingsSearchRoute.Feedback ->
+                                                    openUrl("https://github.com/mariusarva/Eta/issues")
+                                                SettingsSearchRoute.StarOnGitHub ->
+                                                    openUrl("https://github.com/mariusarva/Eta")
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
                 item(key = "section_agent_title") {
                     SmallTitle(stringResource(R.string.settings_llm_providers))
                 }
@@ -1491,6 +1586,7 @@ private fun SettingsPageContent(
                             onClick = { openUrl("https://github.com/mariusarva/Eta") },
                         )
                     }
+                }
                 }
             }
         }
