@@ -8,6 +8,61 @@
 
 ---
 
+## fork.103 – fork.105（2026-11-24）备份覆盖扩展 / 全量包恢复入口 / 角色会话自动标题
+
+### 一、备份覆盖面（schema v4 → v5）
+
+原来只备份 providers、会话、消息、检查点、角色、记忆，定时任务、技能、MCP、语音设置全丢。现在补齐：
+
+| 数据 | 字段 | 说明 |
+|---|---|---|
+| 定时任务 | `scheduledTasks` + `scheduledTaskRuns` | 含运行记录，每任务最多 50 条 |
+| 技能 | `skills` | 只存启用状态；技能文件在 `files/skills`，由全量包携带 |
+| MCP | `mcpServers` | **不含凭据**，恢复后一律停用，等用户重新授权 |
+| 语音 | `speechSettings` + `assistantOverlaySettings` | 朗读、助手浮窗 |
+| 自动标题 | `conversationTitleSettings` | 含所用模型与推理强度 |
+
+恢复走 `restoreAuxiliary`：每类独立事务，某一类失败只记日志，不连累已恢复的会话数据。旧版备份缺这些字段时按空处理，向后兼容。
+
+配套：四个实体加 `@Serializable`；新增 `McpServerDao.deleteAllRows`、`ScheduledTaskDao.deleteAllTasks/deleteAllRuns`；恢复定时任务后调 `ScheduledTaskAlarmScheduler.syncNextAlarm` 重排。
+
+### 二、全量 zip 恢复入口
+
+**问题**：`EtaFullBackupArchive.stage` 在整个 UI 层没有调用点——全量包能导出，但没有任何入口能恢复。
+
+**改法**：
+
+- `importBackup` 探测 ZIP 魔数（`PK\x03\x04`）：全量包先 `stage` 解开 `private/` 到暂存区，再抽出 `eta-backup.json` 走原有导入链路
+- `stage` 现在会把 `eta-backup.json` 一并留在暂存区根目录；原来只解 `private/`，而流是一次性的，解完就拿不到 JSON
+- 新增 `stagedDocumentFile` 访问器
+- `EtaBackupSummary` 加 `pendingRestart`，UI 提示「私有文件需要重启 Eta 后生效」
+- 导入选择器补 `application/zip`、`application/octet-stream`
+
+### 三、全量导出前 WAL checkpoint
+
+全量包直接复制 `databases/`：如果新数据还在 `-wal` 里，复制出的 `eta.db` 是旧快照，而恢复端会删 `-wal`（避免旧库配新日志），那部分数据就丢。
+
+新增 `EtaDatabase.checkpointForBackup(context)`，导出前先 `PRAGMA wal_checkpoint(TRUNCATE)`。
+
+### 四、角色会话自动标题
+
+**现象**：角色会话的标题一直停在角色名占位，不会自动生成。
+
+**根因**：`AgentAppState` 里 `isInitialTurn` 和 `isEditingFirstTurnWithAutoTitle` 都写了 `state.roleplay == null`，角色会话永远不满足，`pendingAutoTitleFallbacks` 不写入，`maybeGenerateConversationTitle` 判断为「不允许生成」。
+
+**改法**：去掉这两处 `state.roleplay == null` 限制。
+
+### 五、其他
+
+- 轮次序号圆圈 22dp → 26dp：两位数（10、11…）被 `CircleShape` 裁掉边缘；序号 `Text` 加 `maxLines=1` + `softWrap=false`
+- 备份状态时间戳补年份（`MM-dd` → `yyyy-MM-dd`）
+
+### 编译错误（两次）
+
+都是跨包漏 import：`EtaFullBackupArchive` 在 `data.repository`、`EtaDatabase` 在 `data.db`，加 `checkpointForBackup` 调用时没补 import。
+
+---
+
 ## fork.102（2026-11-24）备份报「History payload chunk missing」
 
 **现象**：手动导出 / 自动备份直接失败，提示 `History payload chunk missing`。
