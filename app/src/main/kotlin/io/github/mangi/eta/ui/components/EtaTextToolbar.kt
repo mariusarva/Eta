@@ -111,7 +111,7 @@ private fun EtaTextSelectionMenuPopup(menu: EtaTextSelectionMenu, onDismiss: () 
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .offset { androidx.compose.ui.unit.IntOffset(offsetX, offsetY) }
-                    .background(MiuixTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(12.dp))
+                    .background(opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh), RoundedCornerShape(12.dp))
                     .padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

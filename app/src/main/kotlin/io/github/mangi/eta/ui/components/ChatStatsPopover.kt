@@ -452,7 +452,7 @@ internal fun ChatStatsPopoverPopup(
                     shadow = Shadow(radius = 16.dp, color = Color.Black, alpha = 0.12f),
                 )
                 .squircleSurface(
-                    color = MiuixTheme.colorScheme.surfaceContainer,
+                    color = opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainer),
                     cornerRadius = 18.dp,
                 )
                 .squircleBorder(

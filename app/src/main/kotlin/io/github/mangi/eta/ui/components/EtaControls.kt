@@ -62,7 +62,9 @@ internal fun EtaWindowDialog(
     EtaPreferenceTheme {
         WindowDialog(
             show = show, title = title, summary = summary, modifier = modifier,
-            backgroundColor = MiuixTheme.colorScheme.surfaceContainer,
+            // 用不透明合成色：surfaceContainer 是 MD3 叠加色，深色下带 alpha，
+            // 直接当弹窗底色会透出下层的对话轮次列表，文字糊成一片。
+            backgroundColor = opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainer),
             onDismissRequest = onDismissRequest, onDismissFinished = onDismissFinished,
             cornerRadius = DialogDefaults.CornerRadius,
             insideMargin = EtaControlDefaults.DialogInsideMargin,
@@ -86,7 +88,8 @@ internal fun EtaOverlayDialog(
     EtaPreferenceTheme {
         OverlayDialog(
             show = show, title = title, summary = summary, modifier = modifier,
-            backgroundColor = MiuixTheme.colorScheme.surfaceContainer,
+            // 同 EtaWindowDialog：叠加色必须合成成不透明，否则弹窗透底。
+            backgroundColor = opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainer),
             onDismissRequest = onDismissRequest, onDismissFinished = onDismissFinished,
             cornerRadius = DialogDefaults.CornerRadius,
             insideMargin = EtaControlDefaults.DialogInsideMargin,

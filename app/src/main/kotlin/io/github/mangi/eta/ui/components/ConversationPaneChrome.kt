@@ -166,7 +166,9 @@ internal fun conversationPaneContainerColor(): Color {
     return if (colors.surface.luminance() > 0.5f) {
         colors.surface
     } else {
-        lerp(colors.surface, colors.surfaceContainer, 0.45f)
+        // surfaceContainer 在深色下带 alpha，直接 lerp 会把 alpha 一起混进来，
+        // 侧栏面板就会透出背后的对话内容。先合成成不透明再加权。
+        lerp(colors.surface, opaqueThemedSurface(colors.surfaceContainer), 0.45f)
     }
 }
 

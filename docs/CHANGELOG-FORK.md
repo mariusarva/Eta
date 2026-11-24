@@ -8,6 +8,39 @@
 
 ---
 
+## fork.89（2026-11-24）弹窗与浮层透底（surfaceContainer 带 alpha）
+
+同一个根因的第二批：`MiuixTheme.colorScheme.surfaceContainer` / `surfaceContainerHigh` 是 MD3 的
+**叠加色**，深色主题下自带 alpha，直接拿来当浮层底色就会透出下层内容，文字糊成一片。
+fork.85 修过 4 处，这轮把剩下的浮层全查了一遍。
+
+| 文件 | 组件 | 现象 |
+|---|---|---|
+| `EtaControls.kt` | `EtaWindowDialog` | 删除轮次确认框（「删除第 N 轮」）整个卡片透底，能看到后面的轮次列表 |
+| `EtaControls.kt` | `EtaOverlayDialog` | 另一套 overlay 版弹窗，同样透底 |
+| `EtaTextToolbar.kt` | 文字选择浮条 | 长按选字后的剪切/复制/粘贴菜单透底 |
+| `ChatStatsPopover.kt` | `ChatStatsPopoverPopup` | Token 用量 / 上下文占用气泡透底（`ContextUsageStatsPopoverPopup` 复用同一实现） |
+| `ConversationPaneChrome.kt` | `conversationPaneContainerColor()` | 侧栏面板深色下透出背后的对话内容 |
+
+最后一处最隐蔽：`lerp(surface, surfaceContainer, 0.45f)` 把 `surfaceContainer` 的 alpha 一起混进了
+结果，混合出来的面板本身就是半透明的。改为 `lerp(surface, opaqueThemedSurface(surfaceContainer), 0.45f)`。
+
+全部统一走 `opaqueThemedSurface(...)`（`OpaqueSurfaces.kt`：把容器色按自身 alpha 合成到页面背景，
+保留主题色相，Monet 取色照常生效）。
+
+**核对后确认无需改的**（已正确或不属于浮层）：
+
+- `AgentAppRoot.kt` 角色选择 Dialog：已用 `opaqueThemedSurface()`
+- `ConversationPanePanel.kt` 的 `PaneDialog`：已用 `paneOpaqueDialogColor()` + 自加 0.62 遮罩
+- COUI 的 `CouiAlert` / `CouiBottomSheet`：`DialogDefaults.backgroundColor()` 本身不透明；有材质模糊时才用 `Color.Transparent`
+- Miuix 的 57 处 `GlassDialog` / `GlassBottomSheet` / `GlassPopup`：默认 `containerColor` 就是 `MiuixTheme.background`，不透明
+- `SubagentActivitySheet` 内部卡片、`ChatMessageItem` / `AgentToolActivity` / `AgentChatInputBar` 等：页面内嵌卡片，不是浮层
+
+**判别口径**：只要是独立浮层（Dialog / Popup / BottomSheet / 侧栏面板）的**最外层底色**，就不能直接用
+`surfaceContainer` 系列；浮层内部再叠的卡片可以用叠加色做层次。
+
+---
+
 ## fork.88（2026-11-24）自动备份选项失效 / 通知「插入」丢内容 / 插入弹层透底
 
 三处都是「点了没反应 / 内容消失」，根因各不相同。
