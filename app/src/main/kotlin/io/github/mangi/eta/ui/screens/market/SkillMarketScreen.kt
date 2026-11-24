@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.screens.market
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,9 +18,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.itos.coui.layout.Group
-import com.itos.coui.text.Text as CouiText
-import com.itos.coui.text.CouiTextKind
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.skill.market.SkillMarketCatalog
 import io.github.mangi.eta.agent.skill.market.SkillMarketEntry
@@ -26,12 +25,15 @@ import io.github.mangi.eta.ui.app.SkillMarketNotice
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.components.coui.CouiButton
 import io.github.mangi.eta.ui.components.coui.CouiButtonRole
-import io.github.mangi.eta.ui.components.coui.CouiChipTabs
 import io.github.mangi.eta.ui.components.coui.CouiNoticeDialog
 import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
 import io.github.mangi.eta.ui.components.coui.CouiPreference
+import io.github.mangi.eta.ui.components.coui.CouiPreferenceGroup
 import io.github.mangi.eta.ui.components.coui.CouiScaffoldPage
+import io.github.mangi.eta.ui.components.coui.CouiText
+import io.github.mangi.eta.ui.components.coui.CouiTextKind
 import io.github.mangi.eta.ui.components.coui.CouiTextField
+import io.github.mangi.eta.ui.components.rememberDraftTextFieldState
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 
 private const val ALL_TAG = "all"
@@ -68,6 +70,7 @@ internal fun SkillMarketScreen(
 ) {
     var tag by rememberSaveable { mutableStateOf(ALL_TAG) }
     var query by rememberSaveable { mutableStateOf("") }
+    val searchState = rememberDraftTextFieldState(query) { query = it }
     val filtered = remember(catalog.entries, query, tag) { catalog.entries.matching(query, tag) }
 
     CouiNoticeDialog(
@@ -84,23 +87,35 @@ internal fun SkillMarketScreen(
         modifier = modifier,
     ) {
         CouiTextField(
-            value = query,
-            onValueChange = { query = it },
+            state = searchState,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             placeholder = "搜索技能名或说明",
             singleLine = true,
         )
 
-        val tabs = buildList {
-            add(ALL_TAG to "全部")
-            catalog.tags.forEach { add(it to it) }
+        val tabs = remember(catalog.tags) {
+            buildList {
+                add(ALL_TAG to "全部")
+                catalog.tags.forEach { add(it to it) }
+            }
         }
-        CouiChipTabs(
-            items = tabs,
-            selectedKey = tag,
-            onSelectedKeyChange = { tag = it },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            tabs.forEach { (key, label) ->
+                val active = key == tag
+                CouiButton(
+                    text = label,
+                    onClick = { tag = key },
+                    role = if (active) CouiButtonRole.Primary else CouiButtonRole.Secondary,
+                    minHeight = 32.dp,
+                )
+            }
+        }
         Spacer(Modifier.height(4.dp))
 
         CouiText(
@@ -111,35 +126,37 @@ internal fun SkillMarketScreen(
         )
 
         if (filtered.isNotEmpty()) {
-            Group(title = "可用技能") {
+            CouiPreferenceGroup(title = "可用技能") {
                 filtered.forEach { entry ->
-                    CouiPreference(
-                        title = entry.title,
-                        summary = if (entry.tags.isEmpty()) {
-                            entry.summary
-                        } else {
-                            entry.summary + "  ·  " + entry.tags.joinToString(" / ")
-                        },
-                        value = entry.author,
-                        enabled = installingId == null,
-                        onClick = { onInstall(entry) },
-                        showChevron = false,
-                        trailing = {
-                            when {
-                                installingId == entry.id -> InfiniteProgressIndicator(size = 20.dp)
-                                installingId != null -> Unit
-                                else -> Row {
-                                    Spacer(Modifier.width(4.dp))
-                                    CouiButton(
-                                        text = "安装",
-                                        onClick = { onInstall(entry) },
-                                        role = CouiButtonRole.Primary,
-                                        minHeight = 30.dp,
-                                    )
+                    item(key = entry.id) {
+                        CouiPreference(
+                            title = entry.title,
+                            summary = if (entry.tags.isEmpty()) {
+                                entry.summary
+                            } else {
+                                entry.summary + "  ·  " + entry.tags.joinToString(" / ")
+                            },
+                            value = entry.author,
+                            enabled = installingId == null,
+                            onClick = { onInstall(entry) },
+                            showChevron = false,
+                            trailing = {
+                                when {
+                                    installingId == entry.id -> InfiniteProgressIndicator(size = 20.dp)
+                                    installingId != null -> Unit
+                                    else -> Row {
+                                        Spacer(Modifier.width(4.dp))
+                                        CouiButton(
+                                            text = "安装",
+                                            onClick = { onInstall(entry) },
+                                            role = CouiButtonRole.Primary,
+                                            minHeight = 30.dp,
+                                        )
+                                    }
                                 }
-                            }
-                        },
-                    )
+                            },
+                        )
+                    }
                 }
             }
         }
