@@ -25,6 +25,16 @@ internal class AgentExecutionService : Service() {
     private val stopQueue = ExecutionStopQueue { failure ->
         AndroidAgentLogger.warn("Execution task stop failed: type=${failure.safeLogType()}")
     }
+    /**
+     * 暂停/继续的投递线程。
+     *
+     * 必须离开主线程：onStartCommand 跑在主线程，而 AgentRuntimeClient 底层的
+     * AgentRuntimeConnection.acquire 有主线程断言，直接调用会抛 IllegalStateException
+     * 并被 withRuntimeMessenger 静默吞掉 —— 暂停指令根本没送到运行进程。
+     */
+    private val pauseDispatch = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "eta-execution-pause").apply { isDaemon = true }
+    }
     private val owner = ownerSequence.incrementAndGet()
     private var foregroundActive = false
     @Volatile private var startRejected = false
@@ -60,8 +70,24 @@ internal class AgentExecutionService : Service() {
             val targetRunId = intent.getStringExtra(EXTRA_TOGGLE_RUN_ID).orEmpty()
             val pausedNow = runPaused
             if (targetRunId.isNotBlank()) {
-                val client = AgentRuntimeClient(this, AndroidAgentLogger)
-                if (pausedNow) client.resumeRun() else client.pauseRun(targetRunId)
+                // 必须离开主线程：onStartCommand 在主线程，而 AgentRuntimeClient 底层的
+                // AgentRuntimeConnection.acquire 有主线程断言，直接调会抛
+                // IllegalStateException 并被 withRuntimeMessenger 静默吞掉，
+                // 表现为「点了暂停但运行没停」（随后运行跑完，看起来像被中断）。
+                pauseDispatch.execute {
+                    runCatching {
+                        val client = AgentRuntimeClient(this, AndroidAgentLogger)
+                        if (pausedNow) client.resumeRun() else client.pauseRun(targetRunId)
+                    }.onFailure { throwable ->
+                        AndroidAgentLogger.warn(
+                            "Execution pause dispatch failed: type=${throwable.safeLogType()}",
+                        )
+                    }
+                }
+                // 乐观翻转本地暂停态再刷新：真正状态会由 RuntimeService 的
+                // publishExecutionState 回写，但这里先翻一次，避免点完按钮后
+                // 通知还停在旧文案上（看起来像点了没反应）。
+                runPaused = !pausedNow
             }
             refreshNotification()
         } else {
@@ -75,6 +101,7 @@ internal class AgentExecutionService : Service() {
 
     override fun onDestroy() {
         if (instance === this) instance = null
+        runCatching { pauseDispatch.shutdownNow() }
         // 销毁时同样收回本服务拥有的任务。回收在独立有界工作线程上完成，不阻塞 Main。
         stopQueue.close(leases.drainOwner(owner))
         super.onDestroy()
@@ -159,6 +186,8 @@ internal class AgentExecutionService : Service() {
                         .putExtra(EXTRA_TOGGLE_RUN_ID, runId),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 )
+                // icon 传 null：从 Android 7.0 起 AOSP 的通知动作条不再渲染 Action 图标，
+                // 只显示文字标签，HyperOS 同样如此，给图标也不会画出来。
                 builder.addAction(
                     Notification.Action.Builder(
                         null,
@@ -179,11 +208,23 @@ internal class AgentExecutionService : Service() {
                 )
             }
             builder
-                .addAction(Notification.Action.Builder(null, getString(R.string.execution_action_stop), stop).build())
+                .addAction(
+                    Notification.Action.Builder(
+                        null,
+                        getString(R.string.execution_action_stop),
+                        stop,
+                    ).build(),
+                )
         } else {
             builder
                 .setContentText(resources.getQuantityString(R.plurals.execution_summary, taskCount, taskCount))
-                .addAction(Notification.Action.Builder(null, getString(R.string.execution_stop), stop).build())
+                .addAction(
+                    Notification.Action.Builder(
+                        null,
+                        getString(R.string.execution_stop),
+                        stop,
+                    ).build(),
+                )
         }
 
         // 只有 Agent run 在跑、且当前未由 GUI 悬浮窗接管顶部视觉位时才申请提升为 Live Update；
@@ -266,7 +307,10 @@ internal class AgentExecutionService : Service() {
                 this.suppressLiveUpdate = suppressLiveUpdate
                 val count = if (activeRunCount > 0) activeRunCount else leases.count()
                 val headline = executionHeadline(context, status, count)
-                val signature = "$headline|$conversationId|$archivedSource|$archivedKey|$count|${status != null}|$suppressLiveUpdate"
+                // isPaused 必须参与签名：暂停只改按钮文案与图标，标题和计数都不变，
+                // 漏掉它时通知不会重建，暂停键会一直停在「暂停」而看起来像没生效。
+                val signature = "$headline|$conversationId|$archivedSource|$archivedKey|$count|" +
+                    "${status != null}|$suppressLiveUpdate|$primaryRunId|$isPaused"
                 if (signature == publishedSignature) return@post
                 publishedSignature = signature
                 instance?.takeIf { it.foregroundActive }?.refreshNotification()

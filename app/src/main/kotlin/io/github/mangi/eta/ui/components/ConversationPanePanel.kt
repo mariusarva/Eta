@@ -157,7 +157,7 @@ internal fun ConversationPanePanel(
     onConversationDelete: (ConversationSummaryUi) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenModelProviders: () -> Unit,
-    onOpenTools: () -> Unit,
+    onOpenPromptStudio: () -> Unit,
     onOpenSkills: () -> Unit,
     onOpenScheduledTasks: () -> Unit = {},
     onOpenCharacters: () -> Unit,
@@ -261,7 +261,7 @@ internal fun ConversationPanePanel(
                                         activeModelLabel = activeModelLabel,
                                         onOpenModelProviders = onOpenModelProviders,
                                         onOpenCharacters = onOpenCharacters,
-                                        onOpenTools = onOpenTools,
+                                        onOpenPromptStudio = onOpenPromptStudio,
                                         onOpenSkills = onOpenSkills,
                                         onOpenScheduledTasks = onOpenScheduledTasks,
                                         onOpenCategories = onOpenCategories,
@@ -769,7 +769,7 @@ private fun PaneWorkbenchSection(
     activeModelLabel: String?,
     onOpenModelProviders: () -> Unit,
     onOpenCharacters: () -> Unit,
-    onOpenTools: () -> Unit,
+    onOpenPromptStudio: () -> Unit,
     onOpenSkills: () -> Unit,
     onOpenScheduledTasks: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
@@ -798,8 +798,8 @@ private fun PaneWorkbenchSection(
         add(
             WorkbenchEntry(
                 icon = ConversationPaneIcons.Tools,
-                title = stringResource(R.string.route_tools),
-                onClick = onOpenTools,
+                title = "提示词设置",
+                onClick = onOpenPromptStudio,
             ),
         )
         add(

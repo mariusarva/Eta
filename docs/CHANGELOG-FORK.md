@@ -8,6 +8,47 @@
 
 ---
 
+## fork.91 – fork.92（2026-11-24）工作台提示词入口 / 通知暂停失效
+
+### fork.91：工作台「工具能力」→「提示词设置」
+
+侧栏工作台那一行原来指向 `AppRoute.Tools`，改为 `AppRoute.PromptStudio`。回调名 `onOpenTools`
+同步改为 `onOpenPromptStudio`，涉及 `ConversationPanePanel`、`ConversationSidePaneScaffold`、
+`AgentAppShell`、`AgentAppRoot` 四处。工具能力页本身保留，设置页里的入口没动。
+
+### fork.91：通知暂停后不刷新
+
+`AgentExecutionService.updateRunStatus` 的 `publishedSignature` 去重串里**没有 `isPaused`**。
+暂停只改按钮文案（暂停↔继续），标题和任务计数都不变，签名相同 → 通知不重建 → 按钮一直停在旧文案。
+补上 `isPaused` 与 `primaryRunId`。
+
+### fork.92：通知暂停指令根本没送达（真 bug）
+
+现象：点通知上的「暂停」，运行没有暂停，继续跑完，看起来像「被中断」。
+
+根因链条：
+
+1. 通知按钮 `ACTION_TOGGLE_PAUSE` 经 `PendingIntent.getService` 投递到 `onStartCommand`；
+2. `onStartCommand` 跑在**主线程**，里面直接 `AgentRuntimeClient.pauseRun(...)`；
+3. `AgentRuntimeClient.withRuntimeMessenger` → `AgentRuntimeConnection.acquire` 开头有
+   `check(Looper.myLooper() != Looper.getMainLooper())`，抛 `IllegalStateException`；
+4. 该异常被 `withRuntimeMessenger` 的 `catch (throwable: Throwable)` **静默吞掉**，暂停指令从未发出；
+5. fork.91 又无条件把 `runPaused` 乐观翻成 `true`，于是通知显示「继续」，实际仍在跑。
+
+改法：新增单线程 `pauseDispatch`（`eta-execution-pause`，daemon），把暂停/继续的投递移出主线程；
+投递失败写 `Execution pause dispatch failed` 日志不再静默；`onDestroy` 里 `shutdownNow()`。
+
+**这和 fork.88 的 `SupplementActivity` 是同一类坑**：凡是在主线程调用 `AgentRuntimeClient`
+同步接口的地方都会撞上 `acquire` 的主线程断言。
+
+### 试过但放弃：通知按钮加图标
+
+fork.91 曾给暂停/继续、插入、停止分别做了 5 个 24dp 单色矢量图并接进 `Notification.Action`，
+真机上按钮仍然只有文字。原因：**从 Android 7.0 起 AOSP 的通知动作条不再渲染 `Action` 图标**，
+只显示文字标签，HyperOS 同样如此。图标资源已删除，`icon` 参数回到 `null` 并加注释说明。
+
+---
+
 ## fork.90（2026-11-24）侧栏多选条与系统悬浮窗透底
 
 fork.89 之后按真机截图继续排查，补上侧栏和系统悬浮窗这一批。

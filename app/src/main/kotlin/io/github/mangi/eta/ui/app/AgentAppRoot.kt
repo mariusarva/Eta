@@ -433,7 +433,7 @@ fun AgentAppRoot(
             onConversationDelete = { conversation ->
                 conversationDeleteTarget = conversation
             },
-            onOpenTools = { pushRoute(AppRoute.Tools) },
+            onOpenPromptStudio = { pushRoute(AppRoute.PromptStudio) },
             onOpenSkills = { pushRoute(AppRoute.Skills) },
             onOpenScheduledTasks = { pushRoute(AppRoute.ScheduledTasks) },
             onFilterCategory = { agentState.setConversationCategoryFilter(it) },
