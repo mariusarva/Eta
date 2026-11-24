@@ -14,10 +14,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.skill.market.SkillMarketCatalog
+import io.github.mangi.eta.agent.skill.market.GitHubSkillSearch
 import io.github.mangi.eta.agent.skill.market.SkillMarketEntry
 import io.github.mangi.eta.ui.app.SkillMarketNotice
 import io.github.mangi.eta.ui.components.ListEmptyState
@@ -34,6 +36,7 @@ import io.github.mangi.eta.ui.components.coui.CouiTextKind
 import io.github.mangi.eta.ui.components.coui.CouiTextField
 import io.github.mangi.eta.ui.components.rememberDraftTextFieldState
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private const val ALL_TAG = "all"
 
@@ -66,6 +69,12 @@ internal fun SkillMarketScreen(
     onInstall: (SkillMarketEntry) -> Unit,
     onDismissNotice: () -> Unit,
     modifier: Modifier = Modifier,
+    searchResults: List<SkillMarketEntry> = emptyList(),
+    searching: Boolean = false,
+    searchMode: GitHubSkillSearch.Mode? = null,
+    searchNeedsAuth: Boolean = false,
+    onSearch: (String) -> Unit = {},
+    onClearSearch: () -> Unit = {},
 ) {
     var tag by rememberSaveable { mutableStateOf(ALL_TAG) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -95,6 +104,65 @@ internal fun SkillMarketScreen(
             singleLine = true,
         )
 
+        // GitHub 搜索入口：内置目录搜不到时，直接去 GitHub 上找。
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CouiButton(
+                text = if (searching) "搜索中…" else "在 GitHub 搜索",
+                onClick = { onSearch(query) },
+                enabled = query.trim().length >= 2 && !searching,
+                role = CouiButtonRole.Primary,
+                minHeight = 34.dp,
+            )
+            if (searchResults.isNotEmpty() || searchNeedsAuth) {
+                Spacer(Modifier.width(8.dp))
+                CouiButton(
+                    text = "清除",
+                    onClick = onClearSearch,
+                    role = CouiButtonRole.Secondary,
+                    minHeight = 34.dp,
+                )
+            }
+        }
+        if (searchNeedsAuth) {
+            CouiText(
+                text = "代码搜索需要登录 GitHub；未登录时按仓库搜索，只能找到仓库，安装时自动在仓库里找 SKILL.md。",
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
+                kind = CouiTextKind.GroupFooter,
+                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+        }
+        if (searching) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                InfiniteProgressIndicator(size = 22.dp)
+            }
+        }
+
+        if (searchResults.isNotEmpty()) {
+            CouiPreferenceGroup(
+                title = when (searchMode) {
+                    GitHubSkillSearch.Mode.CODE -> "GitHub 找到 ${searchResults.size} 个技能"
+                    GitHubSkillSearch.Mode.REPOSITORY -> "GitHub 找到 ${searchResults.size} 个仓库"
+                    null -> "GitHub 结果"
+                },
+            ) {
+                searchResults.forEach { entry ->
+                    item(key = "gh_" + entry.id) {
+                        SkillMarketRow(
+                            entry = entry,
+                            installingId = installingId,
+                            onInstall = onInstall,
+                        )
+                    }
+                }
+            }
+        }
+
         val tabs = remember(catalog.tags) {
             buildList {
                 add(ALL_TAG to "全部")
@@ -120,32 +188,10 @@ internal fun SkillMarketScreen(
             CouiPreferenceGroup(title = "可用技能") {
                 filtered.forEach { entry ->
                     item(key = entry.id) {
-                        CouiPreference(
-                            title = entry.title,
-                            summary = if (entry.tags.isEmpty()) {
-                                entry.summary
-                            } else {
-                                entry.summary + "  ·  " + entry.tags.joinToString(" / ")
-                            },
-                            value = entry.author,
-                            enabled = installingId == null,
-                            onClick = { onInstall(entry) },
-                            showChevron = false,
-                            trailing = {
-                                when {
-                                    installingId == entry.id -> InfiniteProgressIndicator(size = 20.dp)
-                                    installingId != null -> Unit
-                                    else -> Row {
-                                        Spacer(Modifier.width(4.dp))
-                                        CouiButton(
-                                            text = "安装",
-                                            onClick = { onInstall(entry) },
-                                            role = CouiButtonRole.Primary,
-                                            minHeight = 30.dp,
-                                        )
-                                    }
-                                }
-                            },
+                        SkillMarketRow(
+                            entry = entry,
+                            installingId = installingId,
+                            onInstall = onInstall,
                         )
                     }
                 }
@@ -172,4 +218,40 @@ internal fun SkillMarketScreen(
         }
         CouiPageBottomSpacer()
     }
+}
+
+/** 技能条目行：内置目录与 GitHub 搜索结果共用。 */
+@Composable
+private fun SkillMarketRow(
+    entry: SkillMarketEntry,
+    installingId: String?,
+    onInstall: (SkillMarketEntry) -> Unit,
+) {
+    CouiPreference(
+        title = entry.title,
+        summary = if (entry.tags.isEmpty()) {
+            entry.summary
+        } else {
+            entry.summary + "  ·  " + entry.tags.joinToString(" / ")
+        },
+        value = entry.author,
+        enabled = installingId == null,
+        onClick = { onInstall(entry) },
+        showChevron = false,
+        trailing = {
+            when {
+                installingId == entry.id -> InfiniteProgressIndicator(size = 20.dp)
+                installingId != null -> Unit
+                else -> Row {
+                    Spacer(Modifier.width(4.dp))
+                    CouiButton(
+                        text = "安装",
+                        onClick = { onInstall(entry) },
+                        role = CouiButtonRole.Primary,
+                        minHeight = 30.dp,
+                    )
+                }
+            }
+        },
+    )
 }

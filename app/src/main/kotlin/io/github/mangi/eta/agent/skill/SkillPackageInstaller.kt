@@ -181,6 +181,27 @@ class SkillPackageInstaller internal constructor(
             }
             val candidatesByPath = allCandidates.associateBy { it.relativePath }
             val normalizedSelections = selectedPathsSnapshot.map(::normalizeSelectionPath)
+            // 市场里的「仓库搜索」结果只知道仓库、不知道具体目录，用 "." 表示「自动」：
+            // 仓库里恰好一个技能就直接装它，多个则要求用户指定路径。
+            val autoSelect = normalizedSelections.size == 1 && normalizedSelections.single() == "."
+            if (autoSelect) {
+                val only = allCandidates.singleOrNull()
+                    ?: fail(
+                        SkillInstallErrorCode.MULTIPLE_SKILLS_FOUND,
+                        AppStrings.get(
+                            R.string.skill_i18n_local_zip_multiple_skills,
+                            "仓库里发现 %1\$d 个 Skill，需要在条目里指定具体路径",
+                            allCandidates.size,
+                        ),
+                    )
+                return@withArchive installCandidates(
+                    operation = operation,
+                    candidates = listOf(only),
+                    replaceUserSkills = false,
+                    isCancelled = isCancelled,
+                    conflictArchiveSha256 = null,
+                )
+            }
             if (normalizedSelections.distinct().size != normalizedSelections.size) {
                 fail(
                     SkillInstallErrorCode.INVALID_SELECTION,

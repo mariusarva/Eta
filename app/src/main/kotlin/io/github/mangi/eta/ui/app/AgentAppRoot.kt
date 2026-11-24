@@ -727,6 +727,12 @@ fun AgentAppRoot(
                             onBack = ::popRoute,
                             onInstall = skillMarketStore::install,
                             onDismissNotice = skillMarketStore::dismissNotice,
+                            searchResults = skillMarketStore.searchResults,
+                            searching = skillMarketStore.searching,
+                            searchMode = skillMarketStore.searchMode,
+                            searchNeedsAuth = skillMarketStore.searchNeedsAuth,
+                            onSearch = skillMarketStore::search,
+                            onClearSearch = skillMarketStore::clearSearch,
                         )
                     }
                     entry<AppRoute.Characters>(swipeDismiss = activeSwipeDismiss) {

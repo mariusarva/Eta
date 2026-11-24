@@ -11,6 +11,8 @@ import io.github.mangi.eta.agent.skill.SkillInstallConflict
 import io.github.mangi.eta.agent.skill.SkillInstallErrorCode
 import io.github.mangi.eta.agent.skill.SkillInstallResult
 import io.github.mangi.eta.agent.skill.SkillRuntime
+import io.github.mangi.eta.agent.skill.market.GitHubSkillSearch
+import io.github.mangi.eta.data.repository.GitHubAccountStore
 import io.github.mangi.eta.agent.skill.market.SkillMarketCatalog
 import io.github.mangi.eta.agent.skill.market.SkillMarketEntry
 import io.github.mangi.eta.agent.skill.market.SkillMarketParser
@@ -52,6 +54,73 @@ internal class SkillMarketStore(
         private set
     var installedVersion by mutableStateOf(0)
         private set
+
+    /** GitHub 搜索结果（与内置目录分开显示）。 */
+    var searchResults by mutableStateOf<List<SkillMarketEntry>>(emptyList())
+        private set
+    var searching by mutableStateOf(false)
+        private set
+    var searchMode by mutableStateOf<GitHubSkillSearch.Mode?>(null)
+        private set
+    var searchQuery by mutableStateOf("")
+        private set
+    var searchNeedsAuth by mutableStateOf(false)
+        private set
+
+    /**
+     * 在 GitHub 上搜技能。已登录 GitHub 时用代码搜索直接定位 SKILL.md；
+     * 未登录退回仓库搜索（GitHub 的代码搜索强制要求认证）。
+     */
+    fun search(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.length < 2) {
+            searchResults = emptyList()
+            searchMode = null
+            searchNeedsAuth = false
+            return
+        }
+        if (searching) return
+        searching = true
+        searchQuery = trimmed
+        searchNeedsAuth = false
+        scope.launch(Dispatchers.IO) {
+            val token = runCatching { GitHubAccountStore(appContext).load()?.token }.getOrNull()
+            val result = GitHubSkillSearch.search(trimmed, token)
+            withContext(Dispatchers.Main) {
+                searching = false
+                when (result) {
+                    is GitHubSkillSearch.Result.Ok -> {
+                        searchResults = result.entries
+                        searchMode = result.mode
+                        if (result.entries.isEmpty()) {
+                            notice = SkillMarketNotice("没有找到技能", "换个关键词试试", isError = false)
+                        }
+                    }
+                    is GitHubSkillSearch.Result.Failed -> {
+                        searchResults = emptyList()
+                        searchMode = null
+                        searchNeedsAuth = result.needsAuth
+                        notice = SkillMarketNotice(
+                            "搜索失败",
+                            if (result.needsAuth) {
+                                "GitHub 代码搜索需要登录。到「GitHub 账号」连接后可以精确搜到 SKILL.md；当前已退回仓库搜索。"
+                            } else {
+                                result.message
+                            },
+                            isError = true,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun clearSearch() {
+        searchResults = emptyList()
+        searchMode = null
+        searchNeedsAuth = false
+        searchQuery = ""
+    }
 
     fun loadCatalog() {
         if (catalog.entries.isNotEmpty() || loading) return
