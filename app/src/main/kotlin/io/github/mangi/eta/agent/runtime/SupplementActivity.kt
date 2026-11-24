@@ -2,6 +2,7 @@ package io.github.mangi.eta.agent.runtime
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -32,10 +33,16 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import io.github.mangi.eta.core.AndroidAgentLogger
+import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.data.repository.AppearanceSettingsRepository
 import io.github.mangi.eta.ui.app.AgentAppTheme
+import io.github.mangi.eta.ui.components.opaqueThemedSurface
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -62,17 +69,44 @@ internal class SupplementActivity : ComponentActivity() {
                 SupplementSheet(
                     title = title,
                     onDismiss = { finish() },
-                    onSubmit = { text ->
-                        val trimmed = text.trim()
-                        if (trimmed.isNotEmpty()) {
-                            runCatching {
-                                AgentRuntimeClient(this, AndroidAgentLogger).steerRun(runId, trimmed)
-                            }
-                        }
-                        finish()
-                    },
+                    onSubmit = { text -> submitSupplement(runId, text) },
                 )
             }
+        }
+    }
+
+    /**
+     * 把补充内容交给运行进程。
+     *
+     * 必须离开主线程：[AgentRuntimeConnection.acquire] 内部有
+     * `check(Looper.myLooper() != Looper.getMainLooper())`，在 Compose 点击回调里直接调用会抛
+     * IllegalStateException 并被吞掉，表现为「点了插入、弹层消失、什么都没插进去」。
+     */
+    private fun submitSupplement(runId: String, text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) {
+            finish()
+            return
+        }
+        lifecycleScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    AgentRuntimeClient(this@SupplementActivity, AndroidAgentLogger)
+                        .steerRun(runId, trimmed)
+                }.getOrElse { throwable ->
+                    AndroidAgentLogger.warn(
+                        "Supplement submit failed: type=${throwable.safeLogType()}",
+                    )
+                    AgentRuntimeClient.SteerOutcome.Unavailable
+                }
+            }
+            val message = when (outcome) {
+                is AgentRuntimeClient.SteerOutcome.Accepted -> "已插入当前运行"
+                AgentRuntimeClient.SteerOutcome.Rejected -> "当前运行已结束，无法插入"
+                AgentRuntimeClient.SteerOutcome.Unavailable -> "连不上运行进程，插入失败"
+            }
+            Toast.makeText(this@SupplementActivity, message, Toast.LENGTH_SHORT).show()
+            finish()
         }
     }
 
@@ -95,13 +129,19 @@ private fun SupplementSheet(
     onSubmit: (String) -> Unit,
 ) {
     var text by remember { mutableStateOf("") }
+    var submitting by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+
+    // 卡片与输入框都用不透明表面：Miuix 的 surfaceContainer 系列在深色下带 alpha，
+    // 直接当底色会透出背后的桌面/应用，文字糊成一片。
+    val cardColor = opaqueThemedSurface()
+    val fieldColor = opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHighest)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.45f))
+            .background(Color.Black.copy(alpha = 0.58f))
             .padding(horizontal = 20.dp)
             .imePadding(),
         contentAlignment = Alignment.Center,
@@ -110,7 +150,7 @@ private fun SupplementSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
-                .background(MiuixTheme.colorScheme.surfaceContainer)
+                .background(cardColor)
                 .padding(16.dp),
         ) {
             Text(
@@ -122,13 +162,14 @@ private fun SupplementSheet(
             BasicTextField(
                 value = text,
                 onValueChange = { text = it },
+                enabled = !submitting,
                 textStyle = MiuixTheme.textStyles.body1.copy(color = MiuixTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MiuixTheme.colorScheme.primary),
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focus)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                    .background(fieldColor)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 decorationBox = { inner ->
                     Box {
@@ -149,12 +190,16 @@ private fun SupplementSheet(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                CompactChip(text = "取消", onClick = onDismiss)
+                CompactChip(text = "取消", enabled = !submitting, onClick = onDismiss)
                 Spacer(Modifier.width(8.dp))
                 CompactChip(
-                    text = "插入",
-                    enabled = text.isNotBlank(),
-                    onClick = { onSubmit(text) },
+                    text = if (submitting) "插入中…" else "插入",
+                    enabled = text.isNotBlank() && !submitting,
+                    onClick = {
+                        if (submitting) return@CompactChip
+                        submitting = true
+                        onSubmit(text)
+                    },
                 )
             }
         }
@@ -170,7 +215,7 @@ private fun CompactChip(
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+            .background(opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHighest))
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 7.dp),
     ) {

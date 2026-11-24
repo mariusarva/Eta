@@ -8,7 +8,21 @@
 
 ---
 
-## fork.86 – fork.87（2026-11-23）轮次横条位置
+## fork.88（2026-11-24）自动备份选项失效 / 通知「插入」丢内容 / 插入弹层透底
+
+三处都是「点了没反应 / 内容消失」，根因各不相同。
+
+| 现象 | 定位 | 改动 |
+|---|---|---|
+| 数据备份页「保留份数 / 备份间隔 / 备份格式 / 备份历史」点了完全没反应 | 这三个 `GlassDialog` 挂在 `when (LocalUiStyle)` 之外，而设备当前是 COUI 样式。`AgentAppTheme` 的 COUI 分支只提供了 `CouiScaffold`，**没挂 `MiuixPopupHost`**。Miuix 的 `GlassDialog` 只把自己注册进 `LocalDialogStates`，真正绘制由 `MiuixPopupHost` 完成；没有宿主时 `show=true` 也不会有任何画面 | `AgentAppTheme` COUI 分支补 `MiuixPopupHost()`（放在 `Box` 内与内容并列）。同时把三个弹窗改为按 `uiStyle` 分派：COUI 走 `CouiNoticeDialog`（COUI 原生 `OverlayDialog`），MIUIX 走 `GlassDialog`，两套样式各有原生弹窗 |
+| 保留份数只能停在默认 7 份，选不了 3 份 / 5 份 | 预设档位只有 3/7/14/30，且弹窗本身打不开 | 弹窗里加「自定义」输入行（数字键盘，1–60 夹紧）；备份间隔同理（1–720 小时）。档位值改为 `String` 传递，预设与自定义统一走 `onPick` |
+| 通知卡片点「插入」，弹层消失但内容没插进去 | `SupplementActivity.onSubmit` 在 Compose 点击回调（主线程）里直接调 `AgentRuntimeClient.steerRun`，而 `AgentRuntimeConnection.acquire` 开头有 `check(Looper.myLooper() != Looper.getMainLooper())` —— 抛 `IllegalStateException`，被外层 `runCatching{}` 静默吞掉，紧接着 `finish()` | 提交改到 `lifecycleScope` + `withContext(Dispatchers.IO)`；按 `SteerOutcome` 分三种结果 Toast（已插入 / 运行已结束 / 连不上运行进程），失败不再无声。按钮加 `submitting` 态防重复点击 |
+| 插入弹层背景太透，文字糊 | 卡片底用 `MiuixTheme.colorScheme.surfaceContainer`（MD3 叠加色，深色下带 alpha），遮罩只有 0.45 | 卡片与输入框改用 `opaqueThemedSurface()`（`OpaqueSurfaces.kt`，把容器色按 alpha 合成到页面背景）；遮罩提到 0.58 |
+
+**复用要点**：Miuix 的 `GlassDialog` / `GlassBottomSheet` / `GlassPopup` 都依赖 `MiuixPopupHost` 渲染。任何在 `AgentAppTheme` 里绕过 Miuix `Scaffold` 的分支（如 COUI 的 `CouiScaffold`）都必须自己挂宿主，否则该分支下所有 Miuix 浮层静默失效。
+
+---
+
 
 按要求把「上拉小横条」从独立一行挪到能力胶囊那一行的左侧。
 

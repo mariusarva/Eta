@@ -188,13 +188,20 @@ fun AgentAppTheme(
                                     containerColor = Color.Transparent,
                                     contentWindowInsets = WindowInsets(0),
                                 ) {
-                                    if (provideGlassHost) {
-                                        // 主窗口根级记录页面背景，使 AgentAppRoot 层弹出的弹窗同样拥有 COUI 17 材质模糊；
-                                        // 各二级页自身的 CouiBackdropContent 会覆盖为当前页局部背景。
-                                        val rootBackdrop = rememberCouiPageBackdrop(couiNative.backgroundWithCard)
-                                        CouiBackdropContent(rootBackdrop) { scopedContent() }
-                                    } else {
-                                        scopedContent()
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        if (provideGlassHost) {
+                                            // 主窗口根级记录页面背景，使 AgentAppRoot 层弹出的弹窗同样拥有 COUI 17 材质模糊；
+                                            // 各二级页自身的 CouiBackdropContent 会覆盖为当前页局部背景。
+                                            val rootBackdrop = rememberCouiPageBackdrop(couiNative.backgroundWithCard)
+                                            CouiBackdropContent(rootBackdrop) { scopedContent() }
+                                        } else {
+                                            scopedContent()
+                                        }
+                                        // COUI 样式下同样挂 Miuix 弹窗宿主：Miuix 的 GlassDialog /
+                                        // GlassBottomSheet 只把自身注册进 LocalDialogStates，真正绘制由
+                                        // MiuixPopupHost 完成。没有宿主时 show=true 也不会有任何画面，
+                                        // 表现为「点了没反应」（数据备份的保留份数/格式/历史就是这样）。
+                                        MiuixPopupHost()
                                     }
                                 }
                             }

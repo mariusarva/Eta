@@ -50,6 +50,19 @@ import io.github.mangi.eta.data.repository.AutoBackupResult
 import io.github.mangi.eta.data.repository.AutoBackupFile
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
+import io.github.mangi.eta.ui.components.coui.CouiNoticeDialog
+import io.github.suqi8.coui.kmp.theme.COUITheme
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardType
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.foundation.clickable
@@ -60,6 +73,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import android.content.Intent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -469,142 +483,300 @@ internal fun DataBackupScreen(
     // ---- 自动备份对话框 ----
     AutoBackupChoiceDialog(
         show = showIntervalDialog,
+        uiStyle = LocalUiStyle.current,
         title = "备份间隔",
-        options = AutoBackupSettings.INTERVAL_OPTIONS.map { it to "$it 小时" },
-        selected = autoSettings.intervalHours,
+        summary = "备份间隔越短，越费电；1 小时档不看内容指纹，每次都会写一份。",
+        options = AutoBackupSettings.INTERVAL_OPTIONS.map { it.toString() to "$it 小时" },
+        selected = autoSettings.intervalHours.toString(),
         onDismiss = { showIntervalDialog = false },
         onPick = { value ->
             showIntervalDialog = false
-            applyAuto { it.copy(intervalHours = value) }
+            applyAuto { it.copy(intervalHours = value.toIntOrNull() ?: it.intervalHours) }
         },
+        customInput = AutoBackupCustomInput(
+            label = "自定义间隔",
+            placeholder = "1–720",
+            current = autoSettings.intervalHours.toString(),
+            range = AutoBackupSettings.MIN_INTERVAL_HOURS..AutoBackupSettings.MAX_INTERVAL_HOURS,
+            suffix = "小时",
+        ),
     )
     AutoBackupChoiceDialog(
         show = showKeepDialog,
+        uiStyle = LocalUiStyle.current,
         title = "保留份数",
-        options = AutoBackupSettings.KEEP_OPTIONS.map { it to "$it 份" },
-        selected = autoSettings.keepCount,
+        summary = "超出的按时间戳倒序删除最旧的。预设之外可直接输入 1–60 的任意份数。",
+        options = AutoBackupSettings.KEEP_OPTIONS.map { it.toString() to "$it 份" },
+        selected = autoSettings.keepCount.toString(),
         onDismiss = { showKeepDialog = false },
         onPick = { value ->
             showKeepDialog = false
-            applyAuto { it.copy(keepCount = value) }
+            applyAuto { it.copy(keepCount = value.toIntOrNull() ?: it.keepCount) }
         },
+        customInput = AutoBackupCustomInput(
+            label = "自定义份数",
+            placeholder = "1–60",
+            current = autoSettings.keepCount.toString(),
+            range = AutoBackupSettings.MIN_KEEP_COUNT..AutoBackupSettings.MAX_KEEP_COUNT,
+            suffix = "份",
+        ),
     )
-    GlassDialog(
+    AutoBackupChoiceDialog(
         show = showFormatDialog,
-        backdrop = currentGlassOverlayBackdrop(),
+        uiStyle = LocalUiStyle.current,
         title = "备份格式",
         summary = "全量 zip 会一并打包私有文件（模型、日志、技能），体积更大。",
-        onDismissRequest = { showFormatDialog = false },
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            listOf(
-                AutoBackupSettings.FORMAT_JSON to "仅数据 JSON",
-                AutoBackupSettings.FORMAT_FULL to "全量 zip",
-            ).forEach { (value, label) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            showFormatDialog = false
-                            applyAuto { it.copy(format = value) }
-                        }
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = label,
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (autoSettings.format == value) {
-                        Text(
-                            text = "已选",
-                            style = MiuixTheme.textStyles.footnote1,
-                            color = MiuixTheme.colorScheme.primary,
-                        )
-                    }
+        options = listOf(
+            AutoBackupSettings.FORMAT_JSON to "仅数据 JSON",
+            AutoBackupSettings.FORMAT_FULL to "全量 zip",
+        ),
+        selected = autoSettings.format,
+        onDismiss = { showFormatDialog = false },
+        onPick = { value ->
+            showFormatDialog = false
+            applyAuto { it.copy(format = value) }
+        },
+    )
+    AutoBackupHistoryDialog(
+        show = showHistoryDialog,
+        uiStyle = LocalUiStyle.current,
+        backups = autoBackups,
+        onDismiss = { showHistoryDialog = false },
+        onDelete = { backup ->
+            runCatching { backup.delete() }
+            autoBackups = runCatching { AutoBackupRunner.backups(context, autoSettings) }
+                .getOrDefault(emptyList())
+        },
+    )
+}
+
+/** 自定义数值输入：预设档位之外的任意值，越界时按区间夹紧。 */
+private data class AutoBackupCustomInput(
+    val label: String,
+    val placeholder: String,
+    val current: String,
+    val range: IntRange,
+    val suffix: String,
+)
+
+/**
+ * 自动备份的档位选择弹窗：值与文案成对传入，选中后立即落库。
+ *
+ * 弹窗按当前 UI 样式分派：COUI 走 COUI 的 OverlayDialog，MIUIX 走 GlassDialog。
+ * 之前只写 GlassDialog，在 COUI 样式下没有 Miuix 弹窗宿主，点上去完全没反应。
+ */
+@Composable
+private fun AutoBackupChoiceDialog(
+    show: Boolean,
+    uiStyle: AppearanceUiStyle,
+    title: String,
+    options: List<Pair<String, String>>,
+    selected: String,
+    onDismiss: () -> Unit,
+    onPick: (String) -> Unit,
+    summary: String? = null,
+    customInput: AutoBackupCustomInput? = null,
+) {
+    when (uiStyle) {
+        AppearanceUiStyle.COUI -> CouiNoticeDialog(
+            visible = show,
+            title = title,
+            message = summary,
+            confirmText = stringResource(R.string.action_close),
+            onDismissRequest = onDismiss,
+        ) {
+            AutoBackupChoiceList(
+                options = options,
+                selected = selected,
+                onPick = onPick,
+                customInput = customInput,
+                textColor = COUITheme.colorScheme.labelPrimary,
+                accentColor = COUITheme.colorScheme.primary,
+                textStyle = COUITheme.textStyles.bodyM,
+                valueStyle = COUITheme.textStyles.bodyM,
+            )
+        }
+        AppearanceUiStyle.MIUIX -> GlassDialog(
+            show = show,
+            backdrop = currentGlassOverlayBackdrop(),
+            title = title,
+            summary = summary,
+            onDismissRequest = onDismiss,
+        ) {
+            AutoBackupChoiceList(
+                options = options,
+                selected = selected,
+                onPick = onPick,
+                customInput = customInput,
+                textColor = MiuixTheme.colorScheme.onSurface,
+                accentColor = MiuixTheme.colorScheme.primary,
+                textStyle = MiuixTheme.textStyles.body2,
+                valueStyle = MiuixTheme.textStyles.footnote1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AutoBackupChoiceList(
+    options: List<Pair<String, String>>,
+    selected: String,
+    onPick: (String) -> Unit,
+    customInput: AutoBackupCustomInput?,
+    textColor: Color,
+    accentColor: Color,
+    textStyle: TextStyle,
+    valueStyle: TextStyle,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        options.forEach { (value, label) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onPick(value) }
+                    .padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = label,
+                    style = textStyle,
+                    color = textColor,
+                    modifier = Modifier.weight(1f),
+                )
+                if (value == selected) {
+                    Text(text = "已选", style = valueStyle, color = accentColor)
                 }
             }
         }
-    }
-    GlassDialog(
-        show = showHistoryDialog,
-        backdrop = currentGlassOverlayBackdrop(),
-        title = "备份历史",
-        summary = if (autoBackups.isEmpty()) "还没有备份文件。" else "点击删除单份备份。",
-        onDismissRequest = { showHistoryDialog = false },
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            autoBackups.take(20).forEach { backup ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = backup.name,
-                        style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = "删除",
-                        style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.primary,
-                        modifier = Modifier.clickable {
-                            runCatching { backup.delete() }
-                            autoBackups = runCatching {
-                                AutoBackupRunner.backups(context, autoSettings)
-                            }.getOrDefault(emptyList())
-                        },
-                    )
-                }
+        if (customInput != null) {
+            var draft by remember(customInput.current, selected) {
+                mutableStateOf(customInput.current)
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = customInput.label,
+                    style = textStyle,
+                    color = textColor,
+                    modifier = Modifier.weight(1f),
+                )
+                BasicTextField(
+                    value = draft,
+                    onValueChange = { raw -> draft = raw.filter(Char::isDigit).take(3) },
+                    singleLine = true,
+                    textStyle = textStyle.copy(color = textColor),
+                    cursorBrush = SolidColor(accentColor),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .width(64.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(accentColor.copy(alpha = 0.12f))
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    decorationBox = { inner ->
+                        Box {
+                            if (draft.isEmpty()) {
+                                Text(
+                                    text = customInput.placeholder,
+                                    style = textStyle,
+                                    color = textColor.copy(alpha = 0.4f),
+                                )
+                            }
+                            inner()
+                        }
+                    },
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(text = customInput.suffix, style = valueStyle, color = accentColor)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "应用",
+                    style = valueStyle,
+                    color = if (draft.toIntOrNull() != null) accentColor else textColor.copy(alpha = 0.35f),
+                    modifier = Modifier.clickable(enabled = draft.toIntOrNull() != null) {
+                        val parsed = draft.toIntOrNull() ?: return@clickable
+                        onPick(parsed.coerceIn(customInput.range.first, customInput.range.last).toString())
+                    },
+                )
             }
         }
     }
 }
 
-/** 自动备份的档位选择弹窗：值与文案成对传入，选中后立即落库。 */
+/** 备份历史：列出文件并可单份删除。 */
 @Composable
-private fun AutoBackupChoiceDialog(
+private fun AutoBackupHistoryDialog(
     show: Boolean,
-    title: String,
-    options: List<Pair<Int, String>>,
-    selected: Int,
+    uiStyle: AppearanceUiStyle,
+    backups: List<AutoBackupFile>,
     onDismiss: () -> Unit,
-    onPick: (Int) -> Unit,
+    onDelete: (AutoBackupFile) -> Unit,
 ) {
-    GlassDialog(
-        show = show,
-        backdrop = currentGlassOverlayBackdrop(),
-        title = title,
-        onDismissRequest = onDismiss,
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            options.forEach { (value, label) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onPick(value) }
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = label,
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (value == selected) {
-                        Text(
-                            text = "已选",
-                            style = MiuixTheme.textStyles.footnote1,
-                            color = MiuixTheme.colorScheme.primary,
-                        )
-                    }
-                }
+    val summary = if (backups.isEmpty()) "还没有备份文件。" else "点击删除单份备份。"
+    when (uiStyle) {
+        AppearanceUiStyle.COUI -> CouiNoticeDialog(
+            visible = show,
+            title = "备份历史",
+            message = summary,
+            confirmText = stringResource(R.string.action_close),
+            onDismissRequest = onDismiss,
+        ) {
+            AutoBackupHistoryList(
+                backups = backups,
+                onDelete = onDelete,
+                textColor = COUITheme.colorScheme.labelPrimary,
+                accentColor = COUITheme.colorScheme.primary,
+                textStyle = COUITheme.textStyles.bodyM,
+            )
+        }
+        AppearanceUiStyle.MIUIX -> GlassDialog(
+            show = show,
+            backdrop = currentGlassOverlayBackdrop(),
+            title = "备份历史",
+            summary = summary,
+            onDismissRequest = onDismiss,
+        ) {
+            AutoBackupHistoryList(
+                backups = backups,
+                onDelete = onDelete,
+                textColor = MiuixTheme.colorScheme.onSurface,
+                accentColor = MiuixTheme.colorScheme.primary,
+                textStyle = MiuixTheme.textStyles.footnote1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AutoBackupHistoryList(
+    backups: List<AutoBackupFile>,
+    onDelete: (AutoBackupFile) -> Unit,
+    textColor: Color,
+    accentColor: Color,
+    textStyle: TextStyle,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        backups.take(20).forEach { backup ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = backup.name,
+                    style = textStyle,
+                    color = textColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = "删除",
+                    style = textStyle,
+                    color = accentColor,
+                    modifier = Modifier.clickable { onDelete(backup) },
+                )
             }
         }
     }
