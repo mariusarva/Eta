@@ -158,11 +158,11 @@
   <string name="stats_duration_seconds">%1$s秒</string>
   <string name="stats_duration_min_sec">%1$d分%2$d秒</string>
 
-  <!-- Subagent -->
+  <!-- 子代理 -->
   <string name="subagent_i18n_explore_summary">唯讀探索與多源資訊檢索</string>
   <string name="subagent_i18n_coder_summary">工程執行、檔案編輯與終端機任務</string>
   <string name="subagent_i18n_plan_summary">唯讀架構分析與分步方案設計</string>
-  <string name="subagent_i18n_ephemeral_summary">臨時專職 Subagent</string>
+  <string name="subagent_i18n_ephemeral_summary">臨時專職子代理</string>
   <string name="subagent_i18n_reasoning_auto">自動</string>
   <string name="subagent_i18n_action_thinking">正在思考…</string>
   <string name="subagent_i18n_action_thinking_round">第 %1$d 輪思考…</string>
@@ -177,7 +177,7 @@
   <string name="workstep_exec_done_label">執行完成</string>
 
   <!-- General UI & misc -->
-  <string name="ui_misc_route_subagents">Subagent</string>
+  <string name="ui_misc_route_subagents">子代理</string>
   <string name="ui_misc_route_character_detail">角色詳情</string>
   <string name="ui_misc_route_character_editor">編輯角色</string>
   <string name="ui_misc_route_character_persona">我的人設</string>

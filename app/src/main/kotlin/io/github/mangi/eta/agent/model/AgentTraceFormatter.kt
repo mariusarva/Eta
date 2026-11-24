@@ -498,8 +498,8 @@ internal class AgentTraceFormatter {
         listOfNotNull(
             subagentType,
             description.takeIf { it.isNotBlank() },
-        ).joinToString(" · ").ifBlank { "Subagent" }
-    }.getOrDefault("Subagent")
+        ).joinToString(" · ").ifBlank { "子代理" }
+    }.getOrDefault("子代理")
 
     private fun summarizeSubagentResult(json: JSONObject): String {
         val toolCalls = json.optInt("tool_calls", 0)

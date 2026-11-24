@@ -797,13 +797,6 @@ private fun PaneWorkbenchSection(
         // 「角色」这行本身就进角色库；新建会话用哪个角色由顶栏胶囊显示，不在这里重复一行。
         add(
             WorkbenchEntry(
-                icon = ConversationPaneIcons.Tools,
-                title = "提示词设置",
-                onClick = onOpenPromptStudio,
-            ),
-        )
-        add(
-            WorkbenchEntry(
                 icon = ConversationPaneIcons.Skills,
                 title = stringResource(R.string.route_skills),
                 onClick = onOpenSkills,
@@ -814,6 +807,13 @@ private fun PaneWorkbenchSection(
                 icon = Icons.AutoMirrored.Rounded.MenuBook,
                 title = "记忆",
                 onClick = onOpenMemory,
+            ),
+        )
+        add(
+            WorkbenchEntry(
+                icon = ConversationPaneIcons.Tools,
+                title = "提示词",
+                onClick = onOpenPromptStudio,
             ),
         )
         add(

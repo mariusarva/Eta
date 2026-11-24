@@ -80,7 +80,7 @@ internal fun SubagentActivityRow(
             snapshot.status == SubagentActivitySnapshot.STATUS_FAILED
         )
     val typeLabel = snapshot.subagentType.ifBlank { "subagent" }
-    val taskTitle = snapshot.description.ifBlank { message.argumentsSummary.ifBlank { "Subagent" } }
+    val taskTitle = snapshot.description.ifBlank { message.argumentsSummary.ifBlank { "子代理" } }
     val subtitle = when {
         running -> snapshot.currentAction.takeIf { it.isNotBlank() }
             ?: if (snapshot.toolStepCount > 0) {

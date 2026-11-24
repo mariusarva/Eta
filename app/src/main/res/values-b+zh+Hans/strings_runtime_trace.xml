@@ -60,11 +60,11 @@
     <string name="trace_arg_read_personal_item">读取检索详情</string>
     <string name="trace_arg_summarize_bills">汇总账单</string>
     <string name="trace_arg_preparing">准备执行</string>
-    <string name="trace_arg_subagent_save">保存 Subagent</string>
-    <string name="trace_arg_subagent_delete">删除 Subagent</string>
-    <string name="trace_arg_subagent_get">读取 Subagent</string>
-    <string name="trace_arg_subagent_list">查看 Subagent 列表</string>
-    <string name="trace_arg_subagent_manage">管理 Subagent</string>
+    <string name="trace_arg_subagent_save">保存子代理</string>
+    <string name="trace_arg_subagent_delete">删除子代理</string>
+    <string name="trace_arg_subagent_get">读取子代理</string>
+    <string name="trace_arg_subagent_list">查看子代理 列表</string>
+    <string name="trace_arg_subagent_manage">管理子代理</string>
 
     <plurals name="trace_arg_char_count">
         <item quantity="other">%1$d 字符</item>
@@ -234,7 +234,7 @@
         <item quantity="other">完成 · %1$d 次工具调用</item>
     </plurals>
     <plurals name="trace_res_subagent_count">
-        <item quantity="other">%1$d 个 Subagent</item>
+        <item quantity="other">%1$d 个子代理</item>
     </plurals>
     <plurals name="trace_res_skills_installed">
         <item quantity="other">已安装 %1$d 个技能</item>

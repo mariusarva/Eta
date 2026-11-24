@@ -59,7 +59,7 @@
   <string name="action_open_terminal">Open terminal</string>
   <string name="action_open_browser">Open browser</string>
   <string name="route_tools">Tools</string>
-  <string name="route_skills" translatable="false">Skills</string>
+  <string name="route_skills">Skills</string>
   <string name="route_permissions">Permissions</string>
   <string name="route_system_enhancements">System enhancements</string>
   <string name="route_settings">Settings</string>
