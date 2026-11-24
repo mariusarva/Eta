@@ -108,6 +108,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.mangi.eta.ui.components.opaqueThemedSurface
 
 // Miuix 未提供语义 success 色，沿用项目既有值；失败色走主题 error
 private val SuccessColor = Color(0xFF34C759)
@@ -235,7 +236,7 @@ internal fun OverlaySupplementInput(
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val textColor = MiuixTheme.colorScheme.onSurface
-    val fieldBg = MiuixTheme.colorScheme.surfaceContainer
+    val fieldBg = opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainer)
 
     LaunchedEffect(Unit) {
         delay(180)

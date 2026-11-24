@@ -58,6 +58,7 @@ import io.github.mangi.eta.agent.virtualdisplay.VirtualTouchEffect
 import kotlin.math.hypot
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.mangi.eta.ui.components.opaqueThemedSurface
 
 /**
  * 镶嵌在收起态顶部胶囊右侧的 18×32.dp 实时微缩取景器（Micro-Lens）。
@@ -94,7 +95,7 @@ internal fun VirtualDisplayMicroLens(
                 scaleY = scale
             }
             .clip(lensShape)
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+            .background(opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh))
             .border(width = 0.85.dp, color = borderColor, shape = lensShape),
         contentAlignment = Alignment.Center,
     ) {
@@ -169,7 +170,7 @@ internal fun VirtualDisplayStageSection(
                 .height(StageCanvasHeight)
                 .aspectRatio(snapshot.aspectRatio, matchHeightConstraintsFirst = true)
                 .clip(frameShape)
-                .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                .background(opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh))
                 .border(width = 0.75.dp, color = borderColor, shape = frameShape)
                 .pointerInput(snapshot.displayId, snapshot.userControlling, isPaused) {
                     val touchSlopPx = viewConfiguration.touchSlop
@@ -311,7 +312,8 @@ private fun StagePillButton(
     val bg = if (highlighted) {
         accent.copy(alpha = 0.16f)
     } else {
-        MiuixTheme.colorScheme.surfaceContainerHigh
+        // 虚拟屏卡片是系统悬浮窗，浮在别的应用之上，必须不透明。
+        opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh)
     }
     val textColor = if (highlighted) {
         accent

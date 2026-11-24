@@ -88,6 +88,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.mangi.eta.ui.components.opaqueThemedSurface
 
 /**
  * 顶部状态胶囊：收起时只显示一句当前步骤（后台虚拟屏激活时右侧镶嵌 18×32.dp 实时微缩镜），
@@ -196,7 +197,8 @@ internal fun AgentOverlayCapsule(
         val capsuleBg = if (isCoui) {
             if (couiDark) Color(0xF520232B) else Color(0xFCFFFFFF)
         } else {
-            MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.95f)
+            // 系统悬浮胶囊浮在别的应用之上，必须不透明；原来的 0.95 会透出桌面内容。
+            opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainer)
         }
         val capsuleBorder = if (isCoui) {
             if (couiDark) Color(0x22FFFFFF) else Color(0x12000000)
@@ -463,7 +465,7 @@ private fun CapsuleAction(icon: ImageVector, label: String, tint: Color, onClick
     } else {
         IconButton(
             onClick = onClick,
-            backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
+            backgroundColor = opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh),
             minWidth = 40.dp,
             minHeight = 34.dp,
             cornerRadius = 17.dp,

@@ -8,6 +8,35 @@
 
 ---
 
+## fork.90（2026-11-24）侧栏多选条与系统悬浮窗透底
+
+fork.89 之后按真机截图继续排查，补上侧栏和系统悬浮窗这一批。
+
+| 文件 | 组件 | 现象 |
+|---|---|---|
+| `ConversationPanePanel.kt` | `ConversationBulkBar` | 侧栏多选底部条（「点会话开始多选 / 移到分类 / 删除 / 取消」）透底，能看到下面的会话行 |
+| `ConversationPanePanel.kt` | `BulkActionChip` | 多选条里的三个按钮，两层叠加后仍然透 |
+| `ConversationPanePanel.kt` | `CategoryChip` | 分类筛选胶囊未选中态透底 |
+| `ConversationPaneChrome.kt` | `PaneTopBarActionButton` | 侧栏顶栏圆形按钮浮在列表上，透底 |
+| `ConversationPaneChrome.kt` | `PaneSelectedCharacterChip` | 顶栏角色胶囊同样透底 |
+| `AgentOverlayCapsule.kt` | 悬浮胶囊底色 | 原来用 `surfaceContainer.copy(alpha = 0.95f)`，浮在别的应用之上会透出桌面 |
+| `AgentOverlayCapsule.kt` | `CapsuleAction` | 胶囊内的操作按钮 |
+| `AgentOverlayContent.kt` | `OverlaySupplementInput` | 悬浮补充输入框 |
+| `VirtualDisplayStageCard.kt` | 微缩镜 / 画布 / `StagePillButton` | 虚拟屏悬浮卡片三处 |
+
+**系统悬浮窗这一批更要紧**：它们叠在别的应用之上，透底比应用内弹窗更明显。
+
+**明确保留不动的**（页面内嵌卡片，透出的是页面底色，属正常层次设计）：
+`ChatMessageItem`、`AgentToolActivity`、`AgentChatInputBar`、`GeneratedImageMessageCard`、
+`ToolChip`、`CharacterPortraitCard`、`SubagentActivitySheet` 内部卡片、`ImageGen*`、
+`AgentToolsScreen` 的筛选条、`SpeechControls`。
+
+**判别口径**（两轮下来稳定成立）：浮层或悬浮物的**最外层底色**必须走 `opaqueThemedSurface(...)`；
+页面内容区里的卡片可以用 `surfaceContainer` 系列做层次。例外是 `AgentOverlayCapsule` 的
+`surfaceContainer.copy(alpha = 0.95f)` —— 它本来就是刻意的半透明，但作为系统级悬浮窗仍然透得太多。
+
+---
+
 ## fork.89（2026-11-24）弹窗与浮层透底（surfaceContainer 带 alpha）
 
 同一个根因的第二批：`MiuixTheme.colorScheme.surfaceContainer` / `surfaceContainerHigh` 是 MD3 的

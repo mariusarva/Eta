@@ -331,7 +331,9 @@ private fun PaneTopBarActionButton(
 ) {
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val colors = CouiPageDefaults.themeColors()
-    val background = if (isCoui) colors.card else MiuixTheme.colorScheme.surfaceContainerHigh
+    // 顶栏按钮浮在会话列表之上，叠加色会透出下面的行，必须合成成不透明。
+    val background = if (isCoui) colors.card
+        else opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh)
     val tint = when {
         active && isCoui -> colors.accent
         active -> MiuixTheme.colorScheme.primary
@@ -367,7 +369,9 @@ private fun PaneSelectedCharacterChip(
 ) {
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val colors = CouiPageDefaults.themeColors()
-    val background = if (isCoui) colors.card else MiuixTheme.colorScheme.surfaceContainerHigh
+    // 角色胶囊同样浮在列表之上，需要不透明底。
+    val background = if (isCoui) colors.card
+        else opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh)
     val titleColor = if (isCoui) colors.accent else MiuixTheme.colorScheme.primary
     val description = "新建会话使用角色：" + character.characterName + "，点击更换"
     Row(

@@ -616,7 +616,9 @@ private fun ConversationBulkBar(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+            // 多选条是浮在会话列表上的独立浮层，底色必须不透明：
+            // surfaceContainerHigh 是 MD3 叠加色，深色下带 alpha，会透出下面的会话行。
+            .background(opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -648,7 +650,8 @@ private fun BulkActionChip(
         modifier = Modifier
             .clip(RoundedCornerShape(9.dp))
             .background(
-                MiuixTheme.colorScheme.surfaceContainer,
+                // 按钮压在批量条上，同样要用不透明色，否则两层叠加仍会透出会话列表。
+                opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainer),
                 RoundedCornerShape(9.dp),
             )
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
@@ -1024,7 +1027,8 @@ private fun CategoryChip(
         isCoui && active -> CouiPageDefaults.themeColors().accent
         isCoui -> CouiPageDefaults.themeColors().card
         active -> MiuixTheme.colorScheme.onSurface
-        else -> MiuixTheme.colorScheme.surfaceContainerHigh
+        // 未选中态也要不透明：叠加色会透出下面的会话行。
+        else -> opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh)
     }
     val content = when {
         isCoui && active -> CouiPageDefaults.themeColors().card
