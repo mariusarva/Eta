@@ -129,7 +129,6 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.runtime.saveable.rememberSaveable
 import io.github.mangi.eta.ui.components.ListEmptyState
-import io.github.mangi.eta.ui.components.coui.CouiPageSearch
 
 private object SettingsIconColors {
     val Blue = Color(0xFF4285F4)
@@ -604,28 +603,26 @@ private fun SettingsPageContent(
                         onDismissFinished = { if (availableUpdate == null) retainedUpdate = null },
                     )
                 },
-                search = CouiPageSearch(
-                    settingsQuery,
-                    { settingsQuery = it },
-                    stringResource(R.string.settings_search_hint),
-                ),
-            ) { searching ->
-                if (searching) {
-                    // 搜索态只渲染命中项：原页面条目是内联写死的，没法逐条过滤，
-                    // 用索引表 + 跳转代替，点一下就进对应页面。
+            ) {
+                // 设置页用的是 ColumnScope 版 CouiScaffoldPage（不支持 search 参数），
+                // 搜索框自己放在页面顶部；有查询时只渲染命中项，点一下跳对应页面。
+                CouiSettingsSearchField(
+                    query = settingsQuery,
+                    onQueryChange = { settingsQuery = it },
+                    hint = stringResource(R.string.settings_search_hint),
+                )
+                if (settingsQuery.isNotBlank()) {
                     val resolved = { id: Int -> context.getString(id) }
                     val matched = SettingsSearchIndex.search(settingsQuery, resolved)
                     if (matched.isEmpty()) {
-                        item(key = "settings_search_empty") {
-                            ListEmptyState(
-                                title = context.getString(R.string.settings_search_empty),
-                                summary = settingsQuery.trim(),
-                            )
-                        }
+                        ListEmptyState(
+                            title = context.getString(R.string.settings_search_empty),
+                            summary = settingsQuery.trim(),
+                        )
                     } else {
                         CouiPreferenceGroup(title = context.getString(R.string.settings_search_hint)) {
                             matched.forEach { entry ->
-                                item(key = "search_" + entry.titleRes) {
+                                item {
                                     CouiPreference(
                                         title = context.getString(entry.titleRes),
                                         summary = context.getString(entry.groupRes),
