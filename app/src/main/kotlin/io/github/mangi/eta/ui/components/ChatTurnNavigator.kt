@@ -276,7 +276,8 @@ internal fun ChatTurnPanel(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(22.dp)
+                                        // 26dp 才放得下两位数：22dp 时「10」「11」会被圆形裁掉边缘。
+                                        .size(26.dp)
                                         .clip(CircleShape)
                                         .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.14f)),
                                     contentAlignment = Alignment.Center,
@@ -285,6 +286,8 @@ internal fun ChatTurnPanel(
                                         text = (position + 1).toString(),
                                         style = MiuixTheme.textStyles.footnote1,
                                         color = MiuixTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        softWrap = false,
                                     )
                                 }
                                 Spacer(Modifier.width(10.dp))
