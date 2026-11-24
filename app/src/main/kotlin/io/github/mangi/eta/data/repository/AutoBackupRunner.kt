@@ -65,6 +65,7 @@ internal object AutoBackupRunner {
     private const val FULL_SUFFIX = EtaFullBackupArchive.FULL_SUFFIX
     private const val TEMP_SUFFIX = ".part"
     private const val MIME_JSON = "application/json"
+    private const val MIME_ZIP = "application/zip"
 
     /** 同一时刻只允许一次备份在跑。 */
     private val mutex = Mutex()
@@ -246,10 +247,13 @@ internal object AutoBackupRunner {
         full: Boolean,
     ): AutoBackupResult {
         tree.listFiles()
-            .filter { it.isFile && it.name?.endsWith(TEMP_SUFFIX) == true }
+            .filter { it.isFile && it.name?.contains(TEMP_SUFFIX) == true }
             .forEach { runCatching { it.delete() } }
 
-        val temp = runCatching { tree.createFile(MIME_JSON, fileName + TEMP_SUFFIX) }.getOrNull()
+        // MIME 必须和实际内容一致：SAF 会按 MIME 自动补扩展名，
+        // 全量包用 application/json 会被存成 `xxx.zip.part.json`，后面 renameTo 按名字找不到源文件。
+        val mime = if (full) MIME_ZIP else MIME_JSON
+        val temp = runCatching { tree.createFile(mime, fileName + TEMP_SUFFIX) }.getOrNull()
             ?: return fail(settings, now, "无法在所选文件夹创建备份文件")
         return try {
             val conversationCount = context.contentResolver.openOutputStream(temp.uri)?.use { stream ->
@@ -259,8 +263,11 @@ internal object AutoBackupRunner {
                     EtaBackupRepository.export(context, stream).conversationCount
                 }
             } ?: throw IOException("无法写入所选文件夹")
+            // SAF 可能给临时文件补过扩展名，用实际名字做源，避免 renameTo 找不到。
+            val actualName = temp.name ?: (fileName + TEMP_SUFFIX)
             val renamed = runCatching { temp.renameTo(fileName) }.getOrDefault(false)
             if (!renamed) {
+                AndroidAgentLogger.warn("Auto backup rename failed: actual=$actualName target=$fileName")
                 runCatching { temp.delete() }
                 return fail(settings, now, "备份文件改名失败")
             }

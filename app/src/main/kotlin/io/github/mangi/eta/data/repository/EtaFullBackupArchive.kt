@@ -52,6 +52,10 @@ internal object EtaFullBackupArchive {
         "files/terminal",
         "files/terminal-user",
         "files/restore-staging",
+        // 备份前的库快照：本身是冗余副本，进包只会让体积翻倍（本机就有 215 MB）。
+        "files/db-snapshot",
+        // 离线语音模型：几百 MB 的二进制，重下即可，不值得进备份。
+        "files/local_speech_models",
     )
 
     /** 还原暂存区：解压到这里，下次进程启动最早期再覆盖到真实目录。 */
@@ -98,23 +102,27 @@ internal object EtaFullBackupArchive {
                     currentCoroutineContext().ensureActive()
                     val relative = file.relativeTo(dataDir).invariantSeparatorsPath
                     if (excluded(relative)) continue
-                    try {
-                        zip.putNextEntry(ZipEntry("$PRIVATE_DIR/$relative").apply { time = file.lastModified() })
-                        file.inputStream().use { input ->
+                    // 先打开流再 putNextEntry：文件在遍历期间被删除/改名时（terminal、
+                    // db-snapshot 这类活跃目录很常见）不会留下写了一半的 zip 条目，
+                    // 否则 closeEntry 补不回来，整包会损坏。
+                    val input = runCatching { file.inputStream() }.getOrNull() ?: continue
+                    input.use { stream ->
+                        try {
+                            zip.putNextEntry(ZipEntry("$PRIVATE_DIR/$relative").apply { time = file.lastModified() })
                             val buffer = ByteArray(DEFAULT_BUFFER_SIZE * 4)
                             while (true) {
-                                val count = input.read(buffer)
+                                val count = stream.read(buffer)
                                 if (count < 0) break
                                 zip.write(buffer, 0, count)
                                 byteCount += count
                             }
+                            zip.closeEntry()
+                            fileCount++
+                        } catch (error: Throwable) {
+                            if (error is CancellationException) throw error
+                            AndroidAgentLogger.warn("Full backup skip file: type=${error.safeLogType()}")
+                            runCatching { zip.closeEntry() }
                         }
-                        zip.closeEntry()
-                        fileCount++
-                    } catch (error: Throwable) {
-                        if (error is CancellationException) throw error
-                        AndroidAgentLogger.warn("Full backup skip file: type=${error.safeLogType()}")
-                        runCatching { zip.closeEntry() }
                     }
                 }
             }
