@@ -1208,11 +1208,36 @@ internal class AgentAppState(
     private var roleplayAutoBindInFlight = false
 
     /**
+     * 用户是否显式选择过「不使用角色」。
+     *
+     * 与 characterForNewChat == null 不是同一件事：后者既可能是「还没选过」（此时应当自动绑定
+     * 第一个角色，保持开箱即用），也可能是「主动选了不使用」。没有这个标记时，用户点了
+     * 「不使用角色」，新建会话仍会被 bindDefaultCharacterIfNeeded 绑上第一个角色。
+     */
+    var characterExplicitlyDisabled by mutableStateOf(loadCharacterExplicitlyDisabled())
+        private set
+
+    private fun persistCharacterExplicitlyDisabled(disabled: Boolean) {
+        characterExplicitlyDisabled = disabled
+        runCatching {
+            val editor = Prefs.localAgentPreferences()?.edit() ?: return@runCatching
+            editor.putBoolean(CHARACTER_FOR_NEW_CHAT_DISABLED_KEY, disabled)
+            editor.apply()
+        }
+    }
+
+    private fun loadCharacterExplicitlyDisabled(): Boolean = runCatching {
+        Prefs.localAgentPreferences()?.getBoolean(CHARACTER_FOR_NEW_CHAT_DISABLED_KEY, false) ?: false
+    }.getOrDefault(false)
+
+    /**
      * 新建会话时自动绑定角色卡：角色库为空、当前已有绑定、或会话已开始时不介入。
      * 目标卡由 [CharacterRepository.autoBindTargetId] 决定（未归档里的第一张）。
      */
     private fun bindDefaultCharacterIfNeeded() {
         if (homeState.roleplay != null || homeState.messages.isNotEmpty()) return
+        // 用户显式选了「不使用角色」：不要再自动绑第一个角色。
+        if (characterExplicitlyDisabled) return
         if (roleplayAutoBindInFlight) return
         roleplayAutoBindInFlight = true
         scope.launch {
@@ -1236,6 +1261,8 @@ internal class AgentAppState(
     fun setCharacterForNewChat(id: String?, name: String?) {
         val next = if (id.isNullOrBlank()) null else id to name.orEmpty()
         characterForNewChat = next
+        // 选中具体角色 -> 解除「不使用」标记；显式清空 -> 记下「不使用」，阻止后续自动绑定。
+        persistCharacterExplicitlyDisabled(next == null)
         runCatching {
             val editor = Prefs.localAgentPreferences()?.edit() ?: return@runCatching
             if (next == null) editor.remove(CHARACTER_FOR_NEW_CHAT_KEY)
@@ -1243,7 +1270,8 @@ internal class AgentAppState(
             editor.apply()
         }
         AndroidAgentLogger.info(
-            "new chat character set: id=" + (next?.first ?: "none") + ", name=" + (next?.second ?: "none")
+            "new chat character set: id=" + (next?.first ?: "none") + ", name=" + (next?.second ?: "none") +
+                ", explicitlyDisabled=" + (next == null)
         )
     }
 
@@ -3421,3 +3449,4 @@ private fun agentBooleanForUi(key: String): Boolean {
 
 /** 侧栏「新建会话」绑定角色的 Prefs 键。 */
 private const val CHARACTER_FOR_NEW_CHAT_KEY = "character_for_new_chat"
+private const val CHARACTER_FOR_NEW_CHAT_DISABLED_KEY = "character_for_new_chat_disabled"
