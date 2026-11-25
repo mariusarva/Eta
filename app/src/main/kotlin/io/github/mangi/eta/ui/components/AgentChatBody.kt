@@ -296,6 +296,8 @@ internal fun AgentChatBody(
             hasMessages = visibleMessages.isNotEmpty() || hasEarlierMessages,
             scrollState = scrollState,
             input = input,
+            conversationId = conversationId,
+            appContext = appContext,
             modelPickerState = modelPickerState,
             isCompacting = isCompacting,
             isBranching = isBranching,
@@ -373,6 +375,9 @@ private fun AgentChatScaffold(
     hasMessages: Boolean,
     scrollState: LazyListState,
     input: String,
+    /** 当前会话 ID 与上下文：用于挂载 ask_user 提问卡。 */
+    conversationId: String,
+    appContext: android.content.Context,
     modelPickerState: AgentModelPickerUiState,
     isCompacting: Boolean,
     isBranching: Boolean,
@@ -469,7 +474,7 @@ private fun AgentChatScaffold(
                             .joinToString("、") { it.label }
                         if (labels.isNotEmpty()) {
                             PendingAskStore.remove(pendingAsk.token)
-                            keepBottomAnchored = true
+                            onBottomAnchorChanged(true)
                             onSubmit(labels)
                         }
                     },
