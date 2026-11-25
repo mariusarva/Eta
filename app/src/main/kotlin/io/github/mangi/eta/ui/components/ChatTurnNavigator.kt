@@ -251,7 +251,7 @@ internal fun ChatTurnPanel(
                                 }
                             }
                         }
-                    },
+                    }
                     // 与「搜索对话」框同款高级玻璃材质；fallback 用不透明主题容器色，
                     // 不支持 shader 时仍能盖住下层聊天气泡。
                     .glassPanel(
