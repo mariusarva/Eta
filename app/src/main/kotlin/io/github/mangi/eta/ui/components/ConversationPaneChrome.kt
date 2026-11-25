@@ -212,20 +212,24 @@ internal fun ConversationPaneTopBar(
         ) {
             PaneBrandHeader(modifier = Modifier.weight(1f))
             // 角色键在多选键左侧：角色是常用入口，多选是低频操作，靠右更顺手。
-            // 三个按钮（角色 / 多选 / 新建）共用同一圆形实底容器，尺寸与材质完全一致。
+            // 三个按钮（角色 / 多选 / 新建）共用同一圆形容器，尺寸与材质完全一致；
+            // COUI 下与底部设置键一样走 CouiIconButton 的材质体系（由顶栏 backdrop 提供）。
+            val hasCouiMaterial = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null
             if (onPickCharacterForNewConversation != null) {
                 PaneSelectedCharacterButton(
                     character = selectedCharacter,
+                    hasCouiMaterial = hasCouiMaterial,
                     onClick = onPickCharacterForNewConversation,
                 )
                 Spacer(Modifier.width(6.dp))
             }
             PaneSelectionButton(
                 active = isSelecting,
+                hasCouiMaterial = hasCouiMaterial,
                 onClick = onToggleSelecting,
             )
             Spacer(Modifier.width(6.dp))
-            PaneNewChatButton(onClick = onNewConversation)
+            PaneNewChatButton(hasCouiMaterial = hasCouiMaterial, onClick = onNewConversation)
         }
     }
 
@@ -313,33 +317,50 @@ private fun PaneBrandHeader(modifier: Modifier = Modifier) {
 private fun PaneTopBarCircleButton(
     description: String,
     onClick: () -> Unit,
+    hasCouiMaterial: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
-    val colors = CouiPageDefaults.themeColors()
-    // 顶栏按钮浮在会话列表之上，叠加色会透出下面的行，必须合成成不透明。
-    val background = if (isCoui) colors.card
-        else opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh)
-    Box(
-        modifier = modifier
-            .size(34.dp)
-            .clip(CircleShape)
-            .background(background)
-            .clickable(role = Role.Button, onClickLabel = description, onClick = onClick)
-            .semantics { contentDescription = description },
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
+    if (isCoui) {
+        // 与底部设置键同一套 COUI 材质：有 backdrop 时走 CouiIconButton 的材质体系，
+        // 由顶栏 ProvideCouiMaterial 提供，视觉与下方按钮一致；无 backdrop 时退回不透明实色。
+        CouiIconButton(
+            onClick = onClick,
+            modifier = modifier
+                .size(34.dp)
+                .semantics { contentDescription = description },
+            enabled = true,
+            material = hasCouiMaterial,
+            backgroundColor = if (hasCouiMaterial) Color.Unspecified else CouiTheme.colorScheme.surface,
+            minWidth = 34.dp,
+            minHeight = 34.dp,
+        ) {
+            content()
+        }
+    } else {
+        val background = opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh)
+        Box(
+            modifier = modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(background)
+                .clickable(role = Role.Button, onClickLabel = description, onClick = onClick)
+                .semantics { contentDescription = description },
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
     }
 }
 
-/** 顶栏图标动作键：统一圆形实底 + 18dp 图标。 */
+/** 顶栏图标动作键：统一圆形 + 18dp 图标。 */
 @Composable
 private fun PaneTopBarActionButton(
     icon: ImageVector,
     description: String,
     onClick: () -> Unit,
+    hasCouiMaterial: Boolean,
     active: Boolean = false,
 ) {
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
@@ -350,7 +371,11 @@ private fun PaneTopBarActionButton(
         isCoui -> colors.title
         else -> MiuixTheme.colorScheme.onSurface
     }
-    PaneTopBarCircleButton(description = description, onClick = onClick) {
+    PaneTopBarCircleButton(
+        description = description,
+        onClick = onClick,
+        hasCouiMaterial = hasCouiMaterial,
+    ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
@@ -362,11 +387,12 @@ private fun PaneTopBarActionButton(
 
 /**
  * 已选角色按钮：只显示圆形头像，不显示名字与下拉箭头。
- * 与多选、新建共用同一个 34dp 圆形实底容器，三键尺寸与材质完全一致。
+ * 与多选、新建共用同一个 34dp 圆形容器，三键尺寸与材质完全一致。
  */
 @Composable
 private fun PaneSelectedCharacterButton(
     character: RoleplayChatUi?,
+    hasCouiMaterial: Boolean,
     onClick: () -> Unit,
 ) {
     val description = if (character != null) {
@@ -374,7 +400,11 @@ private fun PaneSelectedCharacterButton(
     } else {
         "选择新建对话的角色"
     }
-    PaneTopBarCircleButton(description = description, onClick = onClick) {
+    PaneTopBarCircleButton(
+        description = description,
+        onClick = onClick,
+        hasCouiMaterial = hasCouiMaterial,
+    ) {
         if (character != null) {
             CharacterAvatar(
                 name = character.characterName,
@@ -398,13 +428,14 @@ private fun PaneSelectedCharacterButton(
 /** 顶栏的分类管理入口：新建、改名、排序、删除都在那个对话框里。 */
 @Composable
 private fun PaneManageCategoriesButton(
-    hasCouiToolbarBackdrop: Boolean,
+    hasCouiMaterial: Boolean,
     onClick: () -> Unit,
 ) {
     PaneTopBarActionButton(
         icon = Icons.Outlined.Folder,
         description = "管理分类",
         onClick = onClick,
+        hasCouiMaterial = hasCouiMaterial,
     )
 }
 
@@ -412,24 +443,30 @@ private fun PaneManageCategoriesButton(
 @Composable
 private fun PaneSelectionButton(
     active: Boolean,
+    hasCouiMaterial: Boolean,
     onClick: () -> Unit,
 ) {
     PaneTopBarActionButton(
         icon = Icons.Rounded.Checklist,
         description = if (active) "退出多选" else "多选会话",
         onClick = onClick,
+        hasCouiMaterial = hasCouiMaterial,
         active = active,
     )
 }
 
-/** 顶栏的新建会话入口：与角色、多选共用同一个圆形实底容器。 */
+/** 顶栏的新建会话入口：与角色、多选共用同一个圆形容器。 */
 @Composable
-private fun PaneNewChatButton(onClick: () -> Unit) {
+private fun PaneNewChatButton(
+    hasCouiMaterial: Boolean,
+    onClick: () -> Unit,
+) {
     val description = stringResource(R.string.action_new_conversation)
     PaneTopBarActionButton(
         icon = Icons.Rounded.MapsUgc,
         description = description,
         onClick = onClick,
+        hasCouiMaterial = hasCouiMaterial,
     )
 }
 

@@ -1198,7 +1198,10 @@ private fun ConversationHistoryRow(
         val glassRowShape = remember { GlassShape(ConversationPanelMetrics.RowCornerRadius) }
         val fallbackBg = GlassTopAppBarDefaults.buttonFill()
         Modifier.glassPanel(
-            backdrop = miuixBackdrop,
+            // 不能用侧栏自身的 miuixBackdrop：该 backdrop 正由侧栏容器捕获，
+            // 列表行再采样它会形成自引用，RenderThread 递归爆栈（SIGSEGV）。
+            // 传 null 走 fallback 静态玻璃外观（描边 + 半透明填充 + 阴影），稳定且仍有玻璃质感。
+            backdrop = null,
             shape = glassRowShape,
             style = GlassDefaults.style(miuixDark),
             material = GlassTopAppBarDefaults.buttonMaterial(),
