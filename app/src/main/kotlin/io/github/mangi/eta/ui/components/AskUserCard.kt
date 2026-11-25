@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,7 +54,9 @@ internal fun AskUserCard(
         modifier = modifier
             .fillMaxWidth()
             .background(
-                color = MiuixTheme.colorScheme.surfaceContainerHigh,
+                // 必须用不透明合成色：Miuix 的 surfaceContainer 系列在深色下带 alpha，
+                // 直接当底色会透出后面的聊天正文（实测卡片与选项糊成一片灰）。
+                color = opaqueThemedSurface(),
                 shape = RoundedCornerShape(18.dp),
             )
             .border(
@@ -85,13 +88,13 @@ internal fun AskUserCard(
                     .fillMaxWidth()
                     .padding(vertical = 3.dp)
                     .background(
-                        // 选项底不能用 surface：深色主题下 surface 接近纯黑，
-                        // 贴在 surfaceContainerHigh 的卡片上完全没有层次（实测发黑一片）。
-                        // surfaceContainer 比卡片亮一档，选中时再叠主题色。
+                        // 选项底同样必须不透明；未选中时取 surfaceContainer 合成到卡片上，
+                        // 与卡片形成一档层次，选中时叠主题色。
                         color = if (selected) {
-                            MiuixTheme.colorScheme.primary.copy(alpha = 0.18f)
+                            MiuixTheme.colorScheme.primary.copy(alpha = 0.22f)
+                                .compositeOver(opaqueThemedSurface())
                         } else {
-                            MiuixTheme.colorScheme.surfaceContainer
+                            opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainer)
                         },
                         shape = RoundedCornerShape(12.dp),
                     )
