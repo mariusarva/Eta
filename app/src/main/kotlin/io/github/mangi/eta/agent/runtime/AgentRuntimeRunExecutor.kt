@@ -357,6 +357,7 @@ internal class AgentRuntimeRunExecutor(
                 includeImageGenTool = imageGenEnabled,
                 providerId = request.config.providerId,
                 modelId = request.config.model,
+                chatOnly = request.chatOnly,
             )
             val scheduledToolFilter: ((JSONArray) -> JSONArray)? =
                 if (scheduledRunContext != null && !scheduledRunContext.capabilities.guiTools) {
@@ -642,12 +643,14 @@ internal class AgentRuntimeRunExecutor(
             includeImageGenTool: Boolean = false,
             providerId: String? = null,
             modelId: String? = null,
+            chatOnly: Boolean = false,
         ): JSONArray = JSONArray(mcpTools.toString()).also { tools ->
             // 纯聊天档：不向模型声明任何工具，只做文本对话。
             // 直接返回空表，比逐个 isToolEnabled 判断更彻底——MCP、子智能体、历史检索、
             // 定时任务、生图、记忆工具全部不暴露，模型不会尝试调用，也不浪费提示词预算。
             // 注意 JSONArray 没有 clear()，只能整体跳过追加。
-            if (LocalToolProfileStore.current(providerId, modelId) == LocalToolProfile.CHAT) {
+            // 会话级纯聊天：本次运行不声明任何工具。
+            if (chatOnly || LocalToolProfileStore.current(providerId, modelId) == LocalToolProfile.CHAT) {
                 return JSONArray()
             }
             if (subagentAllowed) AgentSubagentToolCatalog.appendSchemas(tools)

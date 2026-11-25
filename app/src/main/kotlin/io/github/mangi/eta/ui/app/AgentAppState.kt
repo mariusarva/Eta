@@ -1329,7 +1329,12 @@ internal class AgentAppState(
         createPlainConversation()
     }
 
-    private fun createPlainConversation() {
+    /** 新建一个纯聊天会话：不向模型声明任何工具，只做文本对话。 */
+    fun createChatOnlyConversation() {
+        createPlainConversation(chatOnly = true)
+    }
+
+    private fun createPlainConversation(chatOnly: Boolean = false) {
         conversationSelectionVersion += 1
         cancelHistoryPageLoad()
         conversationSelectionJob?.cancel()
@@ -1339,7 +1344,7 @@ internal class AgentAppState(
         fileAttachmentOwnerVersion += 1
         currentDraftReasoningCustomized = false
         selectedConversationId = null
-        homeState = emptyChatState(defaultReasoningEffort())
+        homeState = emptyChatState(defaultReasoningEffort()).copy(chatOnly = chatOnly)
         refreshConversationModel()
         conversationPaneState = conversationPaneState.copy(
             selectedConversationId = null,
@@ -2440,6 +2445,7 @@ internal class AgentAppState(
                     request = AgentRuntimeWire.RunRequest(
                         operation = operation,
                         rewriteTargetMessageId = rewriteTargetMessageId,
+                        chatOnly = homeState.chatOnly,
                         runId = runId,
                         prompt = prompt,
                         config = config.copy(supportsSearchSuggestions = true),

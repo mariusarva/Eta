@@ -97,8 +97,6 @@ internal object SettingsSearchIndex {
         // 通用
         SettingsSearchEntry(R.string.settings_start_new_chat, R.string.settings_general,
             SettingsSearchRoute.Navigate(AppRoute.Settings)),
-        SettingsSearchEntry(R.string.settings_chat_only_mode, R.string.settings_general,
-            SettingsSearchRoute.Navigate(AppRoute.Settings)),
         SettingsSearchEntry(R.string.appearance_title, R.string.settings_general,
             SettingsSearchRoute.Navigate(AppRoute.AppearanceSettings),
             listOf("appearance", "外观", "主题", "深色", "颜色")),

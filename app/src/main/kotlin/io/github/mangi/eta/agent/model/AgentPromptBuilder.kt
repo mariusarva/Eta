@@ -24,6 +24,8 @@ internal object AgentPromptBuilder {
         executionContext: TerminalExecutionContext? = null,
         extraSystemContext: String = "",
         customization: PromptCustomization = PromptCustomizationStore.load(),
+        /** 会话级纯聊天：不声明工具、跳过历史 tool_calls。 */
+        sessionChatOnly: Boolean = false,
     ): JSONArray {
         val messages = buildSystemMessages(
             config,
@@ -34,8 +36,10 @@ internal object AgentPromptBuilder {
             executionContext,
             extraSystemContext,
             customization,
+            sessionChatOnly,
         )
-        val chatOnly = LocalToolProfileStore.current(config.providerId, config.model) == LocalToolProfile.CHAT
+        val chatOnly = sessionChatOnly ||
+            LocalToolProfileStore.current(config.providerId, config.model) == LocalToolProfile.CHAT
         history.forEach { item ->
             val json = runCatching { AgentConversationCodec.toJsonObject(item) }.getOrNull() ?: return@forEach
             // 纯聊天档不声明工具，历史里的工具调用记录必须一并跳过，否则部分服务商会拒绝请求。
@@ -60,11 +64,14 @@ internal object AgentPromptBuilder {
         executionContext: TerminalExecutionContext? = null,
         extraSystemContext: String = "",
         customization: PromptCustomization = PromptCustomizationStore.load(),
+        /** 会话级纯聊天：与工具档 CHAT 等效，不注入工具说明。 */
+        sessionChatOnly: Boolean = false,
     ): JSONArray {
         val messages = JSONArray()
         // 用户自定义提示词优先于 provider 上的 systemPrompt；未启用时行为与之前完全一致。
         val custom = customization.takeIf { it.active }
-        val chatOnly = LocalToolProfileStore.current(config.providerId, config.model) == LocalToolProfile.CHAT
+        val chatOnly = sessionChatOnly ||
+            LocalToolProfileStore.current(config.providerId, config.model) == LocalToolProfile.CHAT
         // 自定义启用后不再回落到 provider 的 systemPrompt：base 留空本身就代表「不注入身份段」，
         // 回落会把用户显式清空的身份悄悄换成内置提示，表现为「预设应用了但没生效」。
         val basePrompt = custom?.baseSystemPrompt ?: config.systemPrompt

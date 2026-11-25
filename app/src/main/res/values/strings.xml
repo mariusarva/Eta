@@ -1562,4 +1562,5 @@
   <string name="selection_copy_segments_hint">点右侧图标复制整段，段内可拖选任意片段。</string>
   <string name="settings_start_new_chat">启动时新建对话</string>
   <string name="settings_chat_only_mode">纯聊天模式</string>
+  <string name="action_chat_only_conversation">纯聊天对话</string>
 </resources>

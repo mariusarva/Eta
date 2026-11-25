@@ -111,6 +111,7 @@ internal object AgentRuntimeWire {
     private const val KEY_RUN_ID = "run_id"
     private const val KEY_PROMPT = "prompt"
     private const val KEY_ASSISTANT_SCREEN_CONTEXT = "assistant_screen_context"
+    private const val KEY_CHAT_ONLY = "chat_only"
     private const val KEY_MODEL_SESSION_ID = "model_session_id"
     private const val KEY_PROVIDER_ID = "provider_id"
     private const val KEY_PROVIDER_NAME = "provider_name"
@@ -192,6 +193,8 @@ internal object AgentRuntimeWire {
         val operation: String = OP_CHAT,
         val rewriteTargetMessageId: String? = null,
         val assistantScreenContext: String = "",
+        /** 纯聊天会话：不向模型声明任何工具，只做文本对话。 */
+        val chatOnly: Boolean = false,
     ) {
         // 旧入口沿用会话 handoff；无持久会话的入口以首个 run 为会话起点。
         val effectiveModelSessionId: String
@@ -337,6 +340,7 @@ internal object AgentRuntimeWire {
         putString(KEY_RUN_ID, request.runId)
         AgentWireText.put(this, KEY_PROMPT, request.prompt, payloadDirectory)
         putString(KEY_ASSISTANT_SCREEN_CONTEXT, request.assistantScreenContext)
+        putBoolean(KEY_CHAT_ONLY, request.chatOnly)
         putString(KEY_MODEL_SESSION_ID, request.modelSessionId)
         putString(KEY_PROVIDER_ID, request.config.providerId)
         putString(KEY_PROVIDER_NAME, request.config.providerName)
@@ -468,6 +472,7 @@ internal object AgentRuntimeWire {
     ): RunRequest = RunRequest(
             runId = bundle.getString(KEY_RUN_ID).orEmpty(),
             prompt = if (readText) AgentWireText.read(bundle, KEY_PROMPT).orEmpty() else bundle.getString(KEY_PROMPT).orEmpty(),
+            chatOnly = bundle.getBoolean(KEY_CHAT_ONLY),
             assistantScreenContext = bundle.getString(KEY_ASSISTANT_SCREEN_CONTEXT).orEmpty().also {
                 require(it.length <= AssistantScreenContextProjection.MAX_CHARS) { "助理屏幕上下文超过容量预算" }
             },

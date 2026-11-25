@@ -132,6 +132,8 @@ internal fun AgentAppShell(
     onDismissConversationPane: () -> Unit,
     onSearchConversations: (String) -> Unit,
     onNewConversation: () -> Unit,
+    /** 新建纯聊天会话：不向模型声明任何工具。 */
+    onNewChatOnlyConversation: () -> Unit = onNewConversation,
     onOpenTerminal: () -> Unit,
     onOpenBrowser: () -> Unit,
     onSelectConversation: (String) -> Unit,
@@ -224,6 +226,7 @@ internal fun AgentAppShell(
                                         dark = dark,
                                         colors = colors,
                                         onNewConversation = onNewConversation,
+                onNewChatOnlyConversation = onNewChatOnlyConversation,
                                         onOpenTerminal = onOpenTerminal,
                                         onOpenBrowser = onOpenBrowser,
                                     )
@@ -261,6 +264,7 @@ internal fun AgentAppShell(
                                 onBack = onBack,
                                 onOpenConversationPane = onOpenConversationPane,
                                 onNewConversation = onNewConversation,
+                onNewChatOnlyConversation = onNewChatOnlyConversation,
                                 onOpenTerminal = onOpenTerminal,
                                 onOpenBrowser = onOpenBrowser,
                                 homeTitle = homeTitle,
@@ -301,6 +305,7 @@ internal fun AgentAppShell(
                 onDismiss = onDismissConversationPane,
                 onSearchChange = onSearchConversations,
                 onNewConversation = onNewConversation,
+                onNewChatOnlyConversation = onNewChatOnlyConversation,
                 onConversationSelected = onSelectConversation,
                 onConversationTogglePin = onConversationTogglePin,
                 onConversationRename = onConversationRename,
@@ -352,6 +357,8 @@ private fun CouiTopBarOverflowMenu(
     dark: Boolean,
     colors: CouiPageColors,
     onNewConversation: () -> Unit,
+    /** 新建纯聊天会话：不向模型声明任何工具。 */
+    onNewChatOnlyConversation: () -> Unit = onNewConversation,
     onOpenTerminal: () -> Unit,
     onOpenBrowser: () -> Unit,
 ) {
@@ -363,6 +370,7 @@ private fun CouiTopBarOverflowMenu(
     val anchor = rememberCouiMenuAnchor()
 
     val newConversationText = stringResource(R.string.action_new_conversation)
+    val chatOnlyText = stringResource(R.string.action_chat_only_conversation)
     val openTerminalText = stringResource(R.string.action_open_terminal)
     val openBrowserText = stringResource(R.string.action_open_browser)
     val autoReadText = stringResource(
@@ -370,6 +378,7 @@ private fun CouiTopBarOverflowMenu(
     )
     val menuItems = remember(
         newConversationText,
+        chatOnlyText,
         openTerminalText,
         openBrowserText,
         autoReadText,
@@ -378,6 +387,8 @@ private fun CouiTopBarOverflowMenu(
     ) {
         buildList {
             add(CouiMenuItem(value = 0, text = newConversationText, icon = Icons.Rounded.MapsUgc))
+            // 纯聊天对话：新建一个不带任何工具的会话。
+            add(CouiMenuItem(value = 4, text = chatOnlyText, icon = Icons.Rounded.Forum))
             add(CouiMenuItem(value = 1, text = openTerminalText, icon = Icons.Rounded.Terminal))
             add(CouiMenuItem(value = 2, text = openBrowserText, icon = Icons.Rounded.Language))
             if (hasSpeechPlayback) {
@@ -411,6 +422,7 @@ private fun CouiTopBarOverflowMenu(
                 showMenu = false
                 when (item.value) {
                     0 -> onNewConversation()
+                    4 -> onNewChatOnlyConversation()
                     1 -> onOpenTerminal()
                     2 -> onOpenBrowser()
                     3 -> speechSettings?.let { current ->
@@ -434,6 +446,8 @@ private fun AgentTopBar(
     onBack: () -> Unit,
     onOpenConversationPane: () -> Unit,
     onNewConversation: () -> Unit,
+    /** 新建纯聊天会话：不向模型声明任何工具。 */
+    onNewChatOnlyConversation: () -> Unit = onNewConversation,
     onOpenTerminal: () -> Unit,
     onOpenBrowser: () -> Unit,
     homeTitle: String?,
@@ -450,6 +464,7 @@ private fun AgentTopBar(
             isCurrentRoute = isCurrentRoute,
             onOpenConversationPane = onOpenConversationPane,
             onNewConversation = onNewConversation,
+                onNewChatOnlyConversation = onNewChatOnlyConversation,
             onOpenTerminal = onOpenTerminal,
             onOpenBrowser = onOpenBrowser,
         ) {
@@ -481,6 +496,8 @@ private fun HomeMiuixTopBar(
     isCurrentRoute: Boolean,
     onOpenConversationPane: () -> Unit,
     onNewConversation: () -> Unit,
+    /** 新建纯聊天会话：不向模型声明任何工具。 */
+    onNewChatOnlyConversation: () -> Unit = onNewConversation,
     onOpenTerminal: () -> Unit,
     onOpenBrowser: () -> Unit,
     centerContent: @Composable () -> Unit,
@@ -549,6 +566,7 @@ private fun HomeMiuixTopBar(
                 backdrop = buttonBackdrop,
                 isCurrentRoute = isCurrentRoute,
                 onNewConversation = onNewConversation,
+                onNewChatOnlyConversation = onNewChatOnlyConversation,
                 onOpenTerminal = onOpenTerminal,
                 onOpenBrowser = onOpenBrowser,
             )
@@ -561,6 +579,8 @@ private fun TopBarOverflowMenu(
     backdrop: Backdrop?,
     isCurrentRoute: Boolean,
     onNewConversation: () -> Unit,
+    /** 新建纯聊天会话：不向模型声明任何工具。 */
+    onNewChatOnlyConversation: () -> Unit = onNewConversation,
     onOpenTerminal: () -> Unit,
     onOpenBrowser: () -> Unit,
 ) {
@@ -573,6 +593,7 @@ private fun TopBarOverflowMenu(
     val speechSettings by remember { SpeechSettingsRepository.settingsFlow() }.collectAsState(initial = null)
     val hasSpeechPlayback = speechSettings?.let { it.tts != TtsProvider.NONE } == true
     val autoReadEnabled = speechSettings?.chatAutoSpeak == true
+    val chatOnlyText = stringResource(R.string.action_chat_only_conversation)
     val newConversationText = stringResource(R.string.action_new_conversation)
     val openTerminalText = stringResource(R.string.action_open_terminal)
     val openBrowserText = stringResource(R.string.action_open_browser)
@@ -622,6 +643,14 @@ private fun TopBarOverflowMenu(
                     onClick = {
                         showMenu = false
                         onNewConversation()
+                    },
+                )
+                GlassPopupItem(
+                    text = chatOnlyText,
+                    icon = MiuixIcons.Glass.NewMessage,
+                    onClick = {
+                        showMenu = false
+                        onNewChatOnlyConversation()
                     },
                 )
                 GlassPopupItem(

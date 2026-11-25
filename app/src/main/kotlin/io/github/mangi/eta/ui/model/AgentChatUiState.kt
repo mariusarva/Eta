@@ -42,6 +42,8 @@ internal data class AgentChatUiState(
     val hasEarlierMessages: Boolean = false,
     val conversationCharacterName: String? = null,
     val conversationCharacterAvatarPath: String? = null,
+    /** 纯聊天会话：不向模型声明任何工具，只做文本对话。 */
+    val chatOnly: Boolean = false,
 ) {
     val canCompactContext: Boolean get() = !isStreaming && messageEdit == null && history.any {
         !it.contextSummary && (it.role == "assistant" || it.role == "tool")

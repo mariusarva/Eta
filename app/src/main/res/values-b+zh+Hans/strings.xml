@@ -1903,4 +1903,5 @@
   <string name="settings_search_empty">没有匹配的设置项</string>
   <string name="settings_start_new_chat">启动时新建对话</string>
   <string name="settings_chat_only_mode">纯聊天模式</string>
+  <string name="action_chat_only_conversation">纯聊天对话</string>
 </resources>

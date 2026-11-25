@@ -980,17 +980,6 @@ private fun SettingsPageContent(
                         )
                     }
                     item {
-                        // 纯聊天模式：不向模型声明任何工具，只做文本对话。
-                        SwitchPref(
-                            context = context,
-                            prefs = agentPrefs,
-                            title = stringResource(R.string.settings_chat_only_mode),
-                            key = Prefs.Keys.AGENT_CHAT_ONLY_MODE,
-                            icon = Icons.Rounded.Forum,
-                            iconTint = SettingsIconColors.Yellow,
-                        )
-                    }
-                    item {
                         CouiPreference(
                             title = stringResource(R.string.appearance_title),
                             icon = { CouiSettingsIcon(Icons.Rounded.Palette, SettingsIconColors.Orange) },
@@ -1478,14 +1467,6 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.settings_start_new_chat),
                             key = Prefs.Keys.AGENT_START_IN_NEW_CHAT,
                             icon = Icons.Rounded.ChatBubbleOutline,
-                            history = enhancementHistory,
-                        )
-                        SwitchPref(
-                            context = context,
-                            prefs = agentPrefs,
-                            title = stringResource(R.string.settings_chat_only_mode),
-                            key = Prefs.Keys.AGENT_CHAT_ONLY_MODE,
-                            icon = Icons.Rounded.Forum,
                             history = enhancementHistory,
                         )
                         ArrowPreference(

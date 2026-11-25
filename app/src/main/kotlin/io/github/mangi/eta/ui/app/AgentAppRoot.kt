@@ -414,6 +414,7 @@ fun AgentAppRoot(
             onDismissConversationPane = { conversationPaneOpen = false },
             onSearchConversations = { query -> agentState.updateSearchQuery(query) },
             onNewConversation = { createConversation() },
+            onNewChatOnlyConversation = { agentState.createChatOnlyConversation() },
             onOpenTerminal = { pushRoute(AppRoute.Terminal) },
             onOpenBrowser = { openConversationBrowser() },
             onSelectConversation = { conversationId -> selectConversation(conversationId) },
