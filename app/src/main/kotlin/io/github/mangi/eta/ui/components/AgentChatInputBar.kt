@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -103,6 +104,7 @@ import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
 import io.github.mangi.eta.ui.model.QueuedMessageUi
+import io.github.mangi.eta.ui.model.TokenUsageUi
 import io.github.mangi.eta.ui.voice.SpeechDictationButton
 import io.github.mangi.eta.ui.voice.SpeechInputFeedback
 import io.github.mangi.eta.ui.voice.rememberSpeechInput
@@ -236,6 +238,8 @@ internal fun AgentChatInputBar(
     couiBackdrop: CouiLayerBackdrop? = null,
     /** 输入框上沿左侧的插槽（轮次横条）；与右侧能力胶囊同一行，左对齐。 */
     topStartSlot: (@Composable () -> Unit)? = null,
+    /** 输入框内部顶部左侧的速度读数来源（最近一轮）；为空则不显示。 */
+    latestUsage: TokenUsageUi? = null,
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -424,19 +428,15 @@ internal fun AgentChatInputBar(
         )
         val miuixInputShape = remember { GlassShape(24.dp) }
         var inputContainerTopPx by remember { mutableFloatStateOf(0f) }
-        // 输入框上沿一行：左侧放轮次横条（可选），右侧常驻能力胶囊。
-        // 胶囊一直显示：它是常驻的能力指示，不该随「有无消息」或流式状态闪烁。
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(end = 4.dp, bottom = 3.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(modifier = Modifier.weight(1f)) {
-                if (topStartSlot != null) {
-                    Box(modifier = Modifier.align(Alignment.CenterStart)) { topStartSlot() }
-                }
+        // 速度读数与能力胶囊现在都放进输入框内部顶部那一行，容器外不再留独立行。
+        val speedText = latestUsage?.let { u ->
+            val decodeMs = u.decodeMs
+            val tokens = u.decodeTokens ?: u.outputTokens
+            if (decodeMs != null && decodeMs > 0L && tokens != null && tokens > 0) {
+                formatTokensPerSecond(tokens.toDouble() / (decodeMs.toDouble() / 1_000.0)) + " tok/s"
+            } else {
+                null
             }
-            CapabilityCapsule()
         }
         Box(
             modifier = Modifier
@@ -508,6 +508,32 @@ internal fun AgentChatInputBar(
                     )
                     .padding(horizontal = 10.dp, vertical = 8.dp),
             ) {
+                // 输入框内部顶部一行：左＝速度读数，中＝轮次横条，右＝能力胶囊。
+                // 三者同处输入卡片的圆角背景里，不再浮在容器外面；该行固定高度，正文区相应下移。
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(22.dp)
+                        .padding(start = 6.dp, end = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (speedText != null) {
+                        Text(
+                            text = speedText,
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        topStartSlot?.invoke()
+                    }
+                    CapabilityCapsule()
+                }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

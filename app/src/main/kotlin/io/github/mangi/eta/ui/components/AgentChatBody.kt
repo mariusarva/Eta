@@ -100,6 +100,7 @@ import io.github.mangi.eta.ui.model.ConversationHistoryLoadState
 import io.github.mangi.eta.ui.model.MessageEditUiState
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
+import io.github.mangi.eta.ui.model.TokenUsageUi
 import io.github.mangi.eta.ui.model.QueuedMessageUi
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
@@ -492,7 +493,11 @@ private fun AgentChatScaffold(
                 onAttachFilePath = onAttachFilePath,
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
-                // 只有把手进插槽（与能力胶囊同一行、左对齐）；面板在 bottomBar 里铺满整行。
+                // 输入框内部左上的速度读数：取最近一条带性能统计的消息。
+                latestUsage = remember(visibleMessages) {
+                    visibleMessages.lastOrNull { it.usage?.hasPerformanceStats == true }?.usage
+                },
+                // 只有把手进插槽（与能力胶囊同一行、居中）；面板在 bottomBar 里铺满整行。
                 topStartSlot = {
                     ChatTurnHandle(
                         turns = remember(visibleMessages, allTurns) {
@@ -1213,6 +1218,7 @@ private fun AgentChatBottomBar(
     onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
     topStartSlot: (@Composable () -> Unit)? = null,
+    latestUsage: TokenUsageUi? = null,
 ) {
     val surface = MiuixTheme.colorScheme.surface
     val bottomBarInsets = rememberFloatingBottomBarInsets(
@@ -1282,6 +1288,7 @@ private fun AgentChatBottomBar(
                 glassBackdrop = glassBackdrop,
                 couiBackdrop = couiBackdrop,
                 topStartSlot = topStartSlot,
+                latestUsage = latestUsage,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
