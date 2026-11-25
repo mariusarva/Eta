@@ -51,21 +51,23 @@ jobs:
         shell: bash
         run: sdkmanager --channel=3 "platforms;android-37.0"
 
-      - name: 生成 CI 签名
+      - name: 还原签名密钥
         shell: bash
         run: |
-          keytool -genkeypair -v -keystore "$RUNNER_TEMP/eta-ci.jks" -storetype PKCS12 \
-            -keyalg RSA -keysize 2048 -validity 10000 -alias eta \
-            -storepass etacipass -keypass etacipass \
-            -dname "CN=Eta CI, OU=Fork, O=Eta, L=NA, ST=NA, C=CN"
+          if [ -z "${{ secrets.ETA_KEYSTORE_B64 }}" ]; then
+            echo "::error::缺少 ETA_KEYSTORE_B64 secret"
+            exit 1
+          fi
+          echo "${{ secrets.ETA_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/eta-signing.jks"
+          ls -l "$RUNNER_TEMP/eta-signing.jks"
 
       - name: 构建 Release APK
         shell: bash
         env:
-          ETA_RELEASE_STORE_FILE: ${{ runner.temp }}/eta-ci.jks
-          ETA_RELEASE_STORE_PASSWORD: etacipass
+          ETA_RELEASE_STORE_FILE: ${{ runner.temp }}/eta-signing.jks
+          ETA_RELEASE_STORE_PASSWORD: ${{ secrets.ETA_KEYSTORE_PASSWORD }}
           ETA_RELEASE_KEY_ALIAS: eta
-          ETA_RELEASE_KEY_PASSWORD: etacipass
+          ETA_RELEASE_KEY_PASSWORD: ${{ secrets.ETA_KEY_PASSWORD }}
         run: >-
           ./gradlew --no-daemon --no-configuration-cache
           "-Peta.buildMetadata=${GITHUB_SHA::7}"
