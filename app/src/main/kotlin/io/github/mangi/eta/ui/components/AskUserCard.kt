@@ -1,6 +1,7 @@
 package io.github.mangi.eta.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -55,6 +56,11 @@ internal fun AskUserCard(
                 color = MiuixTheme.colorScheme.surfaceContainerHigh,
                 shape = RoundedCornerShape(18.dp),
             )
+            .border(
+                width = 0.5.dp,
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(18.dp),
+            )
             .padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 10.dp),
     ) {
         Text(
@@ -79,10 +85,13 @@ internal fun AskUserCard(
                     .fillMaxWidth()
                     .padding(vertical = 3.dp)
                     .background(
+                        // 选项底不能用 surface：深色主题下 surface 接近纯黑，
+                        // 贴在 surfaceContainerHigh 的卡片上完全没有层次（实测发黑一片）。
+                        // surfaceContainer 比卡片亮一档，选中时再叠主题色。
                         color = if (selected) {
-                            MiuixTheme.colorScheme.primary.copy(alpha = 0.14f)
+                            MiuixTheme.colorScheme.primary.copy(alpha = 0.18f)
                         } else {
-                            MiuixTheme.colorScheme.surface
+                            MiuixTheme.colorScheme.surfaceContainer
                         },
                         shape = RoundedCornerShape(12.dp),
                     )
