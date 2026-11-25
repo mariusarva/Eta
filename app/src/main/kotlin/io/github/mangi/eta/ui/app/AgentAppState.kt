@@ -153,6 +153,8 @@ internal class AgentAppState(
     val isLoadingEarlierMessages: Boolean get() = historyLoadState == ConversationHistoryLoadState.Loading
 
     private var selectedConversationId: String? = initialConversations.selectedConversationId
+    /** 刚新建的纯聊天会话还没落库：首次持久化时把它的 id 写进 ChatOnlyConversationStore。 */
+    private var pendingChatOnlyConversation = false
     private var conversationsById: Map<String, AgentChatHomeUiState> = initialConversations.conversationsById
     private var conversationTitles: Map<String, String> = initialConversations.titles
     private var conversationUpdatedAt: Map<String, Long> = initialConversations.updatedAt
@@ -1045,7 +1047,8 @@ internal class AgentAppState(
         fileAttachmentOwnerVersion += 1
         currentDraftReasoningCustomized = false
         selectedConversationId = conversationId
-        homeState = state
+        ChatOnlyConversationStore.init(appContext)
+        homeState = state.copy(chatOnly = ChatOnlyConversationStore.contains(conversationId))
         conversationLoadFailed = false
         isLoadingConversation = !state.isConversationLoaded
         conversationPaneState = conversationPaneState.copy(selectedConversationId = conversationId)
@@ -1374,6 +1377,8 @@ internal class AgentAppState(
 
     /** 新建一个纯聊天会话：不向模型声明任何工具，只做文本对话。 */
     fun createChatOnlyConversation() {
+        // 会话 ID 要等首次落库才有，先置位，首次持久化时补上标记。
+        pendingChatOnlyConversation = true
         createPlainConversation(chatOnly = true)
     }
 
@@ -1832,6 +1837,12 @@ internal class AgentAppState(
 
         val conversationId = selectedConversationId ?: newConversationId().also {
             selectedConversationId = it
+            // 纯聊天会话此刻才拿到 id：立刻登记，之后切走/重启都能还原。
+            if (pendingChatOnlyConversation) {
+                ChatOnlyConversationStore.init(appContext)
+                ChatOnlyConversationStore.mark(it)
+                pendingChatOnlyConversation = false
+            }
         }
         dispatchMessageToConversation(
             conversationId = conversationId,
