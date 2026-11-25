@@ -49,7 +49,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.ui.app.ConversationTimeLabels
-import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.glass.glassPanel
@@ -230,7 +229,10 @@ internal fun ChatTurnPanel(
                     // 与「搜索对话」框同款高级玻璃材质；fallback 用不透明主题容器色，
                     // 不支持 shader 时仍能盖住下层聊天气泡。
                     .glassPanel(
-                        backdrop = currentGlassOverlayBackdrop(),
+                        // 不能用 currentGlassOverlayBackdrop()：该 backdrop 覆盖整页/整个场景，
+                        // 包含本面板自身，采样会形成自引用，RenderThread 递归爆栈（SIGSEGV）。
+                        // 传 null 走 fallback 静态玻璃外观（描边 + 半透明填充 + 阴影），稳定。
+                        backdrop = null,
                         shape = panelGlassShape,
                         style = GlassDefaults.style(miuixDark),
                         material = GlassTopAppBarDefaults.buttonMaterial(),
