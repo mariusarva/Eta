@@ -438,14 +438,16 @@ internal fun AgentChatInputBar(
                 null
             }
         }
-        Box(
+        // 外层用 Column 纵向排列：横条在上、输入卡片在下。
+        // 之前用 Box，后绘制的输入卡片会把横条整个盖住（实测横条消失）。
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .onGloballyPositioned { coordinates ->
                     inputContainerTopPx = coordinates.boundsInWindow().top
                 },
         ) {
-            // 轮次横条放在输入框外面的上方，居中；与框内那一行分离，避免挤占正文高度。
+            // 轮次横条放在输入框外面的上方，居中。
             if (topStartSlot != null) {
                 Box(
                     modifier = Modifier
