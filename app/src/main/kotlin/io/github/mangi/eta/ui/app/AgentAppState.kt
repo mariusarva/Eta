@@ -80,6 +80,7 @@ import io.github.mangi.eta.ui.model.contentMatches
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
+import java.io.PushbackInputStream
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
@@ -333,16 +334,20 @@ internal class AgentAppState(
     suspend fun importBackup(input: InputStream): EtaBackupSummary {
         // 全量 zip：先抽出 eta-backup.json 走正常导入，再把 private/ 落到暂存区，
         // 下次进程启动最早期整体覆盖（Room / DataStore 必须在那之前还没打开）。
-        val isFullZip = runCatching {
-            input.mark(FULL_ZIP_PROBE_BYTES)
-            val header = ByteArray(4)
-            val read = input.read(header)
-            input.reset()
-            read == 4 && header[0] == 'P'.code.toByte() && header[1] == 'K'.code.toByte() &&
-                header[2] == 3.toByte() && header[3] == 4.toByte()
-        }.getOrDefault(false)
+        //
+        // 探测必须用 PushbackInputStream 而不是 mark/reset：
+        // contentResolver.openInputStream() 返回的是 FileInputStream 派生流，不支持 mark，
+        // reset() 会抛异常被吞掉，但流已经前进 4 字节且无法回退，
+        // 后续 JSON 从第 5 字节开始解析 → 必然报「备份文件格式无效」。
+        val probe = PushbackInputStream(input, 4)
+        val header = ByteArray(4)
+        val probeRead = probe.read(header)
+        if (probeRead > 0) probe.unread(header, 0, probeRead)
+        val isFullZip = probeRead == 4 &&
+            header[0] == 'P'.code.toByte() && header[1] == 'K'.code.toByte() &&
+            header[2] == 3.toByte() && header[3] == 4.toByte()
         if (isFullZip) {
-            val staged = EtaFullBackupArchive.stage(appContext, input)
+            val staged = EtaFullBackupArchive.stage(appContext, probe)
             if (staged.privateFiles > 0) {
                 AndroidAgentLogger.info(
                     "Full backup staged: files=${staged.privateFiles}, bytes=${staged.privateBytes}",
@@ -356,7 +361,7 @@ internal class AgentAppState(
             return document.inputStream().use { importBackupDocument(it) }
                 .copy(pendingRestart = staged.privateFiles > 0)
         }
-        return importBackupDocument(input)
+        return importBackupDocument(probe)
     }
 
     private suspend fun importBackupDocument(input: InputStream): EtaBackupSummary {
@@ -3438,8 +3443,7 @@ internal class AgentAppState(
         const val LEGACY_STOPPED_ERROR = "已停止"
         const val SYNTHETIC_STATUS_STOPPED = "eta_status:stopped"
 
-        /** 探测 ZIP 魔数（PK\x03\x04）时预留的 mark 长度。 */
-        const val FULL_ZIP_PROBE_BYTES = 8
+        /** 探测 ZIP 魔数（PK\x03\x04）：导入时用 PushbackInputStream 回退，不再需要预读长度。 */
         private val SHARED_IMAGE_EXTENSIONS = setOf(
             "jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif",
         )
