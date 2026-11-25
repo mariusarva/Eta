@@ -24,7 +24,7 @@ import io.github.mangi.eta.ui.MainActivity
 internal object ScheduledTaskNotificationManager {
     private const val CHANNEL_RESULTS = "eta_scheduled_results"
     private const val CHANNEL_ALERTS = "eta_scheduled_alerts"
-    private const val BRAND_COLOR = 0xFF4285F4.toInt()
+    private const val BRAND_COLOR = 0xFFFFFFFF.toInt()
 
     fun ensureChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return

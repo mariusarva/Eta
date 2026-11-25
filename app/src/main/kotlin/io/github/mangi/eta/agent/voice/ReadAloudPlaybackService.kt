@@ -53,7 +53,7 @@ internal class ReadAloudPlaybackService : Service() {
         )
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setColor(0xFF4285F4.toInt())
+            .setColor(0xFFFFFFFF.toInt())
             .setContentTitle(getString(R.string.read_aloud_notification_title))
             .setContentIntent(open)
             .setOngoing(true)

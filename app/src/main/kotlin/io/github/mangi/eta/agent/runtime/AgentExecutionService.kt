@@ -262,7 +262,7 @@ internal class AgentExecutionService : Service() {
         private const val ACTION_STOP = "io.github.mangi.eta.action.STOP_USER_EXECUTION"
         private const val ACTION_TOGGLE_PAUSE = "io.github.mangi.eta.action.TOGGLE_RUN_PAUSE"
         private const val EXTRA_TOGGLE_RUN_ID = "io.github.mangi.eta.extra.TOGGLE_RUN_ID"
-        private const val BRAND_COLOR = 0xFF4285F4.toInt()
+        private const val BRAND_COLOR = 0xFFFFFFFF.toInt()
         private val leases = ExecutionLeaseRegistry()
         private val ownerSequence = AtomicLong()
         private val mainHandler = Handler(Looper.getMainLooper())
