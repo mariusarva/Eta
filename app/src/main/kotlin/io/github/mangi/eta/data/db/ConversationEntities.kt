@@ -30,6 +30,8 @@ internal data class ConversationEntity(
     @ColumnInfo(name = "is_pinned", defaultValue = "0") val isPinned: Boolean = false,
     /** 所属会话分类；null 表示未分类。 */
     @ColumnInfo(name = "category_id") val categoryId: String? = null,
+    /** 纯聊天会话：不向模型声明任何工具。必须持久化，否则重开会话就退回带工具。 */
+    @ColumnInfo(name = "chat_only", defaultValue = "0") val chatOnly: Boolean = false,
 )
 
 internal data class ConversationMetadata(
@@ -44,6 +46,7 @@ internal data class ConversationMetadata(
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
     @ColumnInfo(name = "model_id") val modelId: String? = null,
     @ColumnInfo(name = "is_pinned") val isPinned: Boolean = false,
+    @ColumnInfo(name = "chat_only") val chatOnly: Boolean = false,
 )
 
 /** 会话侧栏只读取定长预览，不读取上下文、角色卡与修订正文。 */
@@ -61,6 +64,7 @@ internal data class ConversationIndexRow(
     @ColumnInfo(name = "has_roleplay") val hasRoleplay: Boolean,
     @ColumnInfo(name = "is_pinned") val isPinned: Boolean = false,
     @ColumnInfo(name = "category_id") val categoryId: String? = null,
+    @ColumnInfo(name = "chat_only") val chatOnly: Boolean = false,
 )
 
 internal data class ConversationIdentity(

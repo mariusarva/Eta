@@ -81,6 +81,8 @@ internal class AgentConversationPersistence(initial: AgentConversationStore.Snap
         val journal: List<AgentModelClient.ConversationMessage>,
         val isConversationLoaded: Boolean,
         val messageStartIndex: Int,
+        /** 纯聊天会话标记：持久化后重开会话仍然不带工具。 */
+        val chatOnly: Boolean = false,
     ) {
         constructor(
             state: AgentChatHomeUiState,
@@ -91,13 +93,14 @@ internal class AgentConversationPersistence(initial: AgentConversationStore.Snap
             title, updatedAt, isPinned, state.reasoningEffort, state.appliedRuntimeRunIds,
             state.roleplay, if (state.roleplay == null) RoleplayMessageState() else state.roleplayMessages,
             state.modelId, state.messages, state.history, state.journal.ifEmpty { state.history },
-            state.isConversationLoaded, state.messageStartIndex,
+            state.isConversationLoaded, state.messageStartIndex, state.chatOnly,
         )
 
         fun sameMetadata(other: Content): Boolean =
             title == other.title && updatedAt == other.updatedAt && isPinned == other.isPinned &&
                 reasoningEffort == other.reasoningEffort &&
                 appliedRuntimeRunIds == other.appliedRuntimeRunIds && roleplay == other.roleplay &&
-                roleplayMessages == other.roleplayMessages && modelId == other.modelId
+                roleplayMessages == other.roleplayMessages && modelId == other.modelId &&
+                chatOnly == other.chatOnly
     }
 }

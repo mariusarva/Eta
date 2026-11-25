@@ -104,6 +104,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.components.custom.CustomMessageActionsHost
 import io.github.mangi.eta.agent.imagegen.ImageGenToolCatalog
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.agent.overlay.toolDisplayName
@@ -303,31 +304,58 @@ internal fun ChatMessageItem(
     onEditGeneratedImage: ((String) -> Unit)? = null,
 ) {
     when (message) {
-        is UserMessageUi -> UserMessageBubble(
-            message = message,
-            assistantOverlay = assistantOverlay,
-            actionsEnabled = messageActionsEnabled,
-            isEditing = isEditing,
-            onEdit = { onEditMessage(message.id) },
+        is UserMessageUi -> CustomMessageActionsHost(
+            messageId = message.id,
+            text = message.content,
+            enabled = messageActionsEnabled,
             onDelete = { onDeleteMessage(message.id) },
-            modifier = modifier,
-        )
-        is AgentMessageUi -> AgentMessageBlock(
-            message = message,
-            allowSpeech = true,
-            assistantOverlay = assistantOverlay,
-            retainedStreamingState = retainedStreamingState,
-            showCopyAction = showCopyAction,
-            showMessageActions = showMessageActions,
-            showBranchAction = showBranchAction,
-            onBranch = { onBranchMessage(message.id) },
-            messageActionsEnabled = messageActionsEnabled,
-            onDelete = { onDeleteMessage(message.id) },
-            onRegenerate = { onRegenerateMessage(message.id) },
             onEdit = { onEditMessage(message.id) },
-            onSelectCandidate = { onSelectReplyCandidate(message.id, it) },
-            modifier = modifier,
-        )
+            onRegenerate = null,
+            // 用户行不能做分支起点，官方同样只在助手消息边界允许分支。
+            onBranch = null,
+        ) { selecting, openMenu, copiedSelection ->
+            UserMessageBubble(
+                message = message,
+                assistantOverlay = assistantOverlay,
+                actionsEnabled = messageActionsEnabled,
+                isEditing = isEditing,
+                onEdit = { onEditMessage(message.id) },
+                onDelete = { onDeleteMessage(message.id) },
+                selectionMode = selecting,
+                onLongClick = openMenu,
+                onCopiedSelection = copiedSelection,
+                modifier = modifier,
+            )
+        }
+        is AgentMessageUi -> CustomMessageActionsHost(
+            messageId = message.id,
+            text = message.content,
+            enabled = messageActionsEnabled && !message.isStreaming,
+            onDelete = if (showMessageActions) ({ onDeleteMessage(message.id) }) else null,
+            onEdit = if (showMessageActions && message.characterEditable) ({ onEditMessage(message.id) }) else null,
+            onRegenerate = if (showMessageActions) ({ onRegenerateMessage(message.id) }) else null,
+            onBranch = if (showBranchAction) ({ onBranchMessage(message.id) }) else null,
+        ) { selecting, openMenu, copiedSelection ->
+            AgentMessageBlock(
+                message = message,
+                allowSpeech = true,
+                assistantOverlay = assistantOverlay,
+                retainedStreamingState = retainedStreamingState,
+                showCopyAction = showCopyAction,
+                showMessageActions = showMessageActions,
+                showBranchAction = showBranchAction,
+                onBranch = { onBranchMessage(message.id) },
+                messageActionsEnabled = messageActionsEnabled,
+                onDelete = { onDeleteMessage(message.id) },
+                onRegenerate = { onRegenerateMessage(message.id) },
+                onEdit = { onEditMessage(message.id) },
+                onSelectCandidate = { onSelectReplyCandidate(message.id, it) },
+                selectionMode = selecting,
+                onLongClick = openMenu,
+                onCopiedSelection = copiedSelection,
+                modifier = modifier,
+            )
+        }
         is SystemNoticeMessageUi -> if (message.code == SystemNoticeCode.ContextCompaction) {
             ContextCompactionMarker(message = message, modifier = modifier)
         } else {
@@ -403,6 +431,12 @@ private fun UserMessageBubble(
     isEditing: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    /** 显式选择模式：true 时正文进入可拖选状态。 */
+    selectionMode: Boolean = false,
+    /** 长按打开快捷菜单。 */
+    onLongClick: (() -> Unit)? = null,
+    /** 选择模式里复制选区后回调。 */
+    onCopiedSelection: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
@@ -1061,6 +1095,12 @@ private fun AgentMessageBlock(
     onRegenerate: () -> Unit,
     onEdit: () -> Unit = {},
     onSelectCandidate: (Int) -> Unit = {},
+    /** 显式选择模式：true 时正文进入可拖选状态。 */
+    selectionMode: Boolean = false,
+    /** 长按打开快捷菜单。 */
+    onLongClick: (() -> Unit)? = null,
+    /** 选择模式里复制选区后回调。 */
+    onCopiedSelection: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
