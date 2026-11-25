@@ -22,6 +22,8 @@ internal interface LocalSpeechRecognizer {
                     override fun release() = GgufSpeechNative.release(handle)
                 }
             }
+            // Vosk 引擎已随依赖移除；清单里也不会再出现该档，保留分支只为穷尽性。
+            LocalSpeechBackend.VOSK -> error("Vosk 引擎已移除")
             LocalSpeechBackend.SENSEVOICE_ONNX -> {
                 val recognizer = OfflineRecognizer(config = OfflineRecognizerConfig(modelConfig = OfflineModelConfig(
                     senseVoice = OfflineSenseVoiceModelConfig(model = File(dir, "model.int8.onnx").absolutePath,
