@@ -619,7 +619,11 @@ private fun ConversationBulkBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            // 多选条贴在面板底部，必须先避让系统导航栏 / 手势条，否则下沿会被遮挡。
+            // 之前这里没有任何 inset 处理，条子直接顶到屏幕最底，操作键被手势条压住。
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
+            .padding(horizontal = 12.dp)
+            .padding(top = 6.dp, bottom = 10.dp)
             .clip(RoundedCornerShape(14.dp))
             // 多选条是浮在会话列表上的独立浮层，底色必须不透明：
             // surfaceContainerHigh 是 MD3 叠加色，深色下带 alpha，会透出下面的会话行。
