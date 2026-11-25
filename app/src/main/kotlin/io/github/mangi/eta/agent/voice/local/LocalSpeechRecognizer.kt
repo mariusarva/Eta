@@ -22,7 +22,6 @@ internal interface LocalSpeechRecognizer {
                     override fun release() = GgufSpeechNative.release(handle)
                 }
             }
-            LocalSpeechBackend.VOSK -> VoskSpeechRecognizer.load(dir)
             LocalSpeechBackend.SENSEVOICE_ONNX -> {
                 val recognizer = OfflineRecognizer(config = OfflineRecognizerConfig(modelConfig = OfflineModelConfig(
                     senseVoice = OfflineSenseVoiceModelConfig(model = File(dir, "model.int8.onnx").absolutePath,

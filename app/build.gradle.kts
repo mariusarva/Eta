@@ -157,8 +157,7 @@ androidComponents {
 
 dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
-    // 离线语音（Vosk）：官方 AAR，传递依赖带 JNA Android。
-    implementation("com.alphacephei:vosk-android:0.3.75")
+    // Vosk 引擎已移除（只保留 SenseVoice Q8_0）；其 AAR 会带入 9.6MB libvosk.so。
     implementation(libs.jsoup)
     implementation(libs.commons.compress)
     implementation(libs.xz)
