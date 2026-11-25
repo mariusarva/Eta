@@ -58,7 +58,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material3.Slider
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -147,14 +146,6 @@ internal fun CustomSpeechControls(controller: CustomSpeechController, messageId:
                 Text(it, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             if (state.error == null) {
-                Slider(
-                    value = dragging ?: state.positionMs.toFloat(),
-                    onValueChange = { dragging = it },
-                    onValueChangeFinished = { dragging?.let { controller.seekTo(it.toInt()) }; dragging = null },
-                    valueRange = 0f..state.durationMs.coerceAtLeast(1).toFloat(),
-                    enabled = state.durationMs > 0,
-                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = "当前片段播放进度" },
-                )
                 Text("当前片段 ${state.positionMs / 1000} / ${state.durationMs / 1000} 秒", fontSize = 12.sp)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -183,20 +174,6 @@ internal fun CustomSpeechControls(controller: CustomSpeechController, messageId:
                 Text("朗读文字定位", fontSize = 16.sp)
                 Text("文字进度（文字位置，非时间）", fontSize = 14.sp)
                 Text("$displayedPosition / ${locations.totalUtf16} · 第 ${selectedSentence + 1} / ${state.sentences.size} 句", fontSize = 14.sp)
-                Slider(
-                    value = displayedPosition.toFloat(),
-                    onValueChange = { textPosition = it },
-                    onValueChangeFinished = {
-                        textPosition?.let { controller.locateSentence(locations.sentenceAt(it.toInt())) }
-                        textPosition = null
-                    },
-                    valueRange = 0f..locations.totalUtf16.coerceAtLeast(1).toFloat(),
-                    enabled = locations.totalUtf16 > 0,
-                    dark = dark,
-                    colors = CouiSliderDefaults.colors(colors.accent, dark, locations.totalUtf16 > 0),
-                    shape = CouiCapsuleShape,
-                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = "全文文字位置，非时间；松开跳到所选句首" },
-                )
                 Text(state.sentences.getOrNull(selectedSentence).orEmpty(), fontSize = 14.sp,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text("点选句子或拖动文字进度，松开后从所选句首朗读。", fontSize = 14.sp)
