@@ -1103,6 +1103,9 @@ private fun AgentMessageBlock(
     val speechController = LocalSpeechPlayback.current
     val speechAvailable = allowSpeech && LocalSpeechPlaybackEnabled.current && speechController != null
     val scope = rememberCoroutineScope()
+    // LocalRoleplayChat 是 CompositionLocal，只能在 Composable 作用域读取，
+    // 不能放进 onMenuAction 这样的普通 lambda 里。
+    val roleplayCharacter = LocalRoleplayChat.current
     val copyLabel = stringResource(R.string.ui_copy_4edd1d)
     val deleteLabel = stringResource(R.string.ui_delete_3755f5)
     val branchLabel = stringResource(R.string.conversation_branch)
@@ -1125,8 +1128,8 @@ private fun AgentMessageBlock(
             1 -> speechController?.speak(
                 message.id,
                 message.content,
-                voiceOverride = LocalRoleplayChat.current?.voiceId,
-                providerOverride = LocalRoleplayChat.current?.voiceProvider,
+                voiceOverride = roleplayCharacter?.voiceId,
+                providerOverride = roleplayCharacter?.voiceProvider,
             )
             2 -> onBranch()
             3 -> {
