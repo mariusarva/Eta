@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -149,14 +151,27 @@ internal fun AskUserCard(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(
-                text = "跳过",
-                onClick = onSkip,
-                minWidth = 0.dp,
-                minHeight = 34.dp,
-                insideMargin = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                colors = ButtonDefaults.textButtonColors(),
-            )
+            // 跳过：轻量文字按钮，不带实心底色——它是否定动作，不该和「确认」抢视觉权重。
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(role = Role.Button, onClickLabel = "跳过这个问题", onClick = onSkip)
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(15.dp),
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "跳过",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
             if (multiple) {
                 Spacer(Modifier.width(4.dp))
                 TextButton(

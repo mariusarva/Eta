@@ -456,30 +456,46 @@ private fun AgentChatScaffold(
         ),
         bottomBar = {
             Column(modifier = Modifier.fillMaxWidth()) {
-            // 待答问题卡片：模型通过 ask_user 提问后出现，用户点选即提交，卡片随之消失。
-            val pendingAsk = remember(conversationId, visibleMessages.size) {
-                if (conversationId.isBlank()) {
-                    null
-                } else {
-                    PendingAskStore.init(appContext)
-                    PendingAskStore.forConversation(conversationId)
+            // 待答问题卡片：模型通过 ask_user 提问后出现，用户点选或跳过后消失。
+            // 用 mutableStateOf 承载而不是 remember(key)：
+            // 之前 key 是 (conversationId, visibleMessages.size)，跳过只删了落盘文件，
+            // 两个 key 都没变 → 不重组 → 卡片留在屏幕上（实测点了没反应）。
+            var pendingAsk by remember(conversationId) {
+                mutableStateOf(
+                    if (conversationId.isBlank()) {
+                        null
+                    } else {
+                        PendingAskStore.init(appContext)
+                        PendingAskStore.forConversation(conversationId)
+                    },
+                )
+            }
+            // 新消息到达时重新读一次：模型可能刚又提了新问题。
+            LaunchedEffect(conversationId, visibleMessages.size) {
+                if (conversationId.isNotBlank()) {
+                    pendingAsk = PendingAskStore.forConversation(conversationId)
                 }
             }
-            if (pendingAsk != null) {
+            val ask = pendingAsk
+            if (ask != null) {
                 AskUserCard(
-                    ask = pendingAsk,
+                    ask = ask,
                     onChoose = { chosen ->
-                        val labels = pendingAsk.options
+                        val labels = ask.options
                             .filter { it.id in chosen }
                             .joinToString("、") { it.label }
                         if (labels.isNotEmpty()) {
-                            PendingAskStore.remove(pendingAsk.token)
+                            PendingAskStore.remove(ask.token)
+                            pendingAsk = null
                             onBottomAnchorChanged(true)
                             onSubmit(labels)
                         }
                     },
                     // 跳过：只收起卡片，不发任何消息，也不打断当前对话。
-                    onSkip = { PendingAskStore.remove(pendingAsk.token) },
+                    onSkip = {
+                        PendingAskStore.remove(ask.token)
+                        pendingAsk = null
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)
