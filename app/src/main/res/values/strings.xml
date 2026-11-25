@@ -1563,4 +1563,14 @@
   <string name="settings_start_new_chat">启动时新建对话</string>
   <string name="settings_chat_only_mode">纯聊天模式</string>
   <string name="action_chat_only_conversation">纯聊天对话</string>
+  <string name="msg_action_copy">复制</string>
+  <string name="msg_action_select_text">选取文字</string>
+  <string name="msg_action_read_aloud">朗读</string>
+  <string name="msg_action_share">分享</string>
+  <string name="msg_action_delete">删除</string>
+  <string name="msg_action_quote">引用追问</string>
+  <string name="msg_action_save_memory">保存记忆</string>
+  <string name="msg_action_save_skill">保存技能</string>
+  <string name="msg_action_continue_new_chat">在新对话中继续</string>
+  <string name="msg_action_edit">编辑</string>
 </resources>
