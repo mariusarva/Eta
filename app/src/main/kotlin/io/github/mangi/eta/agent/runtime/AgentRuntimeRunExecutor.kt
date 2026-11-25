@@ -10,6 +10,8 @@ import io.github.mangi.eta.agent.model.AgentAskToolCatalog
 import io.github.mangi.eta.agent.tool.ConversationHistoryTool
 import io.github.mangi.eta.data.db.EtaDatabase
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.agent.model.LocalToolProfile
+import io.github.mangi.eta.agent.model.LocalToolProfileStore
 import io.github.mangi.eta.agent.model.AgentModelExecutionException
 import io.github.mangi.eta.agent.model.AgentModelFailure
 import io.github.mangi.eta.agent.model.AgentHttpClient
@@ -353,6 +355,8 @@ internal class AgentRuntimeRunExecutor(
                     supportsHistoryTool(request.operation),
                 includeScheduledSelfRunTools = scheduledRunContext != null,
                 includeImageGenTool = imageGenEnabled,
+                providerId = request.config.providerId,
+                modelId = request.config.model,
             )
             val scheduledToolFilter: ((JSONArray) -> JSONArray)? =
                 if (scheduledRunContext != null && !scheduledRunContext.capabilities.guiTools) {
@@ -636,7 +640,16 @@ internal class AgentRuntimeRunExecutor(
             includeScheduledManageTool: Boolean = false,
             includeScheduledSelfRunTools: Boolean = false,
             includeImageGenTool: Boolean = false,
+            providerId: String? = null,
+            modelId: String? = null,
         ): JSONArray = JSONArray(mcpTools.toString()).also { tools ->
+            // 纯聊天档：不向模型声明任何工具，只做文本对话。
+            // 这里直接清空，比逐个 isToolEnabled 判断更彻底——MCP、子智能体、历史检索、
+            // 定时任务、生图、记忆工具全部不暴露，模型不会尝试调用，也不会浪费提示词预算。
+            if (LocalToolProfileStore.current(providerId, modelId) == LocalToolProfile.CHAT) {
+                tools.clear()
+                return@also
+            }
             if (subagentAllowed) AgentSubagentToolCatalog.appendSchemas(tools)
             if (includeHistoryTool) tools.put(AgentConversationToolCatalog.schema())
             // 让模型能主动提问并把选项渲染成可点选卡片；用户点选后本轮才继续。
