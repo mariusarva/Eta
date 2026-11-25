@@ -48,14 +48,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.ui.app.ConversationTimeLabels
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import top.yukonga.miuix.kmp.glass.glassPanel
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassShadows
+import top.yukonga.miuix.kmp.material.GlassShape
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.border
 
 /**
  * 一轮对话的索引项。
@@ -211,19 +216,27 @@ internal fun ChatTurnPanel(
             enter = fadeIn(tween(140)) + slideInVertically(tween(200)) { it / 3 },
             exit = fadeOut(tween(120)) + slideOutVertically(tween(160)) { it / 3 },
         ) {
+            val miuixDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
+            val panelGlassShape = remember { GlassShape(20.dp) }
+            val panelFallback = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .background(opaqueThemedSurface())
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 6.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    // 展开后会盖住聊天气泡，底色必须不透明；用主题容器色合成到背景上，
-                    // 既挡住下层又跟随 Monet（早期写死 #F7F7FA / #1C1C1E 不跟取色）。
-                    .background(opaqueThemedSurface())
-                    .border(
-                        width = 0.5.dp,
-                        color = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
-                        shape = RoundedCornerShape(20.dp),
+                    // 与「搜索对话」框同款高级玻璃材质；fallback 用不透明主题容器色，
+                    // 不支持 shader 时仍能盖住下层聊天气泡。
+                    .glassPanel(
+                        backdrop = currentGlassOverlayBackdrop(),
+                        shape = panelGlassShape,
+                        style = GlassDefaults.style(miuixDark),
+                        material = GlassTopAppBarDefaults.buttonMaterial(),
+                        stroke = GlassTopAppBarDefaults.buttonStroke(),
+                        shadow = GlassShadows.Regular,
+                        shading = false,
+                        fallback = panelFallback,
                     )
                     .navigationBarsPadding(),
             ) {
