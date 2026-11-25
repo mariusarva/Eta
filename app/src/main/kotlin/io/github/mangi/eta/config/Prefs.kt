@@ -49,6 +49,10 @@ internal object Prefs {
         const val AGENT_SUBAGENT_ENABLED = "agent_subagent_enabled"
         const val AGENT_VIRTUAL_DISPLAY_ENABLED = "agent_virtual_display_enabled"
         const val AGENT_KEEP_SCREEN_ON_ENABLED = "agent_keep_screen_on_enabled"
+        /** 启动时进入新建对话（true）还是恢复上次会话（false）。 */
+        const val AGENT_START_IN_NEW_CHAT = "agent_start_in_new_chat"
+        /** 纯聊天模式：不向模型声明任何工具，只做文本对话。 */
+        const val AGENT_CHAT_ONLY_MODE = "agent_chat_only_mode"
         const val AGENT_RUNTIME_CONFIG_JSON = "agent_runtime_config_json"
         const val AGENT_DISABLED_TOOLS_JSON = "agent_disabled_tools_json"
 
@@ -68,6 +72,8 @@ internal object Prefs {
             AGENT_SUBAGENT_ENABLED to true,
             AGENT_VIRTUAL_DISPLAY_ENABLED to true,
             AGENT_KEEP_SCREEN_ON_ENABLED to true,
+            AGENT_START_IN_NEW_CHAT to false,
+            AGENT_CHAT_ONLY_MODE to false,
         )
 
         /** 由 Eta Runtime 最终裁决、不要求 Xposed 框架在线的开关。 */
@@ -82,6 +88,8 @@ internal object Prefs {
             AGENT_SUBAGENT_ENABLED,
             AGENT_VIRTUAL_DISPLAY_ENABLED,
             AGENT_KEEP_SCREEN_ON_ENABLED,
+            AGENT_START_IN_NEW_CHAT,
+            AGENT_CHAT_ONLY_MODE,
         )
     }
 

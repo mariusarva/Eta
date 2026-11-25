@@ -21,6 +21,8 @@ import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BrightnessHigh
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.Cloud
@@ -967,6 +969,28 @@ private fun SettingsPageContent(
                         )
                     }
                     item {
+                        // 启动行为：开＝新建对话，关＝恢复上次会话。
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = stringResource(R.string.settings_start_new_chat),
+                            key = Prefs.Keys.AGENT_START_IN_NEW_CHAT,
+                            icon = Icons.Rounded.ChatBubbleOutline,
+                            iconTint = SettingsIconColors.Green,
+                        )
+                    }
+                    item {
+                        // 纯聊天模式：不向模型声明任何工具，只做文本对话。
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = stringResource(R.string.settings_chat_only_mode),
+                            key = Prefs.Keys.AGENT_CHAT_ONLY_MODE,
+                            icon = Icons.Rounded.Forum,
+                            iconTint = SettingsIconColors.Yellow,
+                        )
+                    }
+                    item {
                         CouiPreference(
                             title = stringResource(R.string.appearance_title),
                             icon = { CouiSettingsIcon(Icons.Rounded.Palette, SettingsIconColors.Orange) },
@@ -1446,6 +1470,22 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.settings_keep_screen_on),
                             key = Prefs.Keys.AGENT_KEEP_SCREEN_ON_ENABLED,
                             icon = Icons.Rounded.BrightnessHigh,
+                            history = enhancementHistory,
+                        )
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = stringResource(R.string.settings_start_new_chat),
+                            key = Prefs.Keys.AGENT_START_IN_NEW_CHAT,
+                            icon = Icons.Rounded.ChatBubbleOutline,
+                            history = enhancementHistory,
+                        )
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = stringResource(R.string.settings_chat_only_mode),
+                            key = Prefs.Keys.AGENT_CHAT_ONLY_MODE,
+                            icon = Icons.Rounded.Forum,
                             history = enhancementHistory,
                         )
                         ArrowPreference(

@@ -12,6 +12,11 @@ internal object LocalToolProfileStore {
     private const val KEY_PREFIX = "agent_local_tool_profile@"
 
     fun current(providerId: String? = null, modelId: String? = null): LocalToolProfile {
+        // 设置页的全局开关优先：勾了「纯聊天模式」就一律走 CHAT，
+        // 不必按模型逐个记忆，用户也不需要理解「工具档」这个概念。
+        if (runCatching { Prefs.isEnabled(Prefs.Keys.AGENT_CHAT_ONLY_MODE) }.getOrDefault(false)) {
+            return LocalToolProfile.CHAT
+        }
         val prefs = runCatching { Prefs.localAgentPreferences() }.getOrNull() ?: return LocalToolProfile.FULL
         val scoped = scopedKey(providerId, modelId)?.let { prefs.getString(it, null) }
         return LocalToolProfile.fromId(scoped ?: prefs.getString(LEGACY_KEY, null))

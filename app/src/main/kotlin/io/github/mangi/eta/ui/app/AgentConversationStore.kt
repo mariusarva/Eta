@@ -1,6 +1,7 @@
 package io.github.mangi.eta.ui.app
 
 import android.content.Context
+import io.github.mangi.eta.config.Prefs
 import android.util.JsonReader
 import android.util.JsonToken
 import androidx.room.withTransaction
@@ -224,11 +225,22 @@ internal object AgentConversationStore {
             if (conversation.isPinned) pinnedIds += conversation.id
         }
 
-        // 启动时一律回到新建对话，不恢复上次打开的会话。
-        // 之前会从 dao.state() 取上次选中的会话并加载它的消息，重启后直接落在旧对话里；
-        // 用户要求每次启动都从空白的新对话开始（历史仍在侧栏，可随时点进去）。
-        val selected: String? = null
-        val unaligned: Set<String> = emptySet()
+        // 启动行为由设置决定：
+        // - AGENT_START_IN_NEW_CHAT = true：进新建对话（默认）
+        // - false：恢复上次打开的会话
+        val startInNewChat = runCatching {
+            Prefs.isEnabled(Prefs.Keys.AGENT_START_IN_NEW_CHAT)
+        }.getOrDefault(true)
+        val selected: String? = if (startInNewChat) {
+            null
+        } else {
+            dao.state()?.selectedConversationId?.takeIf { it in states } ?: states.keys.first()
+        }
+        val loaded = selected?.let { loadConversation(context, it) }
+        if (loaded != null && selected != null) states[selected] = loaded
+        val unaligned: Set<String> = if (loaded != null && selected != null &&
+            dao.nextMessageIndex(selected) != loaded.messageStartIndex + loaded.messages.size
+        ) setOf(selected) else emptySet()
 
         return Snapshot(
             selectedConversationId = selected,
