@@ -463,6 +463,7 @@ internal class AgentRuntimeRunExecutor(
                 prompt = request.prompt,
                 assistantScreenContext = request.assistantScreenContext,
                 extraSystemContext = scheduledRunContext?.buildSystemGuidance().orEmpty(),
+                sessionChatOnly = request.chatOnly,
                 toolFilter = scheduledToolFilter,
                 toolExecutor = runToolExecutor,
                 images = request.images,

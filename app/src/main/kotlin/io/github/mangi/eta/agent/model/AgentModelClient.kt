@@ -116,6 +116,8 @@ internal object AgentModelClient {
         rewriteReply: Boolean = false,
         assistantScreenContext: String = "",
         extraSystemContext: String = "",
+        /** 会话级纯聊天：不声明任何工具、不注入工具说明、跳过历史 tool_calls。 */
+        sessionChatOnly: Boolean = false,
         toolFilter: ((JSONArray) -> JSONArray)? = null,
         onContextSnapshot: (AgentContextSnapshot) -> Unit = {},
         onTranscript: (List<ConversationMessage>) -> Unit = {},
@@ -136,6 +138,7 @@ internal object AgentModelClient {
             roleplayContext = roleplayContext,
             executionContext = executionContext,
             extraSystemContext = extraSystemContext,
+            sessionChatOnly = sessionChatOnly,
         )
         if (rewriteReply) {
             messages.put(messages.length() - 1, AgentConversationCodec.userTextMessage(
@@ -161,9 +164,11 @@ internal object AgentModelClient {
             roleplayContext,
             executionContext,
             extraSystemContext,
+            sessionChatOnly = sessionChatOnly,
         ).length()
         fun toolsFor(capabilities: AgentToolCapabilities): JSONArray {
-            if (rewriteReply) return JSONArray()
+            // 纯聊天会话：一个工具都不声明，内置目录也不构建。
+            if (rewriteReply || sessionChatOnly) return JSONArray()
             val tools = AgentToolCatalog.build(
                 terminalTools = config.terminalTools,
                 browserTools = config.browserTools,
@@ -209,6 +214,7 @@ internal object AgentModelClient {
                     roleplayContext,
                     executionContext,
                     extraSystemContext,
+                    sessionChatOnly = sessionChatOnly,
                 )
                 for (index in 0 until systemMessages.length()) {
                     messages.put(index, systemMessages.getJSONObject(index))

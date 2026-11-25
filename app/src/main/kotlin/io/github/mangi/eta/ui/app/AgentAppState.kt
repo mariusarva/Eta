@@ -453,8 +453,13 @@ internal class AgentAppState(
             conversationPersistence = AgentConversationPersistence(snapshot)
             fileAttachmentOwnerVersion += 1
             currentDraftReasoningCustomized = false
-            homeState = selectedConversationId
+            ChatOnlyConversationStore.init(appContext)
+            val restoredId = selectedConversationId
+            homeState = restoredId
                 ?.let(conversationsById::get)
+                // 启动恢复：纯聊天标记只在 SharedPreferences 里，落库状态里没有，
+                // 不在这里补回就会被默认 false 覆盖，恢复后工具全部放出去。
+                ?.copy(chatOnly = ChatOnlyConversationStore.contains(restoredId))
                 ?: emptyChatState(defaultReasoningEffort(null))
             refreshConversationModel()
             conversationPaneState = conversationPaneState.copy(
@@ -1093,7 +1098,11 @@ internal class AgentAppState(
                 val loaded = AgentConversationStore.loadConversation(appContext, conversationId)
                     ?: return@withLock false
                 val current = conversationsById[conversationId] ?: return@withLock false
+                // 纯聊天标记不在数据库里，落库加载后必须从 SharedPreferences 补回，
+                // 否则从库加载完的瞬间 chatOnly 会被默认 false 覆盖，工具又全放出去。
+                ChatOnlyConversationStore.init(appContext)
                 val restored = loaded.copy(
+                    chatOnly = ChatOnlyConversationStore.contains(conversationId),
                     input = current.input,
                     pendingImages = current.pendingImages,
                     pendingFileReferences = current.pendingFileReferences,
@@ -2499,7 +2508,7 @@ internal class AgentAppState(
                     request = AgentRuntimeWire.RunRequest(
                         operation = operation,
                         rewriteTargetMessageId = rewriteTargetMessageId,
-                        chatOnly = homeState.chatOnly,
+                        chatOnly = state.chatOnly,
                         runId = runId,
                         prompt = prompt,
                         config = config.copy(supportsSearchSuggestions = true),
