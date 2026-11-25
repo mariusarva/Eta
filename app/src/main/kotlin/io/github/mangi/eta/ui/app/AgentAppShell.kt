@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.outlined.ShortText
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.MapsUgc
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.runtime.Composable
@@ -226,7 +227,7 @@ internal fun AgentAppShell(
                                         dark = dark,
                                         colors = colors,
                                         onNewConversation = onNewConversation,
-                onNewChatOnlyConversation = onNewChatOnlyConversation,
+                                        onNewChatOnlyConversation = onNewChatOnlyConversation,
                                         onOpenTerminal = onOpenTerminal,
                                         onOpenBrowser = onOpenBrowser,
                                     )
@@ -264,7 +265,7 @@ internal fun AgentAppShell(
                                 onBack = onBack,
                                 onOpenConversationPane = onOpenConversationPane,
                                 onNewConversation = onNewConversation,
-                onNewChatOnlyConversation = onNewChatOnlyConversation,
+                                onNewChatOnlyConversation = onNewChatOnlyConversation,
                                 onOpenTerminal = onOpenTerminal,
                                 onOpenBrowser = onOpenBrowser,
                                 homeTitle = homeTitle,
@@ -305,7 +306,6 @@ internal fun AgentAppShell(
                 onDismiss = onDismissConversationPane,
                 onSearchChange = onSearchConversations,
                 onNewConversation = onNewConversation,
-                onNewChatOnlyConversation = onNewChatOnlyConversation,
                 onConversationSelected = onSelectConversation,
                 onConversationTogglePin = onConversationTogglePin,
                 onConversationRename = onConversationRename,
@@ -464,7 +464,7 @@ private fun AgentTopBar(
             isCurrentRoute = isCurrentRoute,
             onOpenConversationPane = onOpenConversationPane,
             onNewConversation = onNewConversation,
-                onNewChatOnlyConversation = onNewChatOnlyConversation,
+            onNewChatOnlyConversation = onNewChatOnlyConversation,
             onOpenTerminal = onOpenTerminal,
             onOpenBrowser = onOpenBrowser,
         ) {
