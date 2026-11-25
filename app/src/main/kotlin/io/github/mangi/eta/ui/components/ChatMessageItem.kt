@@ -50,7 +50,14 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Compress
+import androidx.compose.material.icons.rounded.BookmarkAdd
+import androidx.compose.runtime.rememberCoroutineScope
+import io.github.mangi.eta.data.repository.AgentMemoryRepository
+import kotlinx.coroutines.launch
+import io.github.mangi.eta.ui.voice.LocalSpeechPlayback
+import io.github.mangi.eta.ui.voice.LocalSpeechPlaybackEnabled
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Lightbulb
@@ -1359,6 +1366,9 @@ internal fun ThinkingRow(
     )
 
     // compact 模式渲染在工作过程时间线内，节点徽章已承担图标，这里只保留文字与展开控制。
+    // 非 compact 时整卡支持长按：弹出「复制 / 朗读 / 分支 / 记忆 / 删除」快捷操作。
+    val actionAnchor = rememberCouiMenuAnchor()
+    var showActionMenu by remember(message.id) { mutableStateOf(false) }
     val containerModifier = if (compact) {
         modifier.fillMaxWidth()
     } else {
@@ -1374,9 +1384,133 @@ internal fun ThinkingRow(
                 color = MiuixTheme.colorScheme.outline.copy(alpha = ChatCardOutlineAlpha),
                 cornerRadius = ChatCardCorner,
             )
+            .couiMenuAnchor(actionAnchor)
+            .combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    if (messageActionsEnabled) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        actionAnchor.open { showActionMenu = true }
+                    }
+                },
+            )
     }
 
     Column(modifier = containerModifier) {
+        // 会话快捷功能：长按整卡弹出。COUI 用 CouiMenu，MIUIX 用 EtaWindowDialog，
+        // 两者都取主题色，日间/夜间与两套主题自动适配。
+        val isCouiMenu = LocalUiStyle.current == AppearanceUiStyle.COUI
+        val copyLabel = stringResource(R.string.ui_copy_4edd1d)
+        val deleteLabel = stringResource(R.string.ui_delete_3755f5)
+        val branchLabel = stringResource(R.string.conversation_branch)
+        // 朗读走与卡片下方按钮相同的控制器；没有控制器或未启用时不显示该项。
+        val speechController = LocalSpeechPlayback.current
+        val speechEnabled = LocalSpeechPlaybackEnabled.current && speechController != null
+        val scope = rememberCoroutineScope()
+        val readAloudLabel = "朗读"
+        val rememberLabel = "记到记忆"
+        val menuEntries = buildList {
+            if (showCopyAction) add(Triple(0, copyLabel, Icons.Rounded.ContentCopy))
+            if (allowSpeech && speechEnabled) add(Triple(1, readAloudLabel, Icons.Rounded.VolumeUp))
+            if (showBranchAction) add(Triple(2, branchLabel, Icons.AutoMirrored.Rounded.CallSplit))
+            add(Triple(3, rememberLabel, Icons.Rounded.BookmarkAdd))
+            if (showMessageActions) add(Triple(4, deleteLabel, Icons.Rounded.Delete))
+        }
+        val handleMenuAction: (Int) -> Unit = { value ->
+            showActionMenu = false
+            when (value) {
+                0 -> {
+                    @Suppress("DEPRECATION")
+                    clipboardManager.setText(AnnotatedString(message.content))
+                    copied = true
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                }
+                1 -> {
+                    val controller = speechController
+                    if (controller != null) {
+                        val character = LocalRoleplayChat.current
+                        controller.speak(
+                            message.id,
+                            message.content,
+                            voiceOverride = character?.voiceId,
+                            providerOverride = character?.voiceProvider,
+                        )
+                    }
+                }
+                2 -> onBranch()
+                3 -> {
+                    // 追加到长期记忆：保留已有内容，只在其后补一条带日期的片段。
+                    scope.launch {
+                        runCatching {
+                            val snapshot = AgentMemoryRepository.snapshot()
+                            val stamp = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                                .format(java.util.Date())
+                            val addition = "\n\n## 记于 $stamp\n\n" + message.content.trim()
+                            AgentMemoryRepository.replaceAll(snapshot.content + addition)
+                        }
+                    }
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                }
+                4 -> onDelete()
+            }
+        }
+        if (isCouiMenu) {
+            CouiMenu(
+                expanded = showActionMenu,
+                onDismissRequest = { showActionMenu = false },
+                items = menuEntries.map { (value, text, icon) ->
+                    CouiMenuItem(
+                        value = value,
+                        text = text,
+                        icon = icon,
+                        iconTint = if (value == 4) CouiTheme.colorScheme.error else Color.Unspecified,
+                        dividerBefore = value == 4,
+                    )
+                },
+                onItemClick = { handleMenuAction(it.value) },
+                anchor = actionAnchor,
+            )
+        } else {
+            EtaWindowDialog(
+                show = showActionMenu,
+                title = "快捷操作",
+                onDismissRequest = { showActionMenu = false },
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    menuEntries.forEach { (value, text, icon) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { handleMenuAction(value) }
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = if (value == 4) {
+                                    MiuixTheme.colorScheme.error
+                                } else {
+                                    MiuixTheme.colorScheme.onSurface
+                                },
+                            )
+                            Spacer(Modifier.size(12.dp))
+                            Text(
+                                text = text,
+                                style = MiuixTheme.textStyles.body2,
+                                color = if (value == 4) {
+                                    MiuixTheme.colorScheme.error
+                                } else {
+                                    MiuixTheme.colorScheme.onSurface
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
