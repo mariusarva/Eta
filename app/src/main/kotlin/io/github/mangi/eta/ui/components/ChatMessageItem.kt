@@ -1256,6 +1256,12 @@ private fun AgentMessageBlock(
                 }
             }
         }
+        if (showSelectionCopy) {
+            SelectionCopyDialog(
+                text = message.content,
+                onDismiss = { showSelectionCopy = false },
+            )
+        }
     }
 }
 
@@ -1346,12 +1352,6 @@ private fun CandidateSwitcher(
             enabled = enabled && selected < count - 1,
             tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
         )
-        if (showSelectionCopy) {
-            SelectionCopyDialog(
-                text = message.content,
-                onDismiss = { showSelectionCopy = false },
-            )
-        }
     }
 }
 
