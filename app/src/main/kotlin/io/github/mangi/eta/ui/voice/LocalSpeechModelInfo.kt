@@ -258,7 +258,7 @@ internal fun LocalSpeechModelInfo(model: LocalSpeechModelDescriptor, measurement
             else "GGUF 档导入对应 GGUF 或 ZIP；INT8 档导入含 ONNX 和 tokens 的 ZIP。大小与 SHA 均严格校验，不支持原始 safetensors。", secondary = true)
         model.archive?.let { LocalSpeechDataRow("官方原 ZIP", it.name) }
         model.files.forEach { LocalSpeechDataRow(it.role, it.name) }
-        LocalSpeechText("推荐 SenseVoice Q8_0，其余七款均为可选；仅未保存或已保存选择无效时缺省使用 Q8_0。已有合法选择保持不变，不自动下载、迁移或删除已有文件。", secondary = true)
+        LocalSpeechText("本版只内置 SenseVoice Q8_0 一款离线语音模型；其余模型已从清单移除以减小安装包体积。", secondary = true)
         LocalSpeechText("单次录音不超过 30 秒（Qwen 每段不超过 10 秒）。仅本机识别，无云端回退或网络校对，不自动下载；选择仅在下次录音生效。", secondary = true)
     }
     LocalSpeechFold(model.id, "许可与来源") {

@@ -26,8 +26,8 @@ data class LocalSpeechInstallation(val modelId: String, val installed: Boolean, 
 /** Metadata only; no recognizer class or JNI initialization is reachable here. */
 internal object LocalSpeechRegistry {
     const val DEFAULT_ID = "sensevoice_small_q8_0"
-    private val ids = setOf("qwen3_asr_06b_q4_k_m", "qwen3_asr_06b_q5_k_m",
-        "sensevoice_small_f16", DEFAULT_ID, "sensevoice_small_q4_k_m", "sensevoice_small_int8", "vosk_small_cn_022", "vosk_cn_022")
+    // 只保留推荐档：其余 7 款（Qwen3 ASR 两款、SenseVoice F16/Q4/INT8、Vosk 两款）已从清单移除。
+    private val ids = setOf(DEFAULT_ID)
     /** Recommendation changes never migrate an existing valid selection (including INT8). */
     fun selectionOrDefault(savedId: String?, available: Set<String> = emptySet()): String {
         savedId?.takeIf { it in ids && (available.isEmpty() || it in available) }?.let { return it }
@@ -57,7 +57,7 @@ internal object LocalSpeechRegistry {
         val root = JSONObject(bytes)
         require(root.getInt("schemaVersion") == 1 && root.getString("recommendedModelId") == DEFAULT_ID)
         val models = root.getJSONArray("models")
-        require(models.length() == 8)
+        require(models.length() == ids.size)
         val result = (0 until models.length()).map { index ->
             val m = models.getJSONObject(index)
             val id = m.getString("id"); require(id in ids)
