@@ -122,7 +122,6 @@ internal object AgentConversationStore {
                                     // 整行 upsert 会把没带上的列写成默认值：不显式回填分类归属，
                                     // 任何一次保存（发消息、改标题、置顶）都会把会话踢出分类。
                                     categoryId = stored[id]?.categoryId,
-                                    chatOnly = state.chatOnly,
                                 )
                                 phase = "write_metadata"
                                 dao.insertConversations(listOf(row))
@@ -220,7 +219,6 @@ internal object AgentConversationStore {
                 input = "", isStreaming = false, thinkingEnabled = effort.enablesReasoning,
                 reasoningEffort = effort, modelId = conversation.modelId, isConversationLoaded = false,
                 conversationCharacterName = character?.first, conversationCharacterAvatarPath = character?.second,
-                chatOnly = conversation.chatOnly,
             )
             titles[conversation.id] = conversation.title.takeUnless { it == LEGACY_UNNAMED_TITLE }.orEmpty()
             updatedAt[conversation.id] = conversation.updatedAt
@@ -286,7 +284,6 @@ internal object AgentConversationStore {
                 modelId = conversation.modelId,
                 messageStartIndex = page.startIndex,
                 hasEarlierMessages = page.hasEarlierMessages,
-                chatOnly = conversation.chatOnly,
             )
             RoleplayConversationReducer.decorate(state.copy(roleplayOriginalContents =
                 loadRoleplayMessageContents(dao, conversationId, RoleplayConversationReducer.requiredOriginalContentIds(state))))

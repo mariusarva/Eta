@@ -29,7 +29,7 @@ import androidx.room.migration.Migration
         ScheduledTaskEntity::class,
         ScheduledTaskRunEntity::class,
     ],
-    version = 32,
+    version = 31,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -79,7 +79,6 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_28_29,
                         MIGRATION_29_30,
                         MIGRATION_30_31,
-                        MIGRATION_31_32,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -304,13 +303,6 @@ internal abstract class EtaDatabase : RoomDatabase() {
          * 但内容是分类方案，没有上游 28/29/30 的 scheduled_tasks 与 vertex 列。
          * 全部用 IF NOT EXISTS / 忽略重复列，保证两边来源都能升到 31。
          */
-        /** 31 → 32：会话增加纯聊天标记。 */
-        internal val MIGRATION_31_32 = Migration(31, 32) { database ->
-            runCatching {
-                database.execSQL("ALTER TABLE conversations ADD COLUMN chat_only INTEGER NOT NULL DEFAULT 0")
-            }
-        }
-
         internal val MIGRATION_30_31 = Migration(30, 31) { database ->
             // 补上游 27→28：Vertex 配置列
             runCatching {
