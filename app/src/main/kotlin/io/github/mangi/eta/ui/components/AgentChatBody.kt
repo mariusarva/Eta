@@ -100,6 +100,7 @@ import io.github.mangi.eta.ui.model.ConversationHistoryLoadState
 import io.github.mangi.eta.ui.model.MessageEditUiState
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
+import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
 import io.github.mangi.eta.ui.model.TokenUsageUi
 import io.github.mangi.eta.ui.model.QueuedMessageUi
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
@@ -494,8 +495,15 @@ private fun AgentChatScaffold(
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
                 // 输入框内部左上的速度读数：取最近一条带性能统计的消息。
+                // usage 只在 AgentMessageUi / SystemNoticeMessageUi 上，接口层没有，需按类型取。
                 latestUsage = remember(visibleMessages) {
-                    visibleMessages.lastOrNull { it.usage?.hasPerformanceStats == true }?.usage
+                    visibleMessages.asReversed().firstNotNullOfOrNull { message ->
+                        when (message) {
+                            is AgentMessageUi -> message.usage?.takeIf { it.hasPerformanceStats }
+                            is SystemNoticeMessageUi -> message.usage?.takeIf { it.hasPerformanceStats }
+                            else -> null
+                        }
+                    }
                 },
                 // 只有把手进插槽（与能力胶囊同一行、居中）；面板在 bottomBar 里铺满整行。
                 topStartSlot = {
