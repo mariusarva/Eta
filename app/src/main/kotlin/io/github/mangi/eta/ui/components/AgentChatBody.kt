@@ -81,6 +81,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastCoerceIn
 import io.github.mangi.eta.R
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import io.github.mangi.eta.ui.app.AgentAppState
+import io.github.mangi.eta.ui.components.custom.CustomContinueHandler
+import io.github.mangi.eta.ui.components.custom.LocalCustomComposer
+import io.github.mangi.eta.ui.components.custom.LocalCustomContinue
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
 import io.github.mangi.eta.agent.imagegen.ImageGenToolCatalog
 import io.github.mangi.eta.data.model.AppearanceUiStyle
@@ -205,6 +210,8 @@ internal fun AgentChatBody(
     topInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
     conversationId: String = "",
+    /** 会话状态宿主：快捷菜单的「引用追问 / 在新对话中继续」需要它。 */
+    appState: AgentAppState? = null,
 ) {
     // 轮次导航读全库用户消息：消息本身是分页加载的，按已加载消息切轮次会让长会话少算前面的轮。
     val appContext = LocalContext.current.applicationContext
@@ -445,6 +452,19 @@ private fun AgentChatScaffold(
     // 把手与面板分处两行，共享同一份展开状态。
     val turnNavigatorState = rememberChatTurnNavigatorState()
 
+    // 会话快捷菜单需要的两个宿主：
+    // - composer：引用追问要写进底部同一个输入框；
+    // - continue：引用续写 / 在新对话中继续要用到 AgentAppState。
+    val customComposer = rememberTextFieldState()
+    val customContinueScope = rememberCoroutineScope()
+    val customContinueHandler = remember(appState, customComposer, customContinueScope) {
+        appState?.let { CustomContinueHandler(it, customComposer, customContinueScope) }
+    }
+
+    CompositionLocalProvider(
+        LocalCustomComposer provides customComposer,
+        LocalCustomContinue provides customContinueHandler,
+    ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = Color.Transparent,
@@ -618,6 +638,7 @@ private fun AgentChatScaffold(
                 )
             }
         }
+    }
     }
 }
 

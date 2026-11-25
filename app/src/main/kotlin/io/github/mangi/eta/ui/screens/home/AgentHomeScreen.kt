@@ -37,6 +37,8 @@ internal fun AgentHomeScreen(
     isDrawerOpen: Boolean = false,
     isBranching: Boolean = false,
     topInset: Dp = 0.dp,
+    /** 会话状态宿主，供快捷菜单的引用/续写使用。 */
+    appState: AgentAppState? = null,
     modifier: Modifier = Modifier,
 ) {
     // key 内保持完整分支，避免提前返回遗留无法转换为 DEX 的编译器标记。
@@ -57,6 +59,7 @@ internal fun AgentHomeScreen(
                 LocalAgentBrowserSession provides browser,
             ) {
                 AgentChatBody(
+                    appState = appState,
                     conversationId = conversationKey.orEmpty(),
                     messages = state.messages,
                     modelPickerState = modelPickerState,

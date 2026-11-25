@@ -446,7 +446,11 @@ private fun UserMessageBubble(
             )
         }
         if (visiblePrompt.request.isNotBlank()) {
-            SelectionContainer {
+            // 普通状态禁用选择（长按归快捷菜单）；显式选择模式下才可拖选。
+            CustomMessageSelection(
+                explicitSelection = selectionMode,
+                onCopiedSelection = onCopiedSelection,
+            ) {
                 Text(
                     text = visiblePrompt.request,
                     style = MiuixTheme.textStyles.body1.copy(
@@ -539,10 +543,11 @@ private fun UserMessageBubble(
                     )
                 }
             }
-            val openCouiMenu: (() -> Unit)? = if (actionsEnabled) {
+            // 长按统一交给上层：CustomMessageActionsHost 提供 openMenu，弹出十项快捷菜单。
+            val openCouiMenu: (() -> Unit)? = if (actionsEnabled && onLongClick != null) {
                 {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    couiAnchor.open { showCouiMenu = true }
+                    onLongClick?.invoke()
                 }
             } else {
                 null
@@ -1107,7 +1112,20 @@ private fun AgentMessageBlock(
                 top = 4.dp,
                 bottom = 6.dp,
             )
-            ,
+            // 长按弹出会话快捷菜单；选择模式下让位给拖选。
+            .then(
+                if (!selectionMode && onLongClick != null) {
+                    Modifier.combinedClickable(
+                        onClick = {},
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongClick.invoke()
+                        },
+                    )
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         when {
             message.content.isBlank() && message.isStreaming -> {
@@ -1126,7 +1144,10 @@ private fun AgentMessageBlock(
                 )
             }
             message.renderMarkdown -> {
-                SelectionContainer {
+                CustomMessageSelection(
+                    explicitSelection = selectionMode,
+                    onCopiedSelection = onCopiedSelection,
+                ) {
                     StaticMarkdown(
                         content = message.content,
                         tone = MarkdownTone.Answer,
@@ -1136,7 +1157,10 @@ private fun AgentMessageBlock(
                 }
             }
             message.content.isNotBlank() -> {
-                SelectionContainer {
+                CustomMessageSelection(
+                    explicitSelection = selectionMode,
+                    onCopiedSelection = onCopiedSelection,
+                ) {
                     Text(
                         text = message.content,
                         style = MiuixTheme.textStyles.body1.copy(

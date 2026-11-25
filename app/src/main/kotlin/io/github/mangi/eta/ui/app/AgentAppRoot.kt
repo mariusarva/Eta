@@ -515,6 +515,7 @@ fun AgentAppRoot(
                             AgentHomeScreen(
                                 state = agentState.homeState,
                                 modelPickerState = agentState.modelPickerState,
+                                appState = agentState,
                                 isBranching = agentState.isBranchingCurrentConversation,
                                 conversationKey = agentState.conversationPaneState.selectedConversationId,
                                 topInset = shellPadding.calculateTopPadding(),

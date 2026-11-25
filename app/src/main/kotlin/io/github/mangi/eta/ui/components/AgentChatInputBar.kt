@@ -90,6 +90,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.components.custom.LocalCustomComposer
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.SpeechSettingsRepository
@@ -245,7 +246,9 @@ internal fun AgentChatInputBar(
     val keyboard = LocalSoftwareKeyboardController.current
     val hapticFeedback = LocalHapticFeedback.current
     val focusRequester = remember { FocusRequester() }
-    val textFieldState = rememberTextFieldState(initialText = input)
+    // 优先用上层提供的 composer：引用追问要把引用写进同一个输入框。
+    // 无上层的场景（概览浮窗）退回自建，行为不变。
+    val textFieldState = LocalCustomComposer.current ?: rememberTextFieldState(initialText = input)
     val speechSettings by remember { SpeechSettingsRepository.settingsFlow() }.collectAsState(initial = null)
     val recognitionEnabled = speechSettings?.recognitionEnabled == true
     val dictation = rememberSpeechInput(
