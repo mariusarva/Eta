@@ -478,6 +478,8 @@ private fun AgentChatScaffold(
                             onSubmit(labels)
                         }
                     },
+                    // 跳过：只收起卡片，不发任何消息，也不打断当前对话。
+                    onSkip = { PendingAskStore.remove(pendingAsk.token) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)

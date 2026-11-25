@@ -44,6 +44,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun AskUserCard(
     ask: PendingAsk,
     onChoose: (List<String>) -> Unit,
+    onSkip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // 换一张卡就重置勾选，避免把上一题的答案带过来。
@@ -141,11 +142,23 @@ internal fun AskUserCard(
                 }
             }
         }
-        if (multiple) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
+        // 底部动作行：多选时是「跳过 + 确认」，单选时只有「跳过」。
+        // 跳过不产生任何回答消息，只收起卡片——用户不想选时不该被迫二选一。
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(
+                text = "跳过",
+                onClick = onSkip,
+                minWidth = 0.dp,
+                minHeight = 34.dp,
+                insideMargin = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                colors = ButtonDefaults.textButtonColors(),
+            )
+            if (multiple) {
+                Spacer(Modifier.width(4.dp))
                 TextButton(
                     text = if (picked.isEmpty()) "确认" else "确认（${picked.size} 项）",
                     onClick = { if (picked.isNotEmpty()) onChoose(picked.toList()) },

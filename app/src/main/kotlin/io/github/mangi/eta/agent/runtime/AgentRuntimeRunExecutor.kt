@@ -644,11 +644,11 @@ internal class AgentRuntimeRunExecutor(
             modelId: String? = null,
         ): JSONArray = JSONArray(mcpTools.toString()).also { tools ->
             // 纯聊天档：不向模型声明任何工具，只做文本对话。
-            // 这里直接清空，比逐个 isToolEnabled 判断更彻底——MCP、子智能体、历史检索、
-            // 定时任务、生图、记忆工具全部不暴露，模型不会尝试调用，也不会浪费提示词预算。
+            // 直接返回空表，比逐个 isToolEnabled 判断更彻底——MCP、子智能体、历史检索、
+            // 定时任务、生图、记忆工具全部不暴露，模型不会尝试调用，也不浪费提示词预算。
+            // 注意 JSONArray 没有 clear()，只能整体跳过追加。
             if (LocalToolProfileStore.current(providerId, modelId) == LocalToolProfile.CHAT) {
-                tools.clear()
-                return@also
+                return JSONArray()
             }
             if (subagentAllowed) AgentSubagentToolCatalog.appendSchemas(tools)
             if (includeHistoryTool) tools.put(AgentConversationToolCatalog.schema())
