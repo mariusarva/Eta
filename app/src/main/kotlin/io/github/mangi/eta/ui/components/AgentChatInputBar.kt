@@ -445,6 +445,17 @@ internal fun AgentChatInputBar(
                     inputContainerTopPx = coordinates.boundsInWindow().top
                 },
         ) {
+            // 轮次横条放在输入框外面的上方，居中；与框内那一行分离，避免挤占正文高度。
+            if (topStartSlot != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    topStartSlot()
+                }
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -508,8 +519,8 @@ internal fun AgentChatInputBar(
                     )
                     .padding(horizontal = 10.dp, vertical = 8.dp),
             ) {
-                // 输入框内部顶部一行：左＝速度读数，中＝轮次横条，右＝能力胶囊。
-                // 三者同处输入卡片的圆角背景里，不再浮在容器外面；该行固定高度，正文区相应下移。
+                // 输入框内部顶部一行：左＝速度读数，右＝能力胶囊。
+                // 轮次横条已移到框外上方居中，这里只放这两个只读指示。
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -526,12 +537,7 @@ internal fun AgentChatInputBar(
                             softWrap = false,
                         )
                     }
-                    Box(
-                        modifier = Modifier.weight(1f),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        topStartSlot?.invoke()
-                    }
+                    Spacer(Modifier.weight(1f))
                     CapabilityCapsule()
                 }
                 Box(
