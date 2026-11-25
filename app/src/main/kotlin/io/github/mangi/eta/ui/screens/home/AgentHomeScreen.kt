@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.ui.app.AgentAppState
 import io.github.mangi.eta.ui.components.AgentChatBody
 import io.github.mangi.eta.ui.components.AgentConversationLoadState
 import io.github.mangi.eta.ui.components.LocalRoleplayChat

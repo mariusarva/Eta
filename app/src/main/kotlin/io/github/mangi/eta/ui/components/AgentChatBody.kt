@@ -295,6 +295,7 @@ internal fun AgentChatBody(
     SpeechPlaybackHost {
         SpeechAutoReadAloud(messages = messages, isStreaming = isStreaming)
         AgentChatScaffold(
+            appState = appState,
             allTurns = allTurns,
             pendingJumpMessageId = pendingJumpMessageId,
             onJumpHandled = { pendingJumpMessageId = null },
@@ -442,6 +443,8 @@ private fun AgentChatScaffold(
     pendingJumpMessageId: String? = null,
     onJumpHandled: () -> Unit = {},
     onJumpRequest: (String) -> Unit = {},
+    /** 会话状态宿主：快捷菜单的引用/续写需要。 */
+    appState: AgentAppState? = null,
 ) {
     val scope = rememberCoroutineScope()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
