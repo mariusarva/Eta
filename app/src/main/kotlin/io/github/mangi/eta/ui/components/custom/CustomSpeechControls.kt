@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -57,11 +58,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.itos.coui.slider.CouiSliderDefaults
-import com.itos.coui.slider.Slider
-import com.itos.coui.shape.CouiCapsuleShape
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.theme.CouiTheme
+import androidx.compose.material3.Slider
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -100,8 +97,7 @@ internal fun CustomSpeechControls(controller: CustomSpeechController, messageId:
     if (state.messageId != messageId || !foreground) return
     var locating by remember(controller, state.messageId) { mutableStateOf(false) }
     var dragging by remember(state.sentence, state.durationMs) { mutableStateOf<Float?>(null) }
-    val dark = CouiTheme.isDark
-    val colors = CouiPageDefaults.themeColors(dark)
+    val dark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
     val density = LocalDensity.current
     val view = LocalView.current
     val imeBottom = WindowInsets.ime.getBottom(density)
@@ -157,9 +153,6 @@ internal fun CustomSpeechControls(controller: CustomSpeechController, messageId:
                     onValueChangeFinished = { dragging?.let { controller.seekTo(it.toInt()) }; dragging = null },
                     valueRange = 0f..state.durationMs.coerceAtLeast(1).toFloat(),
                     enabled = state.durationMs > 0,
-                    dark = dark,
-                    colors = CouiSliderDefaults.colors(colors.accent, dark, state.durationMs > 0),
-                    shape = CouiCapsuleShape,
                     modifier = Modifier.fillMaxWidth().semantics { contentDescription = "当前片段播放进度" },
                 )
                 Text("当前片段 ${state.positionMs / 1000} / ${state.durationMs / 1000} 秒", fontSize = 12.sp)

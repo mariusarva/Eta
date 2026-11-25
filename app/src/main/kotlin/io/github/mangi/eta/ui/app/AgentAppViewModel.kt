@@ -10,6 +10,8 @@ internal class AgentAppViewModel(application: Application) : AndroidViewModel(ap
         context = application,
         scope = viewModelScope,
     )
+    /** 续写事务需要活过源会话组合的销毁，因此绑到 viewModelScope。 */
+    internal val continueScope: kotlinx.coroutines.CoroutineScope get() = viewModelScope
     val skills = AgentSkillsStore(application, viewModelScope)
     val memory = AgentMemoryStore(application, viewModelScope)
     val permissionHealth = PermissionHealthStore(application, viewModelScope)
