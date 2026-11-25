@@ -224,14 +224,11 @@ internal object AgentConversationStore {
             if (conversation.isPinned) pinnedIds += conversation.id
         }
 
-        val selected = dao.state()?.selectedConversationId
-            ?.takeIf { it in states }
-            ?: states.keys.first()
-        val loaded = loadConversation(context, selected)
-        if (loaded != null) states[selected] = loaded
-        val unaligned = if (loaded != null &&
-            dao.nextMessageIndex(selected) != loaded.messageStartIndex + loaded.messages.size
-        ) setOf(selected) else emptySet()
+        // 启动时一律回到新建对话，不恢复上次打开的会话。
+        // 之前会从 dao.state() 取上次选中的会话并加载它的消息，重启后直接落在旧对话里；
+        // 用户要求每次启动都从空白的新对话开始（历史仍在侧栏，可随时点进去）。
+        val selected: String? = null
+        val unaligned: Set<String> = emptySet()
 
         return Snapshot(
             selectedConversationId = selected,
