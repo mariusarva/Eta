@@ -1555,4 +1555,9 @@
   <string name="settings_prompt_studio">Prompts &amp; tool boundaries</string>
   <string name="settings_search_hint">Search settings</string>
   <string name="settings_search_empty">No matching settings</string>
+  <string name="selection_copy_entry">选择复制</string>
+  <string name="selection_copy_title">选择复制</string>
+  <string name="selection_copy_hint">长按选中任意片段即可复制。</string>
+  <string name="selection_copy_all">复制全文</string>
+  <string name="selection_copy_segments_hint">点右侧图标复制整段，段内可拖选任意片段。</string>
 </resources>
