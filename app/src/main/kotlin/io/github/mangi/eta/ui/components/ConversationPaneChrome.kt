@@ -24,11 +24,9 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.MapsUgc
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -74,7 +72,6 @@ import io.github.mangi.eta.ui.components.coui.CouiIcon
 import io.github.mangi.eta.ui.components.coui.CouiPageDefaults
 import io.github.mangi.eta.ui.components.coui.CouiText
 import io.github.mangi.eta.ui.components.coui.CouiTextKind
-import io.github.mangi.eta.ui.components.coui.CouiTopAppBarIconButton
 import io.github.mangi.eta.ui.components.coui.ProvideCouiMaterial
 import io.github.mangi.eta.ui.layout.rememberFloatingBottomBarInsets
 import io.github.suqi8.coui.kmp.anim.couiSpring
@@ -199,7 +196,7 @@ internal fun ConversationPaneTopBar(
     onToggleSelecting: () -> Unit = {},
     onManageCategories: () -> Unit = {},
     onPickCharacterForNewConversation: (() -> Unit)? = null,
-    /** 已选定的「新建会话」角色；非空时顶栏按钮显示头像与名字，让人一眼看出当前选的是谁。 */
+    /** 已选定的「新建会话」角色；非空时顶栏按钮显示其圆形头像。 */
     selectedCharacter: RoleplayChatUi? = null,
 ) {
     val barContent: @Composable () -> Unit = {
@@ -214,35 +211,21 @@ internal fun ConversationPaneTopBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PaneBrandHeader(modifier = Modifier.weight(1f))
-            val hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null
             // 角色键在多选键左侧：角色是常用入口，多选是低频操作，靠右更顺手。
+            // 三个按钮（角色 / 多选 / 新建）共用同一圆形实底容器，尺寸与材质完全一致。
             if (onPickCharacterForNewConversation != null) {
-                if (selectedCharacter != null) {
-                    // 已选角色时按钮变成「头像 + 名字」的胶囊，避免只靠图标猜当前选的是谁。
-                    PaneSelectedCharacterChip(
-                        character = selectedCharacter,
-                        onClick = onPickCharacterForNewConversation,
-                    )
-                } else {
-                    PaneTopBarActionButton(
-                        icon = Icons.Rounded.Person,
-                        description = "选择新建对话的角色",
-                        onClick = onPickCharacterForNewConversation,
-                    )
-                }
+                PaneSelectedCharacterButton(
+                    character = selectedCharacter,
+                    onClick = onPickCharacterForNewConversation,
+                )
                 Spacer(Modifier.width(6.dp))
             }
             PaneSelectionButton(
                 active = isSelecting,
-                hasCouiToolbarBackdrop = hasCouiToolbarBackdrop,
                 onClick = onToggleSelecting,
             )
             Spacer(Modifier.width(6.dp))
-            PaneNewChatButton(
-                hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
-                miuixBackdrop = miuixBackdrop,
-                onClick = onNewConversation,
-            )
+            PaneNewChatButton(onClick = onNewConversation)
         }
     }
 
@@ -321,34 +304,53 @@ private fun PaneBrandHeader(modifier: Modifier = Modifier) {
     }
 }
 
-/** 顶栏动作键：34dp 命中、28dp 圆、18dp 图标，三个键与「新建会话」共用同一外形。 */
+/**
+ * 顶栏三个动作键（角色 / 多选 / 新建）共用的圆形实底容器：
+ * 34dp 命中、圆形裁剪、同一不透明底色 —— 尺寸与材质严格一致。
+ * content 由调用方放图标或头像，容器本身只负责外形与点击语义。
+ */
 @Composable
-private fun PaneTopBarActionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+private fun PaneTopBarCircleButton(
     description: String,
     onClick: () -> Unit,
-    active: Boolean = false,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
 ) {
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val colors = CouiPageDefaults.themeColors()
     // 顶栏按钮浮在会话列表之上，叠加色会透出下面的行，必须合成成不透明。
     val background = if (isCoui) colors.card
         else opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh)
+    Box(
+        modifier = modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(background)
+            .clickable(role = Role.Button, onClickLabel = description, onClick = onClick)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+}
+
+/** 顶栏图标动作键：统一圆形实底 + 18dp 图标。 */
+@Composable
+private fun PaneTopBarActionButton(
+    icon: ImageVector,
+    description: String,
+    onClick: () -> Unit,
+    active: Boolean = false,
+) {
+    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val colors = CouiPageDefaults.themeColors()
     val tint = when {
         active && isCoui -> colors.accent
         active -> MiuixTheme.colorScheme.primary
         isCoui -> colors.title
         else -> MiuixTheme.colorScheme.onSurface
     }
-    Box(
-        modifier = Modifier
-            .size(34.dp)
-            .clip(androidx.compose.foundation.shape.CircleShape)
-            .background(background)
-            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = description, onClick = onClick)
-            .semantics { contentDescription = description },
-        contentAlignment = Alignment.Center,
-    ) {
+    PaneTopBarCircleButton(description = description, onClick = onClick) {
         Icon(
             imageVector = icon,
             contentDescription = null,
@@ -359,53 +361,37 @@ private fun PaneTopBarActionButton(
 }
 
 /**
- * 已选角色胶囊：头像 + 名字 + 右侧下拉箭头，点击重新打开选择框。
- * 名字宽度有上限并单行省略，避免长角色名把「新建会话」挤出顶栏。
+ * 已选角色按钮：只显示圆形头像，不显示名字与下拉箭头。
+ * 与多选、新建共用同一个 34dp 圆形实底容器，三键尺寸与材质完全一致。
  */
 @Composable
-private fun PaneSelectedCharacterChip(
-    character: RoleplayChatUi,
+private fun PaneSelectedCharacterButton(
+    character: RoleplayChatUi?,
     onClick: () -> Unit,
 ) {
-    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
-    val colors = CouiPageDefaults.themeColors()
-    // 角色胶囊同样浮在列表之上，需要不透明底。
-    val background = if (isCoui) colors.card
-        else opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainerHigh)
-    val titleColor = if (isCoui) colors.accent else MiuixTheme.colorScheme.primary
-    val description = "新建会话使用角色：" + character.characterName + "，点击更换"
-    Row(
-        modifier = Modifier
-            .height(34.dp)
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(17.dp))
-            .background(background)
-            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = description, onClick = onClick)
-            .semantics { contentDescription = description }
-            .padding(start = 3.dp, end = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CharacterAvatar(
-            name = character.characterName,
-            avatarPath = character.avatarPath,
-            size = 28.dp,
-            shape = androidx.compose.foundation.shape.CircleShape,
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            text = character.characterName,
-            style = MiuixTheme.textStyles.footnote1,
-            color = titleColor,
-            maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            modifier = Modifier.widthIn(max = 72.dp),
-        )
-        Spacer(Modifier.width(2.dp))
-        Icon(
-            imageVector = Icons.Rounded.ArrowDropDown,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = if (isCoui) colors.title else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        )
+    val description = if (character != null) {
+        "新建会话使用角色：" + character.characterName + "，点击更换"
+    } else {
+        "选择新建对话的角色"
+    }
+    PaneTopBarCircleButton(description = description, onClick = onClick) {
+        if (character != null) {
+            CharacterAvatar(
+                name = character.characterName,
+                avatarPath = character.avatarPath,
+                size = 30.dp,
+                shape = CircleShape,
+            )
+        } else {
+            val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+            val colors = CouiPageDefaults.themeColors()
+            Icon(
+                imageVector = Icons.Rounded.Person,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = if (isCoui) colors.title else MiuixTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
 
@@ -426,7 +412,6 @@ private fun PaneManageCategoriesButton(
 @Composable
 private fun PaneSelectionButton(
     active: Boolean,
-    hasCouiToolbarBackdrop: Boolean,
     onClick: () -> Unit,
 ) {
     PaneTopBarActionButton(
@@ -437,59 +422,15 @@ private fun PaneSelectionButton(
     )
 }
 
+/** 顶栏的新建会话入口：与角色、多选共用同一个圆形实底容器。 */
 @Composable
-private fun PaneNewChatButton(
-    hasCouiToolbarBackdrop: Boolean,
-    miuixBackdrop: Backdrop?,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
-) {
+private fun PaneNewChatButton(onClick: () -> Unit) {
     val description = stringResource(R.string.action_new_conversation)
-    when (LocalUiStyle.current) {
-        AppearanceUiStyle.COUI -> {
-            val colors = CouiPageDefaults.themeColors()
-            if (hasCouiToolbarBackdrop) {
-                CouiTopAppBarIconButton(
-                    icon = Icons.Rounded.MapsUgc,
-                    contentDescription = description,
-                    onClick = onClick,
-                    colors = colors,
-                    iconSize = ConversationPanelMetrics.NewChatIconSize,
-                )
-            } else {
-                CouiIconButton(
-                    onClick = onClick,
-                    modifier = Modifier.semantics { contentDescription = description },
-                    material = false,
-                    backgroundColor = CouiTheme.colorScheme.surface,
-                    minWidth = 40.dp,
-                    minHeight = 40.dp,
-                ) {
-                    CouiIcon(
-                        imageVector = Icons.Rounded.MapsUgc,
-                        contentDescription = null,
-                        modifier = Modifier.size(ConversationPanelMetrics.NewChatIconSize),
-                        tint = colors.title,
-                    )
-                }
-            }
-        }
-        AppearanceUiStyle.MIUIX -> {
-            val colors = MiuixTheme.colorScheme
-            GlassIconButton(
-                onClick = onClick,
-                backdrop = miuixBackdrop,
-                size = GlassTopAppBarDefaults.ButtonSize,
-            ) {
-                Icon(
-                    imageVector = MiuixIcons.Glass.NewMessage,
-                    contentDescription = description,
-                    modifier = Modifier.size(28.dp),
-                    tint = colors.onSurface,
-                )
-            }
-        }
-    }
+    PaneTopBarActionButton(
+        icon = Icons.Rounded.MapsUgc,
+        description = description,
+        onClick = onClick,
+    )
 }
 
 @Composable

@@ -100,6 +100,11 @@ import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.glass.GlassPopup
 import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
 import top.yukonga.miuix.kmp.glass.GlassPopupItem
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import top.yukonga.miuix.kmp.glass.glassPanel
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassShadows
+import top.yukonga.miuix.kmp.material.GlassShape
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Edit
@@ -1169,7 +1174,7 @@ private fun ConversationHistoryRow(
     val rowBackground = when {
         !selected -> Color.Transparent
         isCoui -> couiScheme!!.cardBackground
-        else -> miuixColors.tertiaryContainer.copy(alpha = if (miuixDark) 0.72f else 0.90f)
+        else -> Color.Transparent
     }
     val rowModifier = if (isCoui) {
         val source = remember { MutableInteractionSource() }
@@ -1188,9 +1193,25 @@ private fun ConversationHistoryRow(
                 },
             )
             .couiButtonFeedback(couiDark, source, enabled = true, list = true)
+    } else if (selected) {
+        // 当前会话 / 多选选中的行：与底部「搜索对话」框同款高级玻璃材质。
+        val glassRowShape = remember { GlassShape(ConversationPanelMetrics.RowCornerRadius) }
+        val fallbackBg = GlassTopAppBarDefaults.buttonFill()
+        Modifier.glassPanel(
+            backdrop = miuixBackdrop,
+            shape = glassRowShape,
+            style = GlassDefaults.style(miuixDark),
+            material = GlassTopAppBarDefaults.buttonMaterial(),
+            stroke = GlassTopAppBarDefaults.buttonStroke(),
+            shadow = GlassShadows.Regular,
+            shading = false,
+            fallback = Modifier
+                .clip(RoundedCornerShape(ConversationPanelMetrics.RowCornerRadius))
+                .background(fallbackBg),
+        )
     } else {
         Modifier.squircleSurface(
-            color = rowBackground,
+            color = Color.Transparent,
             cornerRadius = ConversationPanelMetrics.RowCornerRadius,
         )
     }
