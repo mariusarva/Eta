@@ -10,12 +10,16 @@ import android.os.SystemClock
 import android.view.Display
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
+import io.github.mangi.eta.agent.ask.AskOption
+import io.github.mangi.eta.agent.ask.PendingAsk
+import io.github.mangi.eta.agent.ask.PendingAskStore
 import io.github.mangi.eta.agent.browser.AgentBrowserSession
 import io.github.mangi.eta.agent.device.DeviceControlUnavailableException
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.device.RootShellDeviceController
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.agent.model.AgentAskToolCatalog
 import io.github.mangi.eta.agent.model.AgentHttpClient
 import io.github.mangi.eta.agent.device.LocalNetworkPermission
 import io.github.mangi.eta.agent.web.AgentWebTools
@@ -62,6 +66,7 @@ import io.github.mangi.eta.data.repository.AgentMemoryWriteResult
 import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
 import io.github.mangi.eta.data.repository.WebToolsSettingsRepository
 import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -115,6 +120,8 @@ internal class AgentLocalTools(
     },
     private val lsposedAvailable: () -> Boolean = { EtaApp.serviceInstance != null },
     private val guiControl: GuiControlCoordinator.RunControl? = null,
+    /** 当前运行的会话 ID；`ask_user` 用它把待答问题挂到对应会话上。 */
+    private val conversationId: String? = null,
     private val imageBudgetProvider: () -> io.github.mangi.eta.agent.media.ModelImageBudget = {
         io.github.mangi.eta.agent.media.ModelImageBudget.DEFAULT
     },
@@ -241,6 +248,7 @@ internal class AgentLocalTools(
             }
             when (toolCall.name) {
                 "get_current_context" -> textResult(DeviceContextTool.current(context))
+                AgentAskToolCatalog.ASK_USER -> textResult(askUser(args))
                 "search_apps" -> textResult(searchApps(args))
                 "launch_app" -> {
                     publishedObservation.set(PublishedObservation())
@@ -1696,6 +1704,60 @@ internal class AgentLocalTools(
             .put("code", code)
             .put("message", message)
             .toString()
+
+    /**
+     * `ask_user`：把问题与选项落盘为待答卡片，本轮返回「等待用户选择」。
+     *
+     * 不在工具里阻塞等待——那会占住执行线程直到用户操作，超时与取消都很难处理。
+     * 落盘后 UI 读到卡片，用户点选再以消息形式回灌，本轮自然结束。
+     */
+    private fun askUser(args: JSONObject): String {
+        val question = args.optString("question").trim()
+        if (question.isEmpty()) {
+            return errorResult("INVALID_ARGUMENT", "question 不能为空")
+        }
+        val conversation = conversationId
+        if (conversation.isNullOrBlank()) {
+            return errorResult("NO_CONVERSATION", "当前运行没有会话上下文，无法向用户提问")
+        }
+        val optionsJson = args.optJSONArray("options")
+        val options = buildList {
+            if (optionsJson != null) {
+                for (index in 0 until optionsJson.length()) {
+                    val item = optionsJson.optJSONObject(index) ?: continue
+                    val label = item.optString("label").trim()
+                    if (label.isEmpty()) continue
+                    add(
+                        AskOption(
+                            id = "opt-" + (index + 1),
+                            label = label,
+                            description = item.optString("description").trim(),
+                        ),
+                    )
+                }
+            }
+        }
+        if (options.isEmpty()) {
+            return errorResult("INVALID_ARGUMENT", "options 至少要有一个带 label 的选项")
+        }
+        val pending = PendingAsk(
+            token = "ask-" + UUID.randomUUID(),
+            conversationId = conversation,
+            question = question,
+            body = args.optString("body").trim(),
+            options = options,
+            allowMultiple = args.optBoolean("allow_multiple", false),
+        )
+        PendingAskStore.init(context)
+        PendingAskStore.put(pending)
+        logger.info("ask_user staged: conversation=$conversation options=${options.size}")
+        return JSONObject()
+            .put("ok", true)
+            .put("status", "awaiting_user")
+            .put("token", pending.token)
+            .put("message", "问题已展示给用户，等待其点选；不要自行编造答案。")
+            .toString()
+    }
 
     private fun textResult(content: String): AgentModelClient.ToolResult =
         AgentModelClient.ToolResult(content)

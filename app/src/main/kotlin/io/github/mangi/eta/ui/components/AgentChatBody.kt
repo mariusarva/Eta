@@ -92,6 +92,7 @@ import io.github.mangi.eta.ui.components.coui.couiButtonFeedback
 import io.github.mangi.eta.ui.components.coui.rememberCouiPageBackdrop
 import io.github.mangi.eta.ui.layout.rememberFloatingBottomBarInsets
 import io.github.mangi.eta.ui.markdown.StreamingMarkdownStateCache
+import io.github.mangi.eta.agent.ask.PendingAskStore
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
@@ -450,6 +451,34 @@ private fun AgentChatScaffold(
         ),
         bottomBar = {
             Column(modifier = Modifier.fillMaxWidth()) {
+            // 待答问题卡片：模型通过 ask_user 提问后出现，用户点选即提交，卡片随之消失。
+            val pendingAsk = remember(conversationId, visibleMessages.size) {
+                if (conversationId.isBlank()) {
+                    null
+                } else {
+                    PendingAskStore.init(appContext)
+                    PendingAskStore.forConversation(conversationId)
+                }
+            }
+            if (pendingAsk != null) {
+                AskUserCard(
+                    ask = pendingAsk,
+                    onChoose = { chosen ->
+                        val labels = pendingAsk.options
+                            .filter { it.id in chosen }
+                            .joinToString("、") { it.label }
+                        if (labels.isNotEmpty()) {
+                            PendingAskStore.remove(pendingAsk.token)
+                            keepBottomAnchored = true
+                            onSubmit(labels)
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 6.dp),
+                )
+            }
             // 展开的轮次面板放在这里，铺满整行（与改造前一致）。
             ChatTurnPanel(
                 messages = visibleMessages,

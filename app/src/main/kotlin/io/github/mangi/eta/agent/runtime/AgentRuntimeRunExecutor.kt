@@ -202,6 +202,7 @@ internal class AgentRuntimeRunExecutor(
                 browserRunId = request.runId,
                 browserSession = BrowserSessionRegistry.get(browserKey),
                 guiControl = guiRun,
+                conversationId = conversationId,
                 imageBudgetProvider = {
                     io.github.mangi.eta.agent.media.ModelImageBudget.forProviderType(request.config.providerType)
                 },
@@ -637,6 +638,8 @@ internal class AgentRuntimeRunExecutor(
         ): JSONArray = JSONArray(mcpTools.toString()).also { tools ->
             if (subagentAllowed) AgentSubagentToolCatalog.appendSchemas(tools)
             if (includeHistoryTool) tools.put(AgentConversationToolCatalog.schema())
+            // 让模型能主动提问并把选项渲染成可点选卡片；用户点选后本轮才继续。
+            tools.put(AgentAskToolCatalog.schema())
             if (includeScheduledManageTool) ScheduledTaskToolCatalog.appendManageTool(tools)
             if (includeScheduledSelfRunTools) ScheduledTaskToolCatalog.appendSelfRunTools(tools)
             if (includeImageGenTool) ImageGenToolCatalog.appendTo(tools)
