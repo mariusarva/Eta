@@ -29,6 +29,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.DpSize
+import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.LaunchedEffect
@@ -209,40 +213,23 @@ internal fun ChatTurnPanel(
         }
     }
 
-    // 面板放在 bottomBar 里，铺满整行——与改造前一致，不再受输入栏插槽宽度限制。
-    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-        AnimatedVisibility(
-            visible = expanded,
-            enter = fadeIn(tween(140)) + slideInVertically(tween(200)) { it / 3 },
-            exit = fadeOut(tween(120)) + slideOutVertically(tween(160)) { it / 3 },
+    // 轮次面板改成底部抽屉：上滑可拖到接近全屏，下滑关闭。
+    // 之前是固定高度 360dp 的 AnimatedVisibility 面板，只能点横条切换。
+    OverlayBottomSheet(
+        show = expanded,
+        title = "对话轮次",
+        onDismissRequest = { state.expanded = false },
+        insideMargin = DpSize(0.dp, 0.dp),
+    ) {
+        // 抽屉本身已提供背景与拖拽手势，这里只负责内容高度。
+        val density = LocalDensity.current
+        val sheetHeight = with(density) { LocalWindowInfo.current.containerSize.height.toDp() } * 0.86f
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(sheetHeight)
+                .navigationBarsPadding(),
         ) {
-            val miuixDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
-            val panelGlassShape = remember { GlassShape(20.dp) }
-            val panelFallback = Modifier
-                .clip(RoundedCornerShape(20.dp))
-                .background(opaqueThemedSurface())
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 6.dp)
-                    // 与「搜索对话」框同款高级玻璃材质；fallback 用不透明主题容器色，
-                    // 不支持 shader 时仍能盖住下层聊天气泡。
-                    .glassPanel(
-                        // 不能用 currentGlassOverlayBackdrop()：该 backdrop 覆盖整页/整个场景，
-                        // 包含本面板自身，采样会形成自引用，RenderThread 递归爆栈（SIGSEGV）。
-                        // 传 null 走 fallback 静态玻璃外观（描边 + 半透明填充 + 阴影），稳定。
-                        backdrop = null,
-                        shape = panelGlassShape,
-                        style = GlassDefaults.style(miuixDark),
-                        material = GlassTopAppBarDefaults.buttonMaterial(),
-                        stroke = GlassTopAppBarDefaults.buttonStroke(),
-                        shadow = GlassShadows.Regular,
-                        shading = false,
-                        fallback = panelFallback,
-                    )
-                    .navigationBarsPadding(),
-            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -263,7 +250,7 @@ internal fun ChatTurnPanel(
                 }
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.heightIn(max = 360.dp),
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     itemsIndexed(
@@ -355,7 +342,6 @@ internal fun ChatTurnPanel(
                         }
                     }
                 }
-                Spacer(Modifier.size(4.dp))
             }
         }
     }

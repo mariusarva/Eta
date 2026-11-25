@@ -51,6 +51,13 @@ import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.BookmarkAdd
+import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.runtime.rememberCoroutineScope
+import io.github.mangi.eta.data.repository.AgentMemoryRepository
+import kotlinx.coroutines.launch
+import io.github.mangi.eta.ui.voice.LocalSpeechPlayback
+import io.github.mangi.eta.ui.voice.LocalSpeechPlaybackEnabled
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Lightbulb
@@ -1088,6 +1095,57 @@ private fun AgentMessageBlock(
         }
     }
 
+    // 会话快捷功能：长按回复卡片弹出「复制 / 朗读 / 分支 / 记忆 / 删除」。
+    // 菜单项按可用性显隐；COUI 用 CouiMenu、MIUIX 用 EtaWindowDialog，均取主题色，
+    // 日间/夜间与两套主题自动适配。
+    val actionAnchor = rememberCouiMenuAnchor()
+    var showActionMenu by remember(message.id) { mutableStateOf(false) }
+    val speechController = LocalSpeechPlayback.current
+    val speechAvailable = allowSpeech && LocalSpeechPlaybackEnabled.current && speechController != null
+    val scope = rememberCoroutineScope()
+    val copyLabel = stringResource(R.string.ui_copy_4edd1d)
+    val deleteLabel = stringResource(R.string.ui_delete_3755f5)
+    val branchLabel = stringResource(R.string.conversation_branch)
+    val menuEntries = buildList {
+        if (showCopyAction) add(Triple(0, copyLabel, Icons.Rounded.ContentCopy))
+        if (speechAvailable) add(Triple(1, "朗读", Icons.Rounded.VolumeUp))
+        if (showBranchAction) add(Triple(2, branchLabel, Icons.AutoMirrored.Rounded.CallSplit))
+        add(Triple(3, "记到记忆", Icons.Rounded.BookmarkAdd))
+        if (showMessageActions) add(Triple(4, deleteLabel, Icons.Rounded.Delete))
+    }
+    val onMenuAction: (Int) -> Unit = { value ->
+        showActionMenu = false
+        when (value) {
+            0 -> {
+                @Suppress("DEPRECATION")
+                clipboardManager.setText(AnnotatedString(message.content))
+                copied = true
+                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            }
+            1 -> speechController?.speak(
+                message.id,
+                message.content,
+                voiceOverride = LocalRoleplayChat.current?.voiceId,
+                providerOverride = LocalRoleplayChat.current?.voiceProvider,
+            )
+            2 -> onBranch()
+            3 -> {
+                scope.launch {
+                    runCatching {
+                        val snapshot = AgentMemoryRepository.snapshot()
+                        val stamp = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                            .format(java.util.Date())
+                        AgentMemoryRepository.replaceAll(
+                            snapshot.content + "\n\n## 记于 " + stamp + "\n\n" + message.content.trim(),
+                        )
+                    }
+                }
+                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            }
+            4 -> onDelete()
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -1096,8 +1154,76 @@ private fun AgentMessageBlock(
                 end = if (assistantOverlay) 16.dp else 20.dp,
                 top = 4.dp,
                 bottom = 6.dp,
+            )
+            .couiMenuAnchor(actionAnchor)
+            .combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    if (messageActionsEnabled && menuEntries.isNotEmpty()) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        actionAnchor.open { showActionMenu = true }
+                    }
+                },
             ),
     ) {
+        if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+            CouiMenu(
+                expanded = showActionMenu,
+                onDismissRequest = { showActionMenu = false },
+                items = menuEntries.map { (value, text, icon) ->
+                    CouiMenuItem(
+                        value = value,
+                        text = text,
+                        icon = icon,
+                        iconTint = if (value == 4) CouiTheme.colorScheme.error else Color.Unspecified,
+                        dividerBefore = value == 4,
+                    )
+                },
+                onItemClick = { onMenuAction(it.value) },
+                anchor = actionAnchor,
+            )
+        } else {
+            EtaWindowDialog(
+                show = showActionMenu,
+                title = "快捷操作",
+                onDismissRequest = { showActionMenu = false },
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    menuEntries.forEach { (value, text, icon) ->
+                        val destructive = value == 4
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { onMenuAction(value) }
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = if (destructive) {
+                                    MiuixTheme.colorScheme.error
+                                } else {
+                                    MiuixTheme.colorScheme.onSurface
+                                },
+                            )
+                            Spacer(Modifier.size(12.dp))
+                            Text(
+                                text = text,
+                                style = MiuixTheme.textStyles.body2,
+                                color = if (destructive) {
+                                    MiuixTheme.colorScheme.error
+                                } else {
+                                    MiuixTheme.colorScheme.onSurface
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
         when {
             message.content.isBlank() && message.isStreaming -> {
                 AITypingIndicator(
