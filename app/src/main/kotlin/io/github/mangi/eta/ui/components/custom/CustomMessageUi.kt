@@ -46,6 +46,17 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.components.coui.LocalCouiPageBackdrop
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
+import io.github.suqi8.coui.kmp.blur.ViewBlurDefaults
+import io.github.suqi8.coui.kmp.blur.couiViewBlur
+import top.yukonga.miuix.kmp.glass.glassPanel
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
+import top.yukonga.miuix.kmp.material.GlassMaterials
+import top.yukonga.miuix.kmp.material.GlassShape
+import top.yukonga.miuix.kmp.material.GlassShadows
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import io.github.suqi8.coui.kmp.theme.COUITheme as CouiTheme
 
 internal data class MessageMenuAction(
@@ -77,6 +88,17 @@ internal fun CustomMessageMenuDialog(
     }
     val menuBackground = if (menuDark) Color(0xFF23262E) else Color(0xFFF4F4F7)
     val menuForeground = if (menuDark) Color(0xFFE9E9EC) else Color(0xFF202020)
+    val menuShape = remember { RoundedCornerShape(24.dp) }
+    // 模糊材质：两个主题都从各自的页面 backdrop 采样。
+    // 这是临时浮层、弹出时页面静止，不会有输入框那种「切页时旧采样残留」的重影；
+    // 采样后端不可用时回退到不透明纯色卡片（窗口级 FLAG_BLUR_BEHIND 仍在兜底）。
+    val couiBackdrop = LocalCouiPageBackdrop.current
+    val miuixBackdrop = currentGlassOverlayBackdrop()
+    val hasMaterial = if (isCoui) {
+        couiBackdrop != null
+    } else {
+        miuixBackdrop != null && isRuntimeShaderSupported()
+    }
     val measurer = rememberTextMeasurer()
     val textStyle = TextStyle(
         fontSize = 16.sp, lineHeight = 20.sp, letterSpacing = 0.sp,
@@ -112,17 +134,52 @@ internal fun CustomMessageMenuDialog(
             }
             onDispose { }
         }
+        val surfaceModifier = if (isCoui) {
+            if (couiBackdrop != null) {
+                Modifier.couiViewBlur(
+                    backdrop = couiBackdrop,
+                    style = ViewBlurDefaults.frameworkBottomBar(menuDark),
+                    shape = menuShape,
+                )
+            } else {
+                Modifier.background(menuBackground, menuShape)
+            }
+        } else {
+            if (miuixBackdrop != null && isRuntimeShaderSupported()) {
+                Modifier.glassPanel(
+                    backdrop = miuixBackdrop,
+                    shape = GlassShape(24.dp),
+                    style = GlassDefaults.style(menuDark),
+                    material = GlassMaterials.puredThinGlass(menuDark),
+                    stroke = GlassEdgeStrokes.forTheme(
+                        isDark = menuDark,
+                        light = GlassEdgeStrokes.SmallLight,
+                        dark = GlassEdgeStrokes.SmallDark,
+                    ),
+                    shadow = GlassShadows.Regular,
+                    shading = false,
+                    fallback = Modifier.background(menuBackground, menuShape),
+                )
+            } else {
+                Modifier.background(menuBackground, menuShape)
+            }
+        }
         Column(
             modifier = Modifier.width(width)
                 .heightIn(max = (configuration.screenHeightDp * 0.75f).dp)
-                .shadow(
-                    8.dp,
-                    RoundedCornerShape(24.dp),
-                    ambientColor = if (menuDark) Color.Black.copy(alpha = 0.55f) else Color.Black.copy(alpha = 0.18f),
-                    spotColor = if (menuDark) Color.Black.copy(alpha = 0.55f) else Color.Black.copy(alpha = 0.18f),
+                .then(
+                    if (!hasMaterial) {
+                        Modifier.shadow(
+                            8.dp,
+                            menuShape,
+                            ambientColor = if (menuDark) Color.Black.copy(alpha = 0.55f) else Color.Black.copy(alpha = 0.18f),
+                            spotColor = if (menuDark) Color.Black.copy(alpha = 0.55f) else Color.Black.copy(alpha = 0.18f),
+                        ).clip(menuShape)
+                    } else {
+                        Modifier
+                    },
                 )
-                .clip(RoundedCornerShape(24.dp))
-                .background(menuBackground)
+                .then(surfaceModifier)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
