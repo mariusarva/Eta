@@ -448,18 +448,17 @@ private suspend fun runSelfCheck(context: Context, probeRoot: Boolean): SelfChec
         detail = if (shareOk) "/storage/emulated/0/ai共享文件夹 可读写" else "共享目录不存在或不可写",
     )
 
+    // 上游这里统计会话数/消息数/用量条数与 schema 版本常量；
+    // 本仓库的 ConversationDao 没有这些计数方法，也没有 ETA_DB_SCHEMA_VERSION，
+    // 退化为只报「能打开 + 版本号 + 文件体积」。
     val database = runCatching { EtaDatabase.get(context) }.getOrNull()
     val dbVersion = runCatching { database?.openHelper?.readableDatabase?.version }.getOrNull()
-    val conversations = runCatching { database?.conversationDao()?.conversationCount() }.getOrNull()
-    val messages = runCatching { database?.conversationDao()?.messageCount() }.getOrNull()
-    val usageRecords = runCatching { database?.tokenUsageDao()?.recordCount() }.getOrNull()
+    val dbBytes = io.github.mangi.eta.core.DiagnosticsSource.databaseBytes(context)
     storage += SelfCheckItem(
         name = "数据库",
         state = if (dbVersion != null) STATE_OK else STATE_MISSING,
         detail = if (dbVersion != null) {
-            val expect = io.github.mangi.eta.data.db.ETA_DB_SCHEMA_VERSION
-            ("结构版本 v$dbVersion" + if (dbVersion != expect) "（期望 v$expect，需迁移）" else "") +
-                " · 会话 ${conversations ?: 0} · 消息 ${messages ?: 0} · 用量 ${usageRecords ?: 0} 条"
+            "结构版本 v$dbVersion · 体积 %.1f MB".format(dbBytes / 1024.0 / 1024.0)
         } else {
             "打不开本地数据库"
         },
@@ -506,29 +505,7 @@ private suspend fun runSelfCheck(context: Context, probeRoot: Boolean): SelfChec
     )
 
     // 诊断包每周自动导出：清单里注册了接收器才可能跑；顺便报出自动目录里已有几份。
-    val autoExportReady = runCatching {
-        @Suppress("DEPRECATION")
-        context.packageManager.getReceiverInfo(
-            android.content.ComponentName(
-                context,
-                "io.github.mangi.eta.core.DiagnosticsAutoExportReceiver",
-            ),
-            0,
-        )
-    }.isSuccess
-    val autoCount = runCatching {
-        File("/storage/emulated/0/ai共享文件夹/诊断包备份/自动")
-            .listFiles()?.count { it.name.endsWith(".zip") } ?: 0
-    }.getOrDefault(0)
-    storage += SelfCheckItem(
-        name = "诊断包自动导出",
-        state = if (autoExportReady) STATE_OK else STATE_MISSING,
-        detail = if (autoExportReady) {
-            "接收器已注册 · 每周一次 · 落到 诊断包备份/自动（只留最近 4 份）· 该目录现有 $autoCount 份"
-        } else {
-            "接收器未注册，自动导出不会跑"
-        },
-    )
+    // 上游有「诊断包自动导出」接收器，本仓库没有对应组件，这一项不再展示。
 
     return SelfCheckReport(permissions = permissions, storage = storage)
 }
