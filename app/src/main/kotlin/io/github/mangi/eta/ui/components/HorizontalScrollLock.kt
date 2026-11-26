@@ -1,6 +1,7 @@
 package io.github.mangi.eta.ui.components
 
 import android.os.SystemClock
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -25,24 +26,25 @@ internal class HorizontalScrollLock {
     }
 
     fun isActive(): Boolean = SystemClock.uptimeMillis() < activeUntil
-
-    // 兼容旧调用形状
-    val dragging: Boolean get() = isActive()
-
-    internal fun setDragging(value: Boolean) {
-        if (value) markActive() else activeUntil = 0L
-    }
 }
 
 internal val LocalHorizontalScrollLock = staticCompositionLocalOf<HorizontalScrollLock?> { null }
 
 /**
- * 挂在横向滚动容器外层（和 horizontalScroll 同一节点即可）。
- * 不消费任何事件，只做方向声明。
+ * 挂在横向滚动容器外层（和 horizontalScroll 同一节点即可）。不消费任何事件，只做方向声明。
+ *
+ * 只在容器**真的还能朝这个方向滚**时才声明，否则到边界的表格会把页级右滑永久吃掉：
+ * - 手指左滑看右边内容 → 需要 canScrollForward
+ * - 手指右滑看左边内容 → 需要 canScrollBackward
+ *
+ * 表格已经在最左端时 canScrollBackward=false，右滑不再声明，页级手势就能正常打开侧栏。
  */
-internal fun Modifier.declareHorizontalScroll(lock: HorizontalScrollLock?): Modifier {
+internal fun Modifier.declareHorizontalScroll(
+    lock: HorizontalScrollLock?,
+    scrollState: ScrollState,
+): Modifier {
     if (lock == null) return this
-    return this.pointerInput(lock) {
+    return this.pointerInput(lock, scrollState) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             var totalX = 0f
@@ -55,7 +57,12 @@ internal fun Modifier.declareHorizontalScroll(lock: HorizontalScrollLock?): Modi
                 totalX += delta.x
                 totalY += delta.y
                 if (abs(totalX) > 6f && abs(totalX) > abs(totalY) * 1.2f) {
-                    lock.markActive()
+                    val canConsume = if (delta.x < 0f) {
+                        scrollState.canScrollForward
+                    } else {
+                        scrollState.canScrollBackward
+                    }
+                    if (canConsume) lock.markActive()
                 }
             }
         }

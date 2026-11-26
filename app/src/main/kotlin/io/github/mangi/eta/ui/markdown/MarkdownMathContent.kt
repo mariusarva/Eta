@@ -233,7 +233,7 @@ internal fun rememberInlineMathContentMap(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .declareHorizontalScroll(LocalHorizontalScrollLock.current)
+                                    .declareHorizontalScroll(LocalHorizontalScrollLock.current, inlineScroll)
                                     .mathHorizontalOverflowFade(inlineScroll)
                                     .horizontalScroll(inlineScroll),
                             ) {
@@ -294,7 +294,7 @@ internal fun MarkdownDisplayMathBlock(
         Box(
             modifier = modifier
                 .fillMaxWidth()
-                .declareHorizontalScroll(LocalHorizontalScrollLock.current)
+                .declareHorizontalScroll(LocalHorizontalScrollLock.current, scrollState)
                 .mathHorizontalOverflowFade(scrollState)
                 .horizontalScroll(scrollState)
                 .padding(vertical = 2.dp),
@@ -372,7 +372,7 @@ internal fun MarkdownDisplayMathBlock(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .declareHorizontalScroll(LocalHorizontalScrollLock.current)
+            .declareHorizontalScroll(LocalHorizontalScrollLock.current, scrollState)
             .mathHorizontalOverflowFade(scrollState)
             .horizontalScroll(scrollState)
             .padding(horizontal = 8.dp, vertical = 4.dp),

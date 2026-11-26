@@ -230,7 +230,7 @@ internal fun ConversationSidePaneScaffold(
                             val down = awaitPointerEvent(PointerEventPass.Initial)
                                 .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
                                 ?: continue
-                            android.util.Log.d(
+                            android.util.Log.i(
                                 "EtaPaneSwipe",
                                 "down x=${down.position.x} visible=$currentVisible open=$currentSwipeToOpen hl=${horizontalScrollLock.isActive()}",
                             )
@@ -255,24 +255,27 @@ internal fun ConversationSidePaneScaffold(
                                         kotlin.math.abs(totalY) > 16f &&
                                         kotlin.math.abs(totalY) > kotlin.math.abs(totalX) * 1.5f
                                     ) {
-                                        android.util.Log.d(
+                                        android.util.Log.i(
                                             "EtaPaneSwipe",
                                             "give up vertical dx=$totalX dy=$totalY",
                                         )
                                         break
+                                    }
+                                    if (!currentVisible && totalX > 18f && horizontalScrollLock.isActive()) {
+                                        android.util.Log.i("EtaPaneSwipe", "blocked by horizontal scroll")
                                     }
                                     if (currentVisible) {
                                         if (totalX < -40f &&
                                             kotlin.math.abs(totalX) > kotlin.math.abs(totalY)
                                         ) {
                                             handled = true
-                                            android.util.Log.d("EtaPaneSwipe", "close dx=$totalX")
+                                            android.util.Log.i("EtaPaneSwipe", "close dx=$totalX")
                                             closePane()
                                         }
                                     } else if (currentSwipeToOpen && !horizontalScrollLock.isActive()) {
                                         if (totalX > 18f && totalX > kotlin.math.abs(totalY)) {
                                             handled = true
-                                            android.util.Log.d("EtaPaneSwipe", "open dx=$totalX")
+                                            android.util.Log.i("EtaPaneSwipe", "open dx=$totalX")
                                             currentOnOpen()
                                             // 不依赖重组后的 LaunchedEffect：直接驱动锚点动画，
                                             // 避免打开请求与退场动画互相顶。
@@ -355,7 +358,10 @@ internal fun ConversationSidePaneScaffold(
                         ) {
                             content()
                         }
-                        if (isRevealed) {
+                        // 遮罩只在「已展开且仍然打开」时存在。退场动画期间 offset 还没归零，
+                        // isRevealed 仍是 true；此时如果遮罩还在，它会盖住整个会话区并成为
+                        // 触摸目标，用户从侧栏滑回会话区后第一次右滑会被它吞掉（实测）。
+                        if (isRevealed && currentVisible) {
                             Box(
                                 modifier = Modifier.fillMaxSize().clickable(
                                     interactionSource = null,

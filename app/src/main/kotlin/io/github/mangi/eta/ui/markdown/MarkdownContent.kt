@@ -325,11 +325,12 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
         )
         // 代码不折行，长行横向滚动，保留缩进与对齐。
         val codeScrollLock = LocalHorizontalScrollLock.current
+        val codeScrollState = rememberScrollState()
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .declareHorizontalScroll(codeScrollLock)
-                .horizontalScroll(rememberScrollState())
+                .declareHorizontalScroll(codeScrollLock, codeScrollState)
+                .horizontalScroll(codeScrollState)
                 .padding(horizontal = 14.dp, vertical = 11.dp),
         ) {
             MarkdownText(block, style.code, scope, softWrap = false)
@@ -675,11 +676,12 @@ private fun MarkdownTableBlock(block: MarkdownTable, scope: MarkdownRenderScope)
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val availableWidth = constraints.maxWidth
         val tableScrollLock = LocalHorizontalScrollLock.current
+        val tableScrollState = rememberScrollState()
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .declareHorizontalScroll(tableScrollLock)
-                .horizontalScroll(rememberScrollState()),
+                .declareHorizontalScroll(tableScrollLock, tableScrollState)
+                .horizontalScroll(tableScrollState),
         ) {
             Layout(
                 modifier = Modifier
