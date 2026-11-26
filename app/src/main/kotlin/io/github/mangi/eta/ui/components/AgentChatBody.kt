@@ -488,6 +488,10 @@ private fun AgentChatScaffold(
 ) {
     val scope = rememberCoroutineScope()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    // 轮次把手的数据源：空会话时为空列表，用于决定是否渲染插槽。
+    val turnHandleTurns = remember(visibleMessages, allTurns) {
+        if (allTurns.isNotEmpty()) allTurns else visibleMessages.toChatTurns()
+    }
     val chatBackdrop = if (isCoui) null else rememberGlassBackdrop()
     val couiChatBackdrop = if (isCoui) rememberCouiPageBackdrop(CouiTheme.colorScheme.backgroundWithCard) else null
     val couiCapture = if (couiChatBackdrop == null) Modifier else Modifier.layerBackdrop(couiChatBackdrop)
@@ -597,13 +601,15 @@ private fun AgentChatScaffold(
                     }
                 },
                 // 只有把手进插槽（与能力胶囊同一行、居中）；面板在 bottomBar 里铺满整行。
-                topStartSlot = {
-                    ChatTurnHandle(
-                        turns = remember(visibleMessages, allTurns) {
-                            if (allTurns.isNotEmpty()) allTurns else visibleMessages.toChatTurns()
-                        },
-                        state = turnNavigatorState,
-                    )
+                // 空会话时不传插槽：ChatTurnHandle 内部虽然会 return，
+                // 但外层容器仍带 4dp padding，在 COUI 玻璃材质下会显出一条竖线残影。
+                topStartSlot = turnHandleTurns.takeIf { it.isNotEmpty() }?.let {
+                    {
+                        ChatTurnHandle(
+                            turns = it,
+                            state = turnNavigatorState,
+                        )
+                    }
                 },
             )
             }
@@ -620,11 +626,6 @@ private fun AgentChatScaffold(
             pageCount = { ChatPage.entries.size },
         )
         val pagerScope = rememberCoroutineScope()
-        // 右页「开始纯聊天」会切换当前会话；左滑回来时必须回到原来那条。
-        // 用 remember 保存「切换前的会话」，并在页面变化时读最新值。
-        var conversationBeforeChatOnly by remember { mutableStateOf<String?>(null) }
-        val currentConversationId by rememberUpdatedState(conversationId)
-        val currentOnRestore by rememberUpdatedState(onRestoreConversation)
         // 滑动 → 通知外部；外部改动（点图标）→ 滚过去。
         LaunchedEffect(pagerState.currentPage) {
             onPageChanged(pagerState.currentPage)
@@ -632,20 +633,6 @@ private fun AgentChatScaffold(
         LaunchedEffect(currentPage) {
             if (currentPage != pagerState.currentPage) {
                 pagerState.animateScrollToPage(currentPage)
-            }
-        }
-        // 页与会话的绑定：
-        // - 停在右页（纯聊天）时，当前会话是纯聊天会话；
-        // - 一旦离开右页，立刻切回原会话，中间页看到的始终是原来那条。
-        // 用 settledPage 而不是 currentPage：拖动过程中不切换会话，
-        // 避免半途换会话导致内容闪跳。
-        LaunchedEffect(pagerState.settledPage, conversationBeforeChatOnly) {
-            val onChatOnlyPage = pagerState.settledPage == ChatPage.CHAT_ONLY.ordinal
-            val restore = conversationBeforeChatOnly
-            if (!onChatOnlyPage && restore != null) {
-                // 离开了右页：恢复原会话。
-                if (restore != currentConversationId) currentOnRestore(restore)
-                conversationBeforeChatOnly = null
             }
         }
         androidx.compose.foundation.pager.HorizontalPager(
@@ -666,21 +653,18 @@ private fun AgentChatScaffold(
                             // 并且一旦判定不属于边缘手势就立刻不再消费事件——
                             // 之前无条件 consume() 会把「向右滑回对话页」也吃掉，
                             // 导致文件页滑不回中间页、整个 Pager 像卡死。
-                            // 必须在 Initial pass 监听：HorizontalPager 的 draggable
-                            // 在 Main pass 就把横向拖动消费掉了，子级默认收不到。
-                            // 用 Initial 抢先判定，只有确认是「边缘右滑」时才消费，
-                            // 其余情况完全不干预，Pager 照常翻页。
+                            // 文件页已是最左页（两页 Pager），向右滑本来就没有翻页行为，
+                            // 所以整页接管这个方向的手势，不再限定边缘起手——
+                            // 之前限制 24dp 边缘，实际很难划中。
                             .pointerInput(Unit) {
-                                val edgePx = 24.dp.toPx()
                                 awaitPointerEventScope {
                                     while (true) {
                                         val down = awaitPointerEvent(PointerEventPass.Initial)
                                             .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
                                             ?: continue
-                                        if (down.position.x > edgePx) continue
-                                        var triggered = false
                                         var totalX = 0f
                                         var totalY = 0f
+                                        var triggered = false
                                         while (true) {
                                             val event = awaitPointerEvent(PointerEventPass.Initial)
                                             val change = event.changes.firstOrNull { it.id == down.id }
@@ -690,11 +674,11 @@ private fun AgentChatScaffold(
                                             totalX += delta.x
                                             totalY += delta.y
                                             // 纵向意图更强：让给列表滚动。
-                                            if (!triggered && abs(totalY) > abs(totalX) && abs(totalY) > 12f) {
+                                            if (!triggered && abs(totalY) > abs(totalX) * 1.5f && abs(totalY) > 16f) {
                                                 break
                                             }
-                                            // 向右越过阈值：开侧栏并吃掉后续事件。
-                                            if (!triggered && totalX > 24f) {
+                                            // 向右拖动越过阈值就开侧栏（阈值放宽到 16dp）。
+                                            if (!triggered && totalX > 16f && totalX > abs(totalY)) {
                                                 triggered = true
                                                 onOpenConversationPane()
                                             }
@@ -765,74 +749,6 @@ private fun AgentChatScaffold(
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
-                    }
-                }
-                ChatPage.CHAT_ONLY -> {
-                    // 已经在纯聊天会话里（chatOnly）就直接渲染对话界面，
-                    // 停在右页也能正常聊天；否则渲染入口面板。
-                    if (chatOnly && hasMessages) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .captureGlassBackdrop(chatBackdrop)
-                                .then(couiCapture),
-                        ) {
-                            AgentConversationMessages(
-                                pendingAsk = pendingAsk,
-                                onAskEditingChanged = { askEditing = it },
-                                onAskAnswered = { answered ->
-                                    val answer = answered.answer
-                                    if (answer != null && !answer.skipped && answer.labels.isNotEmpty()) {
-                                        onBottomAnchorChanged(true)
-                                        onSubmit(answer.labels.joinToString("、"))
-                                    }
-                                },
-                                visibleMessages = visibleMessages,
-                                scrollState = scrollState,
-                                allTurns = allTurns,
-                                pendingJumpMessageId = pendingJumpMessageId,
-                                onJumpHandled = onJumpHandled,
-                                isStreaming = isStreaming,
-                                topInset = topInset,
-                                bottomInset = bottomPadding,
-                                keepBottomAnchored = keepBottomAnchored,
-                                onBottomAnchorChanged = onBottomAnchorChanged,
-                                onSuggestionClick = onSuggestionClick,
-                                onRunTraceClick = onRunTraceClick,
-                                onOpenBrowser = onOpenBrowser,
-                                onEditMessage = onEditMessage,
-                                onDeleteMessage = onDeleteMessage,
-                                onRegenerateMessage = onRegenerateMessage,
-                                onBranchMessage = onBranchMessage,
-                                onSelectReplyCandidate = onSelectReplyCandidate,
-                                onEditGeneratedImage = onAttachImage,
-                                messageActionsEnabled = !isStreaming && !isCompacting && !isBranching && messageEdit == null,
-                                editTargetMessageId = messageEdit?.targetMessageId,
-                                currentBrowserMessageId = currentBrowserMessageId,
-                                hasEarlierMessages = hasEarlierMessages,
-                                messageStartIndex = messageStartIndex,
-                                historyLoadState = historyLoadState,
-                                onLoadEarlierMessages = onLoadEarlierMessages,
-                                onHistoryViewportChanged = onHistoryViewportChanged,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-                    } else {
-                        ChatOnlyPage(
-                            onStartChatOnly = {
-                                // 记下切换前的会话，离开右页时恢复。
-                                conversationBeforeChatOnly = conversationId.takeIf { it.isNotBlank() }
-                                onNewChatOnlyConversation()
-                            },
-                            onGoToConversation = {
-                                pagerScope.launch {
-                                    pagerState.animateScrollToPage(ChatPage.CONVERSATION.ordinal)
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = topInset, bottom = bottomPadding),
-                        )
                     }
                 }
             }
