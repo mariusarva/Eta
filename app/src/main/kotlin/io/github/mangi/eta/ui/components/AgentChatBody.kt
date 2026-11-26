@@ -626,9 +626,6 @@ private fun AgentChatScaffold(
             pageCount = { ChatPage.entries.size },
         )
         val pagerScope = rememberCoroutineScope()
-        // 内层横向滚动（表格 / 代码块 / 公式）声明方向后，页级右滑手势必须让位，
-        // 否则长表格滑到最右后想滑回左边会被当成「打开侧栏」，表格完全不动（实测）。
-        val horizontalScrollLock = remember { HorizontalScrollLock() }
         // 滑动 → 通知外部；外部改动（点图标）→ 滚过去。
         LaunchedEffect(pagerState.currentPage) {
             onPageChanged(pagerState.currentPage)
@@ -660,42 +657,6 @@ private fun AgentChatScaffold(
                             .fillMaxSize()
                             .captureGlassBackdrop(chatBackdrop)
                             .then(couiCapture)
-                            // 对话页是最左页（索引 0），向右滑没有翻页行为，
-                            // 整页接管这个方向：向右拖 16dp 即打开侧边工作台。
-                            // 用 Initial pass 抢在 Pager 之前判定，纵向优先让给滚动。
-                            .pointerInput(Unit) {
-                                awaitPointerEventScope {
-                                    while (true) {
-                                        val down = awaitPointerEvent(PointerEventPass.Initial)
-                                            .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
-                                            ?: continue
-                                        var totalX = 0f
-                                        var totalY = 0f
-                                        var triggered = false
-                                        while (true) {
-                                            val event = awaitPointerEvent(PointerEventPass.Initial)
-                                            val change = event.changes.firstOrNull { it.id == down.id }
-                                                ?: break
-                                            if (!change.pressed) break
-                                            // 触摸落在表格 / 代码块 / 公式这类横向滚动容器上：
-                                            // 整段手势归它们，页级右滑不参与。
-                                            if (!triggered && horizontalScrollLock.dragging) break
-                                            val delta = change.position - change.previousPosition
-                                            totalX += delta.x
-                                            totalY += delta.y
-                                            // 纵向明显占优：让给消息列表滚动。
-                                            if (!triggered && abs(totalY) > abs(totalX) * 1.5f && abs(totalY) > 16f) {
-                                                break
-                                            }
-                                            if (!triggered && totalX > 24f && totalX > abs(totalY)) {
-                                                triggered = true
-                                                onOpenConversationPane()
-                                            }
-                                            if (triggered) change.consume()
-                                        }
-                                    }
-                                }
-                            },
                     ) {
                         if (!hasMessages) {
                             EmptyChatState(
@@ -706,9 +667,6 @@ private fun AgentChatScaffold(
                                     .padding(top = topInset, bottom = bottomPadding),
                             )
                         } else {
-                            CompositionLocalProvider(
-                                LocalHorizontalScrollLock provides horizontalScrollLock,
-                            ) {
                             AgentConversationMessages(
                                 pendingAsk = pendingAsk,
                                 onAskEditingChanged = { askEditing = it },
@@ -750,7 +708,6 @@ private fun AgentChatScaffold(
                                 onHistoryViewportChanged = onHistoryViewportChanged,
                                 modifier = Modifier.fillMaxSize(),
                             )
-                            }
                         }
                     }
                 }

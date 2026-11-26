@@ -129,6 +129,8 @@ internal fun AgentAppShell(
     isCurrentRoute: Boolean,
     conversationPaneState: ConversationPaneUiState?,
     isConversationPaneOpen: Boolean,
+    /** 首页当前页索引：0=对话页。只有对话页右滑才打开侧栏。 */
+    homePageIndex: Int = 0,
     onBack: () -> Unit,
     onOpenConversationPane: () -> Unit,
     onDismissConversationPane: () -> Unit,
@@ -302,6 +304,7 @@ internal fun AgentAppShell(
             ConversationSidePaneScaffold(
                 state = conversationPaneState,
                 visible = isConversationPaneOpen,
+                swipeToOpen = homePageIndex == 0,
                 backHandlerEnabled = isCurrentRoute,
                 onOpen = onOpenConversationPane,
                 onDismiss = onDismissConversationPane,

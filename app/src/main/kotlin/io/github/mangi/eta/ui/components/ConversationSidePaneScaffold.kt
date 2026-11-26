@@ -24,8 +24,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -68,6 +66,8 @@ private object ConversationPaneMetrics {
 internal fun ConversationSidePaneScaffold(
     state: ConversationPaneUiState,
     visible: Boolean,
+    /** 当前是否停在对话页；只有对话页右滑才打开侧栏，文件页右滑留给翻页。 */
+    swipeToOpen: Boolean = true,
     backHandlerEnabled: Boolean,
     onOpen: () -> Unit,
     onDismiss: () -> Unit,
@@ -136,19 +136,9 @@ internal fun ConversationSidePaneScaffold(
         val currentVisible by rememberUpdatedState(visible)
         val currentOnOpen by rememberUpdatedState(onOpen)
         val currentOnDismiss by rememberUpdatedState(onDismiss)
-        // 侧栏刚关闭的一小段时间内仍允许「右滑立即重开」。
-        // 退场动画期间侧栏面板还盖在左侧，触摸事件落不到对话页，
-        // 用户会以为第一次滑动失效、要滑两次才回得去（实测）。
-        var paneExiting by remember { mutableStateOf(false) }
-        LaunchedEffect(visible) {
-            if (!visible) {
-                paneExiting = true
-                kotlinx.coroutines.delay(420)
-                paneExiting = false
-            } else {
-                paneExiting = false
-            }
-        }
+        val currentSwipeToOpen by rememberUpdatedState(swipeToOpen)
+        // 内层横向滚动（表格 / 代码块 / 公式）方向声明：置位时这条全屏手势让位。
+        val horizontalScrollLock = remember { HorizontalScrollLock() }
         // 边缘横滑手势已移除：对话页三页 Pager 需要独占横向手势，
         // 侧栏改由顶栏历史按钮程序化开合。这里保留 isDragging 的恒 false 语义，
         // 让下方 conversationPaneSettledValues 仍按"已稳定"路径收敛。
@@ -196,6 +186,9 @@ internal fun ConversationSidePaneScaffold(
 
         LaunchedEffect(paneDragState) {
             conversationPaneSettledValues(paneDragState) { isDragging }.collectLatest { settledValue ->
+                // 动画途中 settledValue 仍是旧锚点，会和刚被置位的 visible 打架，
+                // 出现「刚打开又被关回去」，表现为第一次滑没反应、要滑两次（实测）。
+                if (settledValue != paneDragState.targetValue) return@collectLatest
                 val settledOpen = settledValue == ConversationPaneAnchor.Open
                 if (settledOpen != currentVisible) {
                     if (settledOpen) {
@@ -219,22 +212,28 @@ internal fun ConversationSidePaneScaffold(
             onBackCompleted = closePane,
         )
 
+        // 把横向滚动标记提供给会话内容里的表格 / 代码块 / 公式，
+        // 全屏右滑手势据此让位，不会把表格的横向拖动抢成「打开侧栏」。
+        CompositionLocalProvider(LocalHorizontalScrollLock provides horizontalScrollLock) {
         Box(
             modifier = Modifier.fillMaxSize()
                 .clipToBounds()
                 .background(conversationPaneContainerColor())
-                // 侧栏双向横滑：
+                // 侧栏双向横滑，挂在「侧栏面板 + 会话内容」的共同祖先上：
                 // · 展开时左滑 40dp 关闭；
-                // · 刚关闭的退场窗口内右滑 24dp 立即重开。
-                // 这个手势挂在「侧栏面板 + 会话内容」的共同祖先上，所以无论手指落在
-                // 正在退场的面板上还是会话区，都能收到事件；对话页自己的右滑手势在
-                // 面板覆盖左侧时收不到事件，这也正是「第一次滑不动」的成因。
+                // · 未展开时右滑 24dp 打开（仅对话页）。
+                // 状态只看 visible，不看退场动画的 offset，所以关掉之后不管动画走到哪，
+                // 第一次右滑就能重新打开；也不依赖焦点落在哪个子节点。
                 .pointerInput(Unit) {
                     awaitPointerEventScope {
                         while (true) {
                             val down = awaitPointerEvent(PointerEventPass.Initial)
                                 .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
                                 ?: continue
+                            android.util.Log.d(
+                                "EtaPaneSwipe",
+                                "down x=${down.position.x} visible=$currentVisible open=$currentSwipeToOpen hl=${horizontalScrollLock.isActive()}",
+                            )
                             var totalX = 0f
                             var totalY = 0f
                             var handled = false
@@ -247,26 +246,42 @@ internal fun ConversationSidePaneScaffold(
                                 totalX += delta.x
                                 totalY += delta.y
                                 if (!handled) {
-                                    if (!currentVisible) {
-                                        // 退场中：右滑重开，其余方向一律不干预。
-                                        if (paneExiting && totalX > 24f &&
-                                            totalX > kotlin.math.abs(totalY)
-                                        ) {
-                                            handled = true
-                                            currentOnOpen()
-                                        }
-                                    } else {
-                                        // 展开时：纵向占优让给侧栏列表滚动。
-                                        if (kotlin.math.abs(totalY) > kotlin.math.abs(totalX) * 1.5f &&
-                                            kotlin.math.abs(totalY) > 16f
-                                        ) {
-                                            break
-                                        }
+                                    // 方向锁定后再也不因纵向分量放弃：
+                                    // 起手几帧内 totalX 还很小，只要带一点纵向抖动就会被判成
+                                    // 「纵向滚动」整段放弃，表现为要滑两次才成功（实测）。
+                                    val horizontalDominant = kotlin.math.abs(totalX) > 14f &&
+                                        kotlin.math.abs(totalX) > kotlin.math.abs(totalY)
+                                    if (!horizontalDominant &&
+                                        kotlin.math.abs(totalY) > 16f &&
+                                        kotlin.math.abs(totalY) > kotlin.math.abs(totalX) * 1.5f
+                                    ) {
+                                        android.util.Log.d(
+                                            "EtaPaneSwipe",
+                                            "give up vertical dx=$totalX dy=$totalY",
+                                        )
+                                        break
+                                    }
+                                    if (currentVisible) {
                                         if (totalX < -40f &&
                                             kotlin.math.abs(totalX) > kotlin.math.abs(totalY)
                                         ) {
                                             handled = true
+                                            android.util.Log.d("EtaPaneSwipe", "close dx=$totalX")
                                             closePane()
+                                        }
+                                    } else if (currentSwipeToOpen && !horizontalScrollLock.isActive()) {
+                                        if (totalX > 18f && totalX > kotlin.math.abs(totalY)) {
+                                            handled = true
+                                            android.util.Log.d("EtaPaneSwipe", "open dx=$totalX")
+                                            currentOnOpen()
+                                            // 不依赖重组后的 LaunchedEffect：直接驱动锚点动画，
+                                            // 避免打开请求与退场动画互相顶。
+                                            scope.launch {
+                                                paneDragState.animateTo(
+                                                    ConversationPaneAnchor.Open,
+                                                    settleAnimation,
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -367,6 +382,7 @@ internal fun ConversationSidePaneScaffold(
                     page.placeWithLayer(offset, 0)
                 }
             }
+        }
         }
         if (fallbackTopLayer != null) {
             EtaTopLayerHost(fallbackTopLayer)
