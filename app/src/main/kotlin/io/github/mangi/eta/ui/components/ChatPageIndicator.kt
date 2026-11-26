@@ -9,9 +9,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Forum
+import androidx.compose.material.icons.rounded.MapsUgc
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,9 +39,12 @@ internal fun ChatPageIndicator(
     onSelectPage: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 复用项目里已有的图标，不引入新资源：
+    // Folder 用于工作文件夹（WorkspaceScreen 的目录图标）、
+    // MapsUgc 与 Forum 分别是顶栏菜单里「新建会话」与「纯聊天对话」的图标。
     val icons = listOf(
         Icons.Rounded.Folder to "工作文件夹",
-        Icons.Rounded.ChatBubbleOutline to "对话",
+        Icons.Rounded.MapsUgc to "对话",
         Icons.Rounded.Forum to "纯聊天",
     )
     Row(
