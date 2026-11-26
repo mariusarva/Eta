@@ -65,9 +65,21 @@ internal object PendingAskStore {
     @Volatile
     private var prefs: SharedPreferences? = null
 
+    /**
+     * 当前所有待答卡的变化流。
+     *
+     * 之前 UI 靠 `LaunchedEffect(conversationId, visibleMessages.size)` 重新读取，
+     * 但换卡时用户往往还没发新消息 → size 不变 → 不重跑 → 界面继续显示旧卡。
+     * 实测表现：模型发来一张多选卡，屏幕上还是上一张单选卡，点一下立即提交。
+     * 改成写入即推送，UI 直接订阅。
+     */
+    private val _pendings = kotlinx.coroutines.flow.MutableStateFlow<List<PendingAsk>>(emptyList())
+    val pendings: kotlinx.coroutines.flow.StateFlow<List<PendingAsk>> = _pendings
+
     fun init(context: Context) {
         if (prefs == null) {
             prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            _pendings.value = load()
         }
     }
 
@@ -88,11 +100,13 @@ internal object PendingAskStore {
         val store = prefs ?: return
         if (pendings.isEmpty()) {
             store.edit().remove(KEY).apply()
+            _pendings.value = emptyList()
             return
         }
         val array = JSONArray()
         pendings.forEach { array.put(write(it)) }
         store.edit().putString(KEY, array.toString()).apply()
+        _pendings.value = pendings
     }
 
     fun put(pending: PendingAsk) {

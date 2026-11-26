@@ -474,24 +474,15 @@ private fun AgentChatScaffold(
         appState?.let { CustomContinueHandler(it, customComposer, customContinueScope) }
     }
 
-    // 待答问题卡片的状态：提升到这里，bottomBar 和消息流共用同一份。
-    // 用 mutableStateOf 而不是 remember(key)：跳过只写落盘文件时两个 key 都不变，
-    // 不重组 → 卡片留在屏幕上（实测点了没反应）。
-    var pendingAsk by remember(conversationId) {
-        mutableStateOf(
-            if (conversationId.isBlank()) {
-                null
-            } else {
-                PendingAskStore.init(appContext)
-                PendingAskStore.forConversation(conversationId)
-            },
-        )
-    }
-    // 新消息到达时重新读一次：模型可能刚又提了新问题，或者上一次已作答。
-    LaunchedEffect(conversationId, visibleMessages.size) {
-        if (conversationId.isNotBlank()) {
-            pendingAsk = PendingAskStore.forConversation(conversationId)
-        }
+    // 待答问题卡片：直接订阅 Store 的变化流。
+    // 之前靠 LaunchedEffect(conversationId, visibleMessages.size) 重新读取，
+    // 但换卡时用户往往还没发新消息 → size 不变 → 不重跑 → 界面继续显示旧卡。
+    // 实测：模型发来多选卡，屏幕上还是上一张单选卡，点一下立即提交。
+    PendingAskStore.init(appContext)
+    val allPendings by PendingAskStore.pendings.collectAsState()
+    val pendingAsk: PendingAsk? = remember(allPendings, conversationId) {
+        if (conversationId.isBlank()) null
+        else allPendings.firstOrNull { it.conversationId == conversationId }
     }
     // 卡片内正在自由输入时收起底部输入栏：否则屏上会有两个可写区域。
     var askEditing by remember(conversationId) { mutableStateOf(false) }
@@ -629,7 +620,7 @@ private fun AgentChatScaffold(
                                 pendingAsk = pendingAsk,
                                 onAskEditingChanged = { askEditing = it },
                                 onAskAnswered = { answered ->
-                                    pendingAsk = answered
+                                    // 状态由 PendingAskStore.pendings 推回，这里只负责回灌消息。
                                     // 用户选了答案才算真的回了话；跳过不发消息。
                                     val answer = answered.answer
                                     if (answer != null && !answer.skipped && answer.labels.isNotEmpty()) {

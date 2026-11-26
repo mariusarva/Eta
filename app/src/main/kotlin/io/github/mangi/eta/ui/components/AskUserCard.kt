@@ -105,6 +105,31 @@ internal fun AskUserCard(
         onDispose { onEditingChanged(false) }
     }
 
+    // 已作答且已展开：顶部给一个显式折叠按钮。
+    // 之前展开后没有任何收起的入口，只能等页面重进才恢复折叠（实测反馈）。
+    if (ask.answer != null && expandedAfterAnswer) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(role = Role.Button, onClickLabel = "收起这张卡") {
+                        expandedAfterAnswer = false
+                    }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "收起",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
+        }
+    }
+
     if (ask.answer != null && !expandedAfterAnswer) {
         // 折叠态：一行答案摘要，点击展开完整卡片。
         val summary = if (ask.answer.skipped) {
