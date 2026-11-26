@@ -100,6 +100,7 @@ import io.github.mangi.eta.ui.components.coui.couiButtonFeedback
 import io.github.mangi.eta.ui.components.coui.rememberCouiPageBackdrop
 import io.github.mangi.eta.ui.layout.rememberFloatingBottomBarInsets
 import io.github.mangi.eta.ui.markdown.StreamingMarkdownStateCache
+import io.github.mangi.eta.agent.ask.AskAnswer
 import io.github.mangi.eta.agent.ask.PendingAskStore
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
@@ -472,6 +473,26 @@ private fun AgentChatScaffold(
         appState?.let { CustomContinueHandler(it, customComposer, customContinueScope) }
     }
 
+    // 待答问题卡片的状态：提升到这里，bottomBar 和消息流共用同一份。
+    // 用 mutableStateOf 而不是 remember(key)：跳过只写落盘文件时两个 key 都不变，
+    // 不重组 → 卡片留在屏幕上（实测点了没反应）。
+    var pendingAsk by remember(conversationId) {
+        mutableStateOf(
+            if (conversationId.isBlank()) {
+                null
+            } else {
+                PendingAskStore.init(appContext)
+                PendingAskStore.forConversation(conversationId)
+            },
+        )
+    }
+    // 新消息到达时重新读一次：模型可能刚又提了新问题，或者上一次已作答。
+    LaunchedEffect(conversationId, visibleMessages.size) {
+        if (conversationId.isNotBlank()) {
+            pendingAsk = PendingAskStore.forConversation(conversationId)
+        }
+    }
+
     CompositionLocalProvider(
         LocalCustomComposer provides customComposer,
         LocalCustomContinue provides customContinueHandler,
@@ -487,52 +508,9 @@ private fun AgentChatScaffold(
         ),
         bottomBar = {
             Column(modifier = Modifier.fillMaxWidth()) {
-            // 待答问题卡片：模型通过 ask_user 提问后出现，用户点选或跳过后消失。
-            // 用 mutableStateOf 承载而不是 remember(key)：
-            // 之前 key 是 (conversationId, visibleMessages.size)，跳过只删了落盘文件，
-            // 两个 key 都没变 → 不重组 → 卡片留在屏幕上（实测点了没反应）。
-            var pendingAsk by remember(conversationId) {
-                mutableStateOf(
-                    if (conversationId.isBlank()) {
-                        null
-                    } else {
-                        PendingAskStore.init(appContext)
-                        PendingAskStore.forConversation(conversationId)
-                    },
-                )
-            }
-            // 新消息到达时重新读一次：模型可能刚又提了新问题。
-            LaunchedEffect(conversationId, visibleMessages.size) {
-                if (conversationId.isNotBlank()) {
-                    pendingAsk = PendingAskStore.forConversation(conversationId)
-                }
-            }
-            val ask = pendingAsk
-            if (ask != null) {
-                AskUserCard(
-                    ask = ask,
-                    onChoose = { chosen ->
-                        val labels = ask.options
-                            .filter { it.id in chosen }
-                            .joinToString("、") { it.label }
-                        if (labels.isNotEmpty()) {
-                            PendingAskStore.remove(ask.token)
-                            pendingAsk = null
-                            onBottomAnchorChanged(true)
-                            onSubmit(labels)
-                        }
-                    },
-                    // 跳过：只收起卡片，不发任何消息，也不打断当前对话。
-                    onSkip = {
-                        PendingAskStore.remove(ask.token)
-                        pendingAsk = null
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 6.dp),
-                )
-            }
+            // 待答问题卡片已移到消息流内部（见下方 LazyColumn 的 ask-card item）：
+            // 之前挂在 bottomBar 上，未作答时会一直悬浮在输入框上方，挡住输入和阅读。
+            // 现在跟着内容滚动，答完也不消失，留在原位置供回看。
             // 展开的轮次面板放在这里，铺满整行（与改造前一致）。
             ChatTurnPanel(
                 messages = visibleMessages,
@@ -1105,6 +1083,35 @@ internal fun AgentConversationMessages(
                                 modifier = itemModifier,
                             )
                         }
+                    }
+                }
+                // 待答问题卡片作为消息流的一个条目，跟着内容滚动：
+                // 不再悬浮在输入框上方挡住输入和阅读；答完也不移除，留在原位置供回看。
+                pendingAsk?.let { ask ->
+                    item(key = "ask-card-${ask.token}") {
+                        AskUserCard(
+                            ask = ask,
+                            onChoose = { chosen ->
+                                val labels = ask.options
+                                    .filter { it.id in chosen }
+                                    .map { it.label }
+                                if (labels.isNotEmpty()) {
+                                    PendingAskStore.answer(
+                                        ask.token,
+                                        AskAnswer(labels = labels),
+                                    )
+                                    pendingAsk = PendingAskStore.find(ask.token)
+                                    onBottomAnchorChanged(true)
+                                    onSubmit(labels.joinToString("、"))
+                                }
+                            },
+                            // 跳过：只把卡片标成已跳过，不发任何消息，也不打断当前对话。
+                            onSkip = {
+                                PendingAskStore.answer(ask.token, AskAnswer(skipped = true))
+                                pendingAsk = PendingAskStore.find(ask.token)
+                            },
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        )
                     }
                 }
                 item(key = ChatBottomSentinelKey) {

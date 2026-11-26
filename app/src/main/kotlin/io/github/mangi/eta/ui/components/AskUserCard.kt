@@ -85,8 +85,11 @@ internal fun AskUserCard(
             )
         }
         Spacer(Modifier.height(8.dp))
+        // 已作答：把当时的选择固定显示出来，用户回滚时能看清自己选了什么。
+        val answered = ask.answer != null
+        val answeredIds = ask.answer?.labels.orEmpty().toSet()
         ask.options.forEach { option ->
-            val selected = option.id in picked
+            val selected = option.id in picked || option.label in answeredIds
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -102,7 +105,7 @@ internal fun AskUserCard(
                         },
                         shape = RoundedCornerShape(12.dp),
                     )
-                    .clickable {
+                    .clickable(enabled = !answered) {
                         if (multiple) {
                             picked = if (selected) picked - option.id else picked + option.id
                         } else {
@@ -145,8 +148,22 @@ internal fun AskUserCard(
                 }
             }
         }
+        if (answered) {
+            val resultText = if (ask.answer?.skipped == true) {
+                "已跳过"
+            } else {
+                "已选择：" + ask.answer?.labels.orEmpty().joinToString("、")
+            }
+            Text(
+                text = resultText,
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            return@Column
+        }
         // 底部动作行：多选时是「跳过 + 确认」，单选时只有「跳过」。
-        // 跳过不产生任何回答消息，只收起卡片——用户不想选时不该被迫二选一。
+        // 跳过不产生任何回答消息，只把卡片标成已跳过——用户不想选时不该被迫二选一。
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,

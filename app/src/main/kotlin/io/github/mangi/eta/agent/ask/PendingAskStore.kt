@@ -25,6 +25,28 @@ internal data class PendingAsk(
     val options: List<AskOption> = emptyList(),
     val allowMultiple: Boolean = false,
     val createdAtMillis: Long = System.currentTimeMillis(),
+    /**
+     * 已作答的结果；null 表示还等着用户回答。
+     *
+     * 答完不删记录，改成写这里：卡片继续留在消息流原位置，
+     * 用户回滚时还能看到自己选了什么。
+     */
+    val answer: AskAnswer? = null,
+) {
+    /** 是否已作答（选过或跳过）。 */
+    val answered: Boolean get() = answer != null
+}
+
+/**
+ * 一次作答的结果。
+ *
+ * [skipped] 与 [labels] 为空是两件事：跳过代表用户明确不回答，
+ * 空列表代表异常（正常不会出现）。UI 上要能区分这两种状态。
+ */
+internal data class AskAnswer(
+    val labels: List<String> = emptyList(),
+    val skipped: Boolean = false,
+    val answeredAtMillis: Long = System.currentTimeMillis(),
 )
 
 /**
@@ -82,6 +104,25 @@ internal object PendingAskStore {
         save(load().filterNot { it.token == token })
     }
 
+    /**
+     * 记录作答结果，但不删卡片。
+     *
+     * 卡片答完仍留在消息流里：用户往上翻时能看到自己当时选了什么。
+     * 只有会话被删除时才随 [removeConversation] 一起清掉。
+     */
+    fun answer(token: String, answer: AskAnswer) {
+        save(
+            load().map { pending ->
+                if (pending.token == token) pending.copy(answer = answer) else pending
+            },
+        )
+    }
+
+    /** 会话删除时清掉它的卡片，避免越积越多。 */
+    fun removeConversation(conversationId: String) {
+        save(load().filterNot { it.conversationId == conversationId })
+    }
+
     fun find(token: String): PendingAsk? = load().firstOrNull { it.token == token }
 
     fun forConversation(conversationId: String): PendingAsk? =
@@ -94,6 +135,15 @@ internal object PendingAskStore {
         .put("body", pending.body)
         .put("allowMultiple", pending.allowMultiple)
         .put("createdAtMillis", pending.createdAtMillis)
+        .put(
+            "answer",
+            pending.answer?.let { answer ->
+                JSONObject()
+                    .put("labels", JSONArray().also { array -> answer.labels.forEach(array::put) })
+                    .put("skipped", answer.skipped)
+                    .put("answeredAtMillis", answer.answeredAtMillis)
+            } ?: JSONObject.NULL,
+        )
         .put(
             "options",
             JSONArray().also { array ->
@@ -128,6 +178,17 @@ internal object PendingAskStore {
             options = options,
             allowMultiple = json.optBoolean("allowMultiple"),
             createdAtMillis = json.optLong("createdAtMillis"),
+            answer = json.optJSONObject("answer")?.let { answer ->
+                AskAnswer(
+                    labels = buildList {
+                        answer.optJSONArray("labels")?.let { array ->
+                            for (index in 0 until array.length()) add(array.optString(index))
+                        }
+                    },
+                    skipped = answer.optBoolean("skipped"),
+                    answeredAtMillis = answer.optLong("answeredAtMillis"),
+                )
+            },
         )
     }
 }
