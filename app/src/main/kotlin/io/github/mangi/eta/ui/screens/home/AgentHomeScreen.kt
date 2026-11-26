@@ -75,6 +75,7 @@ internal fun AgentHomeScreen(
                     currentPage = currentPage,
                     onPageChanged = onPageChanged,
                     onOpenConversationPane = onOpenConversationPane,
+                    chatOnly = state.chatOnly,
                     conversationId = conversationKey.orEmpty(),
                     messages = state.messages,
                     modelPickerState = modelPickerState,

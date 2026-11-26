@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
+import androidx.compose.ui.input.pointer.PointerEventPass
 import kotlin.math.abs
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -231,6 +233,8 @@ internal fun AgentChatBody(
     onPageChanged: (Int) -> Unit = {},
     /** 打开侧边工作台：文件浏览页左滑时用。 */
     onOpenConversationPane: () -> Unit = {},
+    /** 当前会话是否为纯聊天会话。 */
+    chatOnly: Boolean = false,
 ) {
     // 轮次导航读全库用户消息：消息本身是分页加载的，按已加载消息切轮次会让长会话少算前面的轮。
     val appContext = LocalContext.current.applicationContext
@@ -320,6 +324,7 @@ internal fun AgentChatBody(
             currentPage = currentPage,
             onPageChanged = onPageChanged,
             onOpenConversationPane = onOpenConversationPane,
+            chatOnly = chatOnly,
             allTurns = allTurns,
             pendingJumpMessageId = pendingJumpMessageId,
             onJumpHandled = { pendingJumpMessageId = null },
@@ -478,6 +483,8 @@ private fun AgentChatScaffold(
     onPageChanged: (Int) -> Unit = {},
     /** 打开侧边工作台：文件浏览页左滑时用。 */
     onOpenConversationPane: () -> Unit = {},
+    /** 当前会话是否为纯聊天会话。 */
+    chatOnly: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
@@ -527,7 +534,7 @@ private fun AgentChatScaffold(
             // 输入栏与轮次把手属于「对话页」，不随 Pager 滑动。
             // 之前无条件渲染：滑到文件页/纯聊天页时它仍停在原地，
             // 左下角的轮次把手看起来就是一块残留。
-            if (currentPage == ChatPage.CONVERSATION.ordinal) {
+            if (currentPage != ChatPage.WORKSPACE.ordinal) {
             Column(modifier = Modifier.fillMaxWidth()) {
             // 待答问题卡片已移到消息流内部（见下方 LazyColumn 的 ask-card item）：
             // 之前挂在 bottomBar 上，未作答时会一直悬浮在输入框上方，挡住输入和阅读。
@@ -627,19 +634,19 @@ private fun AgentChatScaffold(
                 pagerState.animateScrollToPage(currentPage)
             }
         }
-        // 回到中间页时恢复原会话。
-        // 之前只在 currentPage 变化时检查，但点「开始纯聊天」是同步赋值、
-        // 页面此时已经是中间页（animateScrollToPage 从右页回到中间），
-        // 赋值瞬间 currentPage 没变 → 不重跑 → 恢复逻辑被跳过。
-        // 这里同时观察 conversationBeforeChatOnly，任一变化都尝试恢复。
-        LaunchedEffect(pagerState.currentPage, conversationBeforeChatOnly) {
-            if (pagerState.currentPage != ChatPage.CONVERSATION.ordinal) return@LaunchedEffect
-            val restore = conversationBeforeChatOnly ?: return@LaunchedEffect
-            // 已经切到纯聊天会话（当前 id 变了）才需要恢复；否则保持原样。
-            if (restore != currentConversationId) {
-                currentOnRestore(restore)
+        // 页与会话的绑定：
+        // - 停在右页（纯聊天）时，当前会话是纯聊天会话；
+        // - 一旦离开右页，立刻切回原会话，中间页看到的始终是原来那条。
+        // 用 settledPage 而不是 currentPage：拖动过程中不切换会话，
+        // 避免半途换会话导致内容闪跳。
+        LaunchedEffect(pagerState.settledPage, conversationBeforeChatOnly) {
+            val onChatOnlyPage = pagerState.settledPage == ChatPage.CHAT_ONLY.ordinal
+            val restore = conversationBeforeChatOnly
+            if (!onChatOnlyPage && restore != null) {
+                // 离开了右页：恢复原会话。
+                if (restore != currentConversationId) currentOnRestore(restore)
+                conversationBeforeChatOnly = null
             }
-            conversationBeforeChatOnly = null
         }
         androidx.compose.foundation.pager.HorizontalPager(
             state = pagerState,
@@ -659,34 +666,40 @@ private fun AgentChatScaffold(
                             // 并且一旦判定不属于边缘手势就立刻不再消费事件——
                             // 之前无条件 consume() 会把「向右滑回对话页」也吃掉，
                             // 导致文件页滑不回中间页、整个 Pager 像卡死。
+                            // 必须在 Initial pass 监听：HorizontalPager 的 draggable
+                            // 在 Main pass 就把横向拖动消费掉了，子级默认收不到。
+                            // 用 Initial 抢先判定，只有确认是「边缘右滑」时才消费，
+                            // 其余情况完全不干预，Pager 照常翻页。
                             .pointerInput(Unit) {
                                 val edgePx = 24.dp.toPx()
-                                awaitEachGesture {
-                                    val down = awaitFirstDown(requireUnconsumed = false)
-                                    if (down.position.x > edgePx) return@awaitEachGesture
-                                    var triggered = false
-                                    var totalX = 0f
-                                    var totalY = 0f
+                                awaitPointerEventScope {
                                     while (true) {
-                                        val event = awaitPointerEvent()
-                                        val change = event.changes.firstOrNull { it.id == down.id }
-                                            ?: break
-                                        if (!change.pressed) break
-                                        // 本仓库 Compose 版本的 positionChange 是布尔标志，
-                                        // 位移用 position - previousPosition 自己算。
-                                        val delta = change.position - change.previousPosition
-                                        totalX += delta.x
-                                        totalY += delta.y
-                                        // 纵向意图更强：让给列表滚动，退出接管。
-                                        if (!triggered && abs(totalY) > abs(totalX) && abs(totalY) > 12f) {
-                                            return@awaitEachGesture
+                                        val down = awaitPointerEvent(PointerEventPass.Initial)
+                                            .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
+                                            ?: continue
+                                        if (down.position.x > edgePx) continue
+                                        var triggered = false
+                                        var totalX = 0f
+                                        var totalY = 0f
+                                        while (true) {
+                                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                                            val change = event.changes.firstOrNull { it.id == down.id }
+                                                ?: break
+                                            if (!change.pressed) break
+                                            val delta = change.position - change.previousPosition
+                                            totalX += delta.x
+                                            totalY += delta.y
+                                            // 纵向意图更强：让给列表滚动。
+                                            if (!triggered && abs(totalY) > abs(totalX) && abs(totalY) > 12f) {
+                                                break
+                                            }
+                                            // 向右越过阈值：开侧栏并吃掉后续事件。
+                                            if (!triggered && totalX > 24f) {
+                                                triggered = true
+                                                onOpenConversationPane()
+                                            }
+                                            if (triggered) change.consume()
                                         }
-                                        // 向右拖动且已越过阈值：开侧栏并吃掉后续事件。
-                                        if (!triggered && totalX > 24f) {
-                                            triggered = true
-                                            onOpenConversationPane()
-                                        }
-                                        if (triggered) change.consume()
                                     }
                                 }
                             },
@@ -755,24 +768,72 @@ private fun AgentChatScaffold(
                     }
                 }
                 ChatPage.CHAT_ONLY -> {
-                    ChatOnlyPage(
-                        onStartChatOnly = {
-                            // 记下切换前的会话，滑回中间页时恢复。
-                            conversationBeforeChatOnly = conversationId.takeIf { it.isNotBlank() }
-                            onNewChatOnlyConversation()
-                            // 留在右页：用户是「右滑进入纯聊天窗口」，切走会话就跳回中间页
-                            // 会让这次滑动看起来没生效，也和白页的语义冲突。
-                            // 中间页的内容已经换成纯聊天会话，滑回去即可开始打字。
-                        },
-                        onGoToConversation = {
-                            pagerScope.launch {
-                                pagerState.animateScrollToPage(ChatPage.CONVERSATION.ordinal)
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = topInset, bottom = bottomPadding),
-                    )
+                    // 已经在纯聊天会话里（chatOnly）就直接渲染对话界面，
+                    // 停在右页也能正常聊天；否则渲染入口面板。
+                    if (chatOnly && hasMessages) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .captureGlassBackdrop(chatBackdrop)
+                                .then(couiCapture),
+                        ) {
+                            AgentConversationMessages(
+                                pendingAsk = pendingAsk,
+                                onAskEditingChanged = { askEditing = it },
+                                onAskAnswered = { answered ->
+                                    val answer = answered.answer
+                                    if (answer != null && !answer.skipped && answer.labels.isNotEmpty()) {
+                                        onBottomAnchorChanged(true)
+                                        onSubmit(answer.labels.joinToString("、"))
+                                    }
+                                },
+                                visibleMessages = visibleMessages,
+                                scrollState = scrollState,
+                                allTurns = allTurns,
+                                pendingJumpMessageId = pendingJumpMessageId,
+                                onJumpHandled = onJumpHandled,
+                                isStreaming = isStreaming,
+                                topInset = topInset,
+                                bottomInset = bottomPadding,
+                                keepBottomAnchored = keepBottomAnchored,
+                                onBottomAnchorChanged = onBottomAnchorChanged,
+                                onSuggestionClick = onSuggestionClick,
+                                onRunTraceClick = onRunTraceClick,
+                                onOpenBrowser = onOpenBrowser,
+                                onEditMessage = onEditMessage,
+                                onDeleteMessage = onDeleteMessage,
+                                onRegenerateMessage = onRegenerateMessage,
+                                onBranchMessage = onBranchMessage,
+                                onSelectReplyCandidate = onSelectReplyCandidate,
+                                onEditGeneratedImage = onAttachImage,
+                                messageActionsEnabled = !isStreaming && !isCompacting && !isBranching && messageEdit == null,
+                                editTargetMessageId = messageEdit?.targetMessageId,
+                                currentBrowserMessageId = currentBrowserMessageId,
+                                hasEarlierMessages = hasEarlierMessages,
+                                messageStartIndex = messageStartIndex,
+                                historyLoadState = historyLoadState,
+                                onLoadEarlierMessages = onLoadEarlierMessages,
+                                onHistoryViewportChanged = onHistoryViewportChanged,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    } else {
+                        ChatOnlyPage(
+                            onStartChatOnly = {
+                                // 记下切换前的会话，离开右页时恢复。
+                                conversationBeforeChatOnly = conversationId.takeIf { it.isNotBlank() }
+                                onNewChatOnlyConversation()
+                            },
+                            onGoToConversation = {
+                                pagerScope.launch {
+                                    pagerState.animateScrollToPage(ChatPage.CONVERSATION.ordinal)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = topInset, bottom = bottomPadding),
+                        )
+                    }
                 }
             }
         }
