@@ -85,6 +85,28 @@ internal object WorkspaceRoot {
         return if (relative.isEmpty()) root.absolutePath else File(root, relative).absolutePath
     }
 
+    /**
+     * 校验一个手输的绝对路径能否作为工作目录。
+     *
+     * 手动输入是必要的：Android 11+ 的 SAF 不允许把存储根目录
+     * （/storage/emulated/0 本身）选成 tree，只能选它的子目录。
+     * 想直接用存储根当工作区，只能手输。
+     *
+     * 返回 null 表示可用，否则返回失败原因（直接给用户看）。
+     */
+    fun validateManualPath(path: String): String? {
+        val trimmed = path.trim()
+        if (trimmed.isEmpty()) return "EMPTY"
+        if (!trimmed.startsWith('/')) return "NOT_ABSOLUTE"
+        if (trimmed.split('/').any { it == ".." }) return "HAS_PARENT_REF"
+        val dir = File(trimmed)
+        if (!dir.exists()) return "NOT_EXIST"
+        if (!dir.isDirectory) return "NOT_DIRECTORY"
+        // 可读即可用；可写性在真正写入时再校验，避免只读挂载点被直接拒掉。
+        if (!dir.canRead()) return "NOT_READABLE"
+        return null
+    }
+
     /** 写入设置；传空串表示恢复默认。 */
     fun save(context: Context, path: String) {
         runCatching {

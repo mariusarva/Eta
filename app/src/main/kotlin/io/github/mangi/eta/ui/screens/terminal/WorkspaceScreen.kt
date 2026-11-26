@@ -1,5 +1,14 @@
 package io.github.mangi.eta.ui.screens.terminal
 
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
@@ -83,6 +92,10 @@ internal fun WorkspacePanelContent(
     // 自定义工作目录：切换后要重建 store 并回到根目录，否则列表还停在旧目录的相对路径上。
     var workspaceRootVersion by remember { mutableIntStateOf(0) }
     var customRoot by remember { mutableStateOf(WorkspaceRoot.custom(context)) }
+    // 手动输入路径：Android 11+ 的 SAF 不允许把存储根（/storage/emulated/0 本身）
+    // 选成 tree，只能选子目录；想直接用存储根当工作区必须手输。
+    var manualOpen by remember { mutableStateOf(false) }
+    var manualText by remember { mutableStateOf("") }
     val store = remember(context.applicationContext, workspaceRootVersion) { WorkspaceFileStore(context) }
     val scope = rememberCoroutineScope()
     var path by rememberSaveable { mutableStateOf("") }
@@ -220,6 +233,82 @@ internal fun WorkspacePanelContent(
                             onClick = { rootPicker.launch(null) },
                         )
                     }
+                    item {
+                        CouiPreference(
+                            title = stringResource(R.string.capability_workspace_root_manual),
+                            onClick = { manualOpen = !manualOpen; manualText = customRoot },
+                        )
+                    }
+                    if (manualOpen) {
+                        item {
+                            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                                BasicTextField(
+                                    value = manualText,
+                                    onValueChange = { manualText = it.take(400) },
+                                    singleLine = true,
+                                    textStyle = TextStyle(
+                                        color = MiuixTheme.colorScheme.onSurface,
+                                        fontSize = 15.sp,
+                                    ),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    decorationBox = { inner ->
+                                        if (manualText.isEmpty()) {
+                                            Text(
+                                                text = stringResource(R.string.capability_workspace_root_manual_hint),
+                                                style = MiuixTheme.textStyles.footnote1,
+                                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                            )
+                                        }
+                                        inner()
+                                    },
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                ) {
+                                    TextButton(
+                                        text = stringResource(R.string.capability_workspace_root_cancel),
+                                        onClick = { manualOpen = false },
+                                        minWidth = 0.dp,
+                                        minHeight = 34.dp,
+                                        insideMargin = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                        colors = ButtonDefaults.textButtonColors(),
+                                    )
+                                    TextButton(
+                                        text = stringResource(R.string.capability_workspace_root_confirm),
+                                        onClick = {
+                                            val error = WorkspaceRoot.validateManualPath(manualText)
+                                            if (error != null) {
+                                                message = WorkspaceMessage(
+                                                    resources.getString(
+                                                        R.string.capability_workspace_root_manual_invalid,
+                                                        manualText.trim(),
+                                                    ),
+                                                    isError = true,
+                                                )
+                                            } else {
+                                                val target = manualText.trim()
+                                                WorkspaceRoot.save(context, target)
+                                                customRoot = target
+                                                manualOpen = false
+                                                path = ""
+                                                revision++
+                                                workspaceRootVersion++
+                                                message = WorkspaceMessage(
+                                                    resources.getString(R.string.capability_workspace_root_applied, target),
+                                                    isError = false,
+                                                )
+                                            }
+                                        },
+                                        minWidth = 0.dp,
+                                        minHeight = 34.dp,
+                                        insideMargin = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                                    )
+                                }
+                            }
+                        }
+                    }
                     if (customRoot.isNotBlank()) {
                         item {
                             CouiPreference(
@@ -246,6 +335,78 @@ internal fun WorkspacePanelContent(
                         summary = rootSummary,
                         onClick = { rootPicker.launch(null) },
                     )
+                    ArrowPreference(
+                        title = stringResource(R.string.capability_workspace_root_manual),
+                        onClick = { manualOpen = !manualOpen; manualText = customRoot },
+                    )
+                    if (manualOpen) {
+                        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                            BasicTextField(
+                                value = manualText,
+                                onValueChange = { manualText = it.take(400) },
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    color = MiuixTheme.colorScheme.onSurface,
+                                    fontSize = 15.sp,
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                                decorationBox = { inner ->
+                                    if (manualText.isEmpty()) {
+                                        Text(
+                                            text = stringResource(R.string.capability_workspace_root_manual_hint),
+                                            style = MiuixTheme.textStyles.footnote1,
+                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                        )
+                                    }
+                                    inner()
+                                },
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                TextButton(
+                                    text = stringResource(R.string.capability_workspace_root_cancel),
+                                    onClick = { manualOpen = false },
+                                    minWidth = 0.dp,
+                                    minHeight = 34.dp,
+                                    insideMargin = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                    colors = ButtonDefaults.textButtonColors(),
+                                )
+                                TextButton(
+                                    text = stringResource(R.string.capability_workspace_root_confirm),
+                                    onClick = {
+                                        val error = WorkspaceRoot.validateManualPath(manualText)
+                                        if (error != null) {
+                                            message = WorkspaceMessage(
+                                                resources.getString(
+                                                    R.string.capability_workspace_root_manual_invalid,
+                                                    manualText.trim(),
+                                                ),
+                                                isError = true,
+                                            )
+                                        } else {
+                                            val target = manualText.trim()
+                                            WorkspaceRoot.save(context, target)
+                                            customRoot = target
+                                            manualOpen = false
+                                            path = ""
+                                            revision++
+                                            workspaceRootVersion++
+                                            message = WorkspaceMessage(
+                                                resources.getString(R.string.capability_workspace_root_applied, target),
+                                                isError = false,
+                                            )
+                                        }
+                                    },
+                                    minWidth = 0.dp,
+                                    minHeight = 34.dp,
+                                    insideMargin = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                                )
+                            }
+                        }
+                    }
                     if (customRoot.isNotBlank()) {
                         ArrowPreference(
                             title = resetLabel,

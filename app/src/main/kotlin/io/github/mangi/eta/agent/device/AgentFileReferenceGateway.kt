@@ -195,7 +195,9 @@ internal class AgentFileReferenceGateway(
         )
 
         internal fun importDocumentUri(context: Context, uri: Uri): Resolution {
-            val workspace = TerminalPrivateStorage.workspace(context.filesDir)
+            // 跟随用户自定义的工作目录：否则导入的文件会落在私有目录里，
+            // 文件区切到 SDcard 后看不到它们。
+            val workspace = io.github.mangi.eta.agent.terminal.WorkspaceRoot.resolve(context)
             val importDirectory = File(workspace, "imports/${UUID.randomUUID()}")
             var completed = false
             return try {
