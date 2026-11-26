@@ -2,6 +2,7 @@ package io.github.mangi.eta.ui.markdown
 
 import androidx.compose.foundation.OverscrollEffect
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -43,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -60,8 +62,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.LinkInteractionListener
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -256,11 +256,27 @@ private fun MarkdownText(
         )
     }
     val reveal = scope.reveal
-    // 行内代码形态的绝对路径做成可点击链接：点名 MT 管理器 / 系统打开。
+    // 行内代码形态的绝对路径做成可点击：点名 MT 管理器 / 系统打开。
+    // miuix 的 Text 不支持 LinkInteractionListener，所以用 pointerInput + 命中位置判断。
     val context = LocalContext.current
-    val pathLinkListener = LinkInteractionListener { link ->
-        if (link is LinkAnnotation.Clickable) {
-            MarkdownPathLinks.open(context, link.tag as? String ?: return@LinkInteractionListener)
+    val pathRanges = remember(block.text) {
+        PATH_PATTERN.findAll(block.text.text).mapNotNull { match ->
+            val range = match.range
+            MarkdownPathLinks.resolve(block.text.text.substring(range))?.let { range }
+        }.toList()
+    }
+    var textLayout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+    val pathTapModifier = if (pathRanges.isEmpty()) {
+        Modifier
+    } else {
+        Modifier.pointerInput(pathRanges) {
+            detectTapGestures { position ->
+                val layout = textLayout ?: return@detectTapGestures
+                val offset = layout.getOffsetForPosition(position)
+                pathRanges.firstOrNull { offset in it }?.let { range ->
+                    MarkdownPathLinks.open(context, block.text.text.substring(range).trim())
+                }
+            }
         }
     }
     // 空单元格没有可显现的文字，也不占用显现协调器的 key。
@@ -270,8 +286,8 @@ private fun MarkdownText(
             style = style,
             softWrap = softWrap,
             inlineContent = inlineContent,
-            modifier = modifier,
-            linkInteractionListener = pathLinkListener,
+            modifier = modifier.then(pathTapModifier),
+            onTextLayout = { textLayout = it },
         )
         return
     }
@@ -290,9 +306,11 @@ private fun MarkdownText(
         style = animatedStyle,
         softWrap = softWrap,
         inlineContent = inlineContent,
-        modifier = modifier.smoothTextReveal(revealState),
-        onTextLayout = { layout -> revealState.onTextLayout(block.text.text, layout, atomicSpans) },
-        linkInteractionListener = pathLinkListener,
+        modifier = modifier.smoothTextReveal(revealState).then(pathTapModifier),
+        onTextLayout = { layout ->
+            textLayout = layout
+            revealState.onTextLayout(block.text.text, layout, atomicSpans)
+        },
     )
 }
 
@@ -793,3 +811,6 @@ private val MarkdownColumnAlign.textAlign: TextAlign
 
 private val TableMinColumnWidth = 72.dp
 private val TableMaxColumnWidth = 260.dp
+
+/** 匹配行内代码形态的绝对路径（常见可打开扩展名），再由 MarkdownPathLinks.resolve 校验存在性。 */
+private val PATH_PATTERN = Regex("""/[^\s`<>"]+\.(?:apk|zip|pdf|png|jpg|jpeg|webp|gif|bmp|heic|txt|log|json|xml|csv|ini|conf|md|kt|java|py|sh|js|ts|css|html|yml|yaml|mp4|mkv|webm|mp3|m4a|wav|ogg|flac)\b""", RegexOption.IGNORE_CASE)
