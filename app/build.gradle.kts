@@ -46,9 +46,14 @@ android {
         // 这样每次发版 versionCode 都严格递增（之前固定成常量，装完新包版本号看起来反而"退回"了）。
         // 发版时通过 -Peta.forkVersion=N 传入（CI 的 workflow_dispatch 参数）。
         val forkVersion = (providers.gradleProperty("eta.forkVersion").orNull ?: "0").toIntOrNull() ?: 0
-        versionCode = 2026112100 + forkVersion
+        // 3.5 起换了新的 versionCode 基准：必须严格大于上一代最后发版值
+        // （3.4.4-fork.185 = 2026112285），所以基准取 2026113000。
+        // 以后再升大版本时，同样只换这里的基准，保证单调递增。
+        val forkBaseCode = 2026113000
+        val forkBaseName = "3.5"
+        versionCode = forkBaseCode + forkVersion
         // fork 序号也参与「检查更新」比较：上游版本相同时靠它判断本 fork 是否有新版。
-        versionName = "3.4.4-fork.$forkVersion"
+        versionName = "$forkBaseName-fork.$forkVersion"
 
         ndk {
             // 同时过滤本地与依赖 AAR 的原生库，确保 APK 仅包含 ARM64。
