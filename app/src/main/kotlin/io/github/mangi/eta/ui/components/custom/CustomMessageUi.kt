@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -42,6 +43,10 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.mangi.eta.data.model.AppearanceUiStyle
+import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.suqi8.coui.kmp.theme.COUITheme as CouiTheme
 
 internal data class MessageMenuAction(
     val title: String,
@@ -62,6 +67,16 @@ internal fun CustomMessageMenuDialog(
 ) {
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
+    // 两个主题各自的明暗判断：COUI 走它自己的 isDark，MIUIX 看当前 surface 亮度。
+    // 之前这里写死 0xFFF4F4F7 / 0xFF202020，夜间模式弹出来还是一张白卡。
+    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val menuDark = if (isCoui) {
+        CouiTheme.isDark
+    } else {
+        MiuixTheme.colorScheme.surface.luminance() < 0.5f
+    }
+    val menuBackground = if (menuDark) Color(0xFF23262E) else Color(0xFFF4F4F7)
+    val menuForeground = if (menuDark) Color(0xFFE9E9EC) else Color(0xFF202020)
     val measurer = rememberTextMeasurer()
     val textStyle = TextStyle(
         fontSize = 16.sp, lineHeight = 20.sp, letterSpacing = 0.sp,
@@ -100,15 +115,20 @@ internal fun CustomMessageMenuDialog(
         Column(
             modifier = Modifier.width(width)
                 .heightIn(max = (configuration.screenHeightDp * 0.75f).dp)
-                .shadow(8.dp, RoundedCornerShape(24.dp))
+                .shadow(
+                    8.dp,
+                    RoundedCornerShape(24.dp),
+                    ambientColor = if (menuDark) Color.Black.copy(alpha = 0.55f) else Color.Black.copy(alpha = 0.18f),
+                    spotColor = if (menuDark) Color.Black.copy(alpha = 0.55f) else Color.Black.copy(alpha = 0.18f),
+                )
                 .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFFF4F4F7))
+                .background(menuBackground)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             actions.forEach { action ->
-                val tint = Color(0xFF202020).copy(alpha = if (action.unavailable == null) 1f else 0.45f)
+                val tint = menuForeground.copy(alpha = if (action.unavailable == null) 1f else 0.45f)
                 Row(
                     modifier = Modifier.fillMaxWidth()
                         .semantics { action.unavailable?.let { stateDescription = "不可用：$it" } }
