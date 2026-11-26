@@ -88,7 +88,7 @@ internal class WorkspaceFileStore(
         var offset = 0
         var revision: String? = null
         do {
-            ensureActive()
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             val page = backend.list(directory, offset, 200, revision)
             revision = page.revision
             page.entries.filter { it.kind == FileToolKind.FILE || it.kind == FileToolKind.DIRECTORY }
