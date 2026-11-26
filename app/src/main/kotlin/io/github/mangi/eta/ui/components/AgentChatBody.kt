@@ -734,8 +734,9 @@ internal fun AgentConversationMessages(
 ) {
     // 上一版条目只作复用比对，不参与组合观察。
     val timelineCache = remember { TimelineEntriesCache() }
-    val timelineEntries = remember(visibleMessages) {
+    val timelineEntries = remember(visibleMessages, pendingAsk) {
         visibleMessages.toTimelineEntries(previous = timelineCache.entries)
+            .insertAskCard(pendingAsk)
     }
     SideEffect { timelineCache.entries = timelineEntries }
 
@@ -1105,41 +1106,38 @@ internal fun AgentConversationMessages(
                                 modifier = itemModifier,
                             )
                         }
-                    }
-                }
-                // 待答问题卡片作为消息流的一个条目，跟着内容滚动：
-                // 不再悬浮在输入框上方挡住输入和阅读；答完也不移除，留在原位置供回看。
-                pendingAsk?.let { ask ->
-                    item(key = "ask-card-${ask.token}") {
-                        AskUserCard(
-                            ask = ask,
-                            onChoose = { chosen ->
-                                val labels = ask.options
-                                    .filter { it.id in chosen }
-                                    .map { it.label }
-                                if (labels.isNotEmpty()) {
-                                    val answered = ask.copy(answer = AskAnswer(labels = labels))
-                                    PendingAskStore.answer(ask.token, AskAnswer(labels = labels))
-                                    onAskAnswered(answered)
-                                }
-                            },
-                            // 自定义回答：用户自己写的内容 + 同时勾中的选项，一起作为答复提交。
-                            onChooseFreeform = { text, extraIds ->
-                                val extraLabels = ask.options.filter { it.id in extraIds }.map { it.label }
-                                val labels = extraLabels + text
-                                val answer = AskAnswer(labels = labels)
-                                PendingAskStore.answer(ask.token, answer)
-                                onAskAnswered(ask.copy(answer = answer))
-                            },
-                            // 卡内输入时通知宿主收起底部输入框，避免两个输入框同时在场。
-                            onEditingChanged = onAskEditingChanged,
-                            // 跳过：只把卡片标成已跳过，不发任何消息，也不打断当前对话。
-                            onSkip = {
-                                PendingAskStore.answer(ask.token, AskAnswer(skipped = true))
-                                onAskAnswered(ask.copy(answer = AskAnswer(skipped = true)))
-                            },
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        )
+
+                        is AgentTimelineEntry.Ask -> {
+                            val ask = entry.ask
+                            AskUserCard(
+                                ask = ask,
+                                onChoose = { chosen ->
+                                    val labels = ask.options
+                                        .filter { it.id in chosen }
+                                        .map { it.label }
+                                    if (labels.isNotEmpty()) {
+                                        val answer = AskAnswer(labels = labels)
+                                        PendingAskStore.answer(ask.token, answer)
+                                        onAskAnswered(ask.copy(answer = answer))
+                                    }
+                                },
+                                // 自定义回答：用户自己写的内容 + 同时勾中的选项，一起作为答复提交。
+                                onChooseFreeform = { text, extraIds ->
+                                    val extraLabels = ask.options.filter { it.id in extraIds }.map { it.label }
+                                    val answer = AskAnswer(labels = extraLabels + text)
+                                    PendingAskStore.answer(ask.token, answer)
+                                    onAskAnswered(ask.copy(answer = answer))
+                                },
+                                // 卡内输入时通知宿主收起底部输入框，避免两个输入框同时在场。
+                                onEditingChanged = onAskEditingChanged,
+                                // 跳过：只把卡片标成已跳过，不发任何消息，也不打断当前对话。
+                                onSkip = {
+                                    PendingAskStore.answer(ask.token, AskAnswer(skipped = true))
+                                    onAskAnswered(ask.copy(answer = AskAnswer(skipped = true)))
+                                },
+                                modifier = itemModifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            )
+                        }
                     }
                 }
                 item(key = ChatBottomSentinelKey) {
@@ -1275,6 +1273,18 @@ internal sealed interface AgentTimelineEntry {
         override val key: String,
         val messages: List<AgentChatMessageUi>,
     ) : AgentTimelineEntry
+
+    /**
+     * 提问卡：按创建时间插进消息流，而不是永远挂在末尾。
+     *
+     * 之前固定挂在最后，用户发起新一轮对话后它仍跟在新消息下面，
+     * 看起来像是这一轮的新内容。
+     */
+    data class Ask(
+        val ask: PendingAsk,
+    ) : AgentTimelineEntry {
+        override val key: String = "ask-card-${ask.token}"
+    }
 }
 
 /**
@@ -1316,9 +1326,34 @@ internal fun List<AgentChatMessageUi>.toTimelineEntries(
     flushWorkProcess()
 }
 
+/**
+ * 把提问卡按创建时间插进消息流，而不是永远挂在末尾。
+ *
+ * 规则：找到第一条 createdAtMillis 严格大于卡片时间的消息，插在它前面；
+ * 没有更晚的就追加到末尾。时间戳为 0（旧数据）的消息视为最早，不参与比较。
+ *
+ * 之前卡片固定挂最后，用户发起新一轮对话后它仍跟在新消息下面，
+ * 看起来像是这一轮的新内容。
+ */
+internal fun List<AgentTimelineEntry>.insertAskCard(ask: PendingAsk?): List<AgentTimelineEntry> {
+    if (ask == null) return this
+    val card = AgentTimelineEntry.Ask(ask)
+    if (any { it is AgentTimelineEntry.Ask && it.ask.token == ask.token }) return this
+    val insertAt = indexOfFirst { entry ->
+        val createdAt = when (entry) {
+            is AgentTimelineEntry.Message -> entry.message.createdAtMillis
+            is AgentTimelineEntry.WorkProcess -> entry.messages.firstOrNull()?.createdAtMillis ?: 0L
+            is AgentTimelineEntry.Ask -> 0L
+        }
+        createdAt > 0L && createdAt > ask.createdAtMillis
+    }
+    return if (insertAt < 0) this + card else take(insertAt) + card + drop(insertAt)
+}
+
 private fun AgentTimelineEntry.contentType(): Any = when (this) {
     is AgentTimelineEntry.WorkProcess -> AgentTimelineEntry.WorkProcess::class
     is AgentTimelineEntry.Message -> message::class
+    is AgentTimelineEntry.Ask -> AgentTimelineEntry.Ask::class
 }
 
 private fun AgentChatMessageUi.isWorkProcessMessage(): Boolean =

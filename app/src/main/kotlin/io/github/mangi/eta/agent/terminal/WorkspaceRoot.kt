@@ -17,7 +17,9 @@ import java.io.File
  * - [TerminalRuntime.userWorkspacePath] 的 user 身份默认 cwd
  * - 设置页的「工作目录」展示
  *
- * root 身份不经过这里，固定 [TerminalRuntime.ROOT_WORKSPACE_PATH]。
+ * root 身份走 [resolveRoot]：兜底是 [TerminalRuntime.ROOT_WORKSPACE_PATH]，
+ * 但用户自定义时同样跟随。`.busybox` 安装位置不在这里，见
+ * [TerminalRuntime.BUSYBOX_APPLET_DIR_FALLBACK]。
  */
 internal object WorkspaceRoot {
 
@@ -35,11 +37,24 @@ internal object WorkspaceRoot {
         return if (dir.isDirectory && dir.canRead()) configured else ""
     }
 
-    /** 实际生效的工作目录。 */
+    /** 实际生效的工作目录（user 身份与文件区）。 */
     fun resolve(context: Context): File {
         val custom = custom(context)
         if (custom.isNotBlank()) return File(custom)
         return TerminalPrivateStorage.workspace(context.applicationContext.filesDir)
+    }
+
+    /**
+     * root 身份实际使用的默认工作目录。
+     *
+     * 与 [resolve] 分开是因为两者兜底值不同：user 兜底到 App 私有目录，
+     * root 兜底到 `/data/local/tmp/eta`。但自定义时读同一个 Prefs 键——
+     * 用户在文件区设了目录，root 进 shell 也就落在那里。
+     */
+    fun resolveRoot(context: Context): File {
+        val custom = custom(context)
+        if (custom.isNotBlank()) return File(custom)
+        return File(TerminalRuntime.ROOT_WORKSPACE_PATH)
     }
 
     /** 展示用：当前生效目录的绝对路径。 */

@@ -21,7 +21,9 @@ internal class ShellProcessSupervisor(
         const val DEFAULT_PTY_COLS = 120
         const val DEFAULT_PTY_ROWS = 40
         const val PTY_TERM_TYPE = "xterm-256color"
-        const val BUSYBOX_APPLET_DIR = "${TerminalRuntime.ROOT_WORKSPACE_PATH}/.busybox"
+        // 固定位置，不跟随用户自定义工作目录：这是终端 console 启动依赖，
+        // 由 shell 脚本在运行时 `busybox --install -s` 到这里。
+        const val BUSYBOX_APPLET_DIR = TerminalRuntime.BUSYBOX_APPLET_DIR_FALLBACK
 
         fun isAndroidRuntime(): Boolean =
             System.getProperty("java.vm.name").orEmpty().equals("Dalvik", ignoreCase = true) ||

@@ -64,6 +64,9 @@ internal fun AskUserCard(
     // 换一张卡就重置勾选，避免把上一题的答案带过来。
     var picked by remember(ask.token) { mutableStateOf(emptySet<String>()) }
     var freeformOpen by remember(ask.token) { mutableStateOf(false) }
+    // 答完自动折叠：只留问题 + 答案摘要一行，点一下可展开回看完整选项。
+    // 之前答完仍是完整卡片，多轮对话后越积越长，滚动时要划很久。
+    var expandedAfterAnswer by remember(ask.token) { mutableStateOf(false) }
     var freeformText by remember(ask.token) { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val multiple = ask.allowMultiple
@@ -75,6 +78,47 @@ internal fun AskUserCard(
     // 卡片被移出组合时没机会补发 false，底部输入框会永久消失（参考分支踩过）。
     DisposableEffect(Unit) {
         onDispose { onEditingChanged(false) }
+    }
+
+    if (ask.answer != null && !expandedAfterAnswer) {
+        // 折叠态：一行答案摘要，点击展开完整卡片。
+        val summary = if (ask.answer.skipped) {
+            "已跳过"
+        } else {
+            "已选择：" + ask.answer.labels.joinToString("、")
+        }
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .background(
+                    color = opaqueThemedSurface(),
+                    shape = RoundedCornerShape(18.dp),
+                )
+                .border(
+                    width = 0.5.dp,
+                    color = MiuixTheme.colorScheme.outline.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(18.dp),
+                )
+                .clickable { expandedAfterAnswer = true }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Text(
+                text = ask.question,
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = summary,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        return
     }
 
     Column(
@@ -315,7 +359,8 @@ internal fun AskUserCard(
                 Spacer(Modifier.width(4.dp))
                 TextButton(
                     text = if (picked.isEmpty()) "确认" else "确认（${picked.size} 项）",
-                    onClick = { if (picked.isNotEmpty()) onChoose(picked.toList()) },
+                    // 按展示顺序提交，而不是 Set 的迭代顺序，否则回灌给模型的选项顺序会乱。
+                    onClick = { if (picked.isNotEmpty()) onChoose(ask.options.map { it.id }.filter { it in picked }) },
                     enabled = picked.isNotEmpty(),
                     minWidth = 0.dp,
                     minHeight = 34.dp,

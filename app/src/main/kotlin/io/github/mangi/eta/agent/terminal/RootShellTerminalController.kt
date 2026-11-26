@@ -694,7 +694,7 @@ internal class RootShellTerminalController(
             raw == "~" -> USER_STORAGE
             raw.startsWith("~/") -> USER_STORAGE + "/" + raw.removePrefix("~/")
             raw.startsWith("/") -> raw
-            else -> "${TerminalRuntime.ROOT_WORKSPACE_PATH}/$raw"
+            else -> "${TerminalRuntime.rootWorkspacePath}/$raw"
         }
         // Root 可见的链接未必对 App UID 可见，交给目标 Shell 按真实命名空间解析。
         return effective

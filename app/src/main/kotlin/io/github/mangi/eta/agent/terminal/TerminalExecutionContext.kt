@@ -27,7 +27,7 @@ internal data class TerminalExecutionContext(
         get() = TerminalRuntime.LINUX_WORKSPACE_PATH
 
     val linuxHostWorkspacePath: String
-        get() = if (linuxIdentity == "root") TerminalRuntime.ROOT_WORKSPACE_PATH else userWorkspacePath
+        get() = if (linuxIdentity == "root") TerminalRuntime.rootWorkspacePath else userWorkspacePath
 
     val linuxReady: Boolean
         get() = LinuxEnvironmentPaths.rootfsReady(linuxRootfsPath)

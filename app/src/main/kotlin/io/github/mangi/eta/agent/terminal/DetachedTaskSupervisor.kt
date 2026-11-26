@@ -211,7 +211,7 @@ internal class DetachedTaskSupervisor(
 
     private fun startCommand(id: String, command: String, cwd: String, identity: String,
         environment: TerminalEnvironment, description: String, timeoutMs: Long): DaemonStartResult {
-        val workspace = if (identity == "user") TerminalRuntime.userWorkspacePath else TerminalRuntime.ROOT_WORKSPACE_PATH
+        val workspace = if (identity == "user") TerminalRuntime.userWorkspacePath else TerminalRuntime.rootWorkspacePath
         val wireDir = when {
             environment.isLinux -> LINUX_DAEMON_DIR
             identity == "user" && daemonDir == DEFAULT_DAEMON_DIR -> "$workspace/daemon"
