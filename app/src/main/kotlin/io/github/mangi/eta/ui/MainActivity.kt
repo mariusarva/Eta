@@ -3,6 +3,7 @@ package io.github.mangi.eta.ui
 import android.app.UiModeManager
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -13,6 +14,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.lifecycleScope
 import io.github.mangi.eta.agent.runtime.AgentRuntimeService
 import io.github.mangi.eta.agent.voice.EtaAssistantOverlayService
@@ -37,6 +40,17 @@ class MainActivity : ComponentActivity() {
         var contentReady = false
         installStartupSplash { contentReady }
         enableEdgeToEdge()
+        // 屏幕常亮由 Activity 的窗口标志直接控制：
+        // 原先在 AgentAppRoot 里用 DisposableEffect 投影到 LocalView，主界面切到后台后
+        // Compose 不重组，标志不会清；改在这里按 Lifecycle 收集，onStop 再兜底清一次。
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                AgentRuntimeService.keepScreenOn.collect { enabled ->
+                    if (enabled) window.addFlags(FLAG_KEEP_SCREEN_ON)
+                    else window.clearFlags(FLAG_KEEP_SCREEN_ON)
+                }
+            }
+        }
         launchRequests = MainActivityLaunchRequests.restore(savedInstanceState, intent)
         lifecycleScope.launch {
             val initialAppearance = AppearanceSettingsRepository.settings()
@@ -118,6 +132,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        window.clearFlags(FLAG_KEEP_SCREEN_ON)
         startedInstances.remove(this)
         isInForeground = startedInstances.isNotEmpty() || isChangingConfigurations
         AgentRuntimeService.onEtaUiVisibilityChanged()

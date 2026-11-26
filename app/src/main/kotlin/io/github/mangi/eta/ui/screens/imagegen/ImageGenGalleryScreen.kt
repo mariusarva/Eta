@@ -52,6 +52,7 @@ import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.components.LocalChatImagePreviewer
 import io.github.mangi.eta.ui.components.MiuixDialogActions
+import io.github.mangi.eta.ui.components.MiuixTopBarActionButton
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.StatusError
 import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
@@ -69,9 +70,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.glass.GlassDialog
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.Delete
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -137,58 +139,8 @@ internal fun ImageGenGalleryScreen(
         }
     }
 
-    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     var retainedPendingDelete by remember { mutableStateOf<GeneratedImageRecord?>(null) }
     if (pendingDelete != null) retainedPendingDelete = pendingDelete
-
-    if (!isCoui && confirmClearAll) {
-        val clearTitle = stringResource(R.string.imagegen_gallery_clear_title)
-        val clearMessage = pluralStringResource(
-            R.plurals.imagegen_gallery_clear_message,
-            records.size,
-            records.size,
-            formatImageStorageSize(totalBytes),
-        )
-        val clearAction = stringResource(R.string.imagegen_action_clear)
-        GlassDialog(
-            show = true,
-            title = clearTitle,
-            summary = clearMessage,
-            backdrop = currentGlassOverlayBackdrop(),
-            onDismissRequest = { confirmClearAll = false },
-        ) {
-            MiuixDialogActions(
-                cancelText = stringResource(R.string.action_cancel),
-                confirmText = clearAction,
-                destructive = true,
-                onCancel = { confirmClearAll = false },
-                onConfirm = clearAll,
-            )
-        }
-    }
-
-    if (!isCoui) {
-        pendingDelete?.let { target ->
-            val deleteTitle = stringResource(R.string.imagegen_gallery_delete_title)
-            val deleteMessage = stringResource(R.string.imagegen_gallery_delete_message)
-            val deleteAction = stringResource(R.string.action_delete)
-            GlassDialog(
-                show = true,
-                title = deleteTitle,
-                summary = deleteMessage,
-                backdrop = currentGlassOverlayBackdrop(),
-                onDismissRequest = { pendingDelete = null },
-            ) {
-                MiuixDialogActions(
-                    cancelText = stringResource(R.string.action_cancel),
-                    confirmText = deleteAction,
-                    destructive = true,
-                    onCancel = { pendingDelete = null },
-                    onConfirm = { deleteSingle(target) },
-                )
-            }
-        }
-    }
 
     val rows = remember(records) { records.chunked(2) }
 
@@ -304,13 +256,54 @@ internal fun ImageGenGalleryScreen(
                 onBack = onBack,
                 actions = {
                     if (records.isNotEmpty()) {
-                        IconButton(onClick = { confirmClearAll = true }) {
-                            Icon(
-                                imageVector = Icons.Rounded.DeleteOutline,
-                                contentDescription = stringResource(R.string.imagegen_gallery_clear_all_desc),
-                                tint = StatusError,
-                            )
-                        }
+                        MiuixTopBarActionButton(
+                            icon = MiuixIcons.Glass.Delete,
+                            contentDescription = stringResource(R.string.imagegen_gallery_clear_all_desc),
+                            onClick = { confirmClearAll = true },
+                        )
+                    }
+                },
+                // 弹窗必须放在页面 overlay 槽里：这样能采样到页面玻璃 backdrop，
+                // 关闭动画期间也不会因为宿主被卸载而闪空。
+                overlay = {
+                    val backdrop = currentGlassOverlayBackdrop()
+                    GlassDialog(
+                        show = confirmClearAll,
+                        title = stringResource(R.string.imagegen_gallery_clear_title),
+                        summary = pluralStringResource(
+                            R.plurals.imagegen_gallery_clear_message,
+                            records.size,
+                            records.size,
+                            formatImageStorageSize(totalBytes),
+                        ),
+                        backdrop = backdrop,
+                        onDismissRequest = { confirmClearAll = false },
+                    ) {
+                        MiuixDialogActions(
+                            cancelText = stringResource(R.string.action_cancel),
+                            confirmText = stringResource(R.string.imagegen_action_clear),
+                            destructive = true,
+                            onCancel = { confirmClearAll = false },
+                            onConfirm = clearAll,
+                        )
+                    }
+                    val activeDelete = pendingDelete ?: retainedPendingDelete
+                    GlassDialog(
+                        show = pendingDelete != null,
+                        title = stringResource(R.string.imagegen_gallery_delete_title),
+                        summary = stringResource(R.string.imagegen_gallery_delete_message),
+                        backdrop = backdrop,
+                        onDismissRequest = { pendingDelete = null },
+                        onDismissFinished = { if (pendingDelete == null) retainedPendingDelete = null },
+                    ) {
+                        MiuixDialogActions(
+                            cancelText = stringResource(R.string.action_cancel),
+                            confirmText = stringResource(R.string.action_delete),
+                            destructive = true,
+                            confirmEnabled = activeDelete != null,
+                            onCancel = { pendingDelete = null },
+                            onConfirm = { activeDelete?.let(deleteSingle) },
+                        )
                     }
                 },
             ) {
