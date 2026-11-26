@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.screens.terminal
 
+import androidx.compose.foundation.layout.Row
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
