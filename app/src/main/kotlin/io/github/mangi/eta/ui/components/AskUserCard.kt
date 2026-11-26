@@ -45,6 +45,31 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
+ * 单选 / 多选标识。
+ *
+ * 之前两种模式的差别只体现在「有没有确认按钮」和「选项右侧有没有勾」，
+ * 用户点到一半才发现规则不同。这里在标题旁直接标出来。
+ */
+@Composable
+private fun AskModeBadge(multiple: Boolean) {
+    Text(
+        text = if (multiple) "多选" else "单选",
+        style = MiuixTheme.textStyles.footnote2,
+        color = if (multiple) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(
+                if (multiple) {
+                    MiuixTheme.colorScheme.primary.copy(alpha = 0.14f)
+                } else {
+                    MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.12f)
+                },
+            )
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}
+
+/**
  * 会话内的提问卡：模型通过 `ask_user` 提出问题，这里渲染成可点选的选项。
  *
  * 单选：点一下立即提交，不需要再按确认。
@@ -102,13 +127,18 @@ internal fun AskUserCard(
                 .clickable { expandedAfterAnswer = true }
                 .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
-            Text(
-                text = ask.question,
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = ask.question,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.width(6.dp))
+                AskModeBadge(multiple = ask.allowMultiple)
+            }
             Spacer(Modifier.height(3.dp))
             Text(
                 text = summary,
@@ -137,12 +167,18 @@ internal fun AskUserCard(
             )
             .padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 10.dp),
     ) {
-        Text(
-            text = ask.question,
-            style = MiuixTheme.textStyles.body2,
-            fontWeight = FontWeight.Medium,
-            color = MiuixTheme.colorScheme.onSurface,
-        )
+        // 标题 + 单选/多选标识：用户点之前就知道能选几个。
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = ask.question,
+                style = MiuixTheme.textStyles.body2,
+                fontWeight = FontWeight.Medium,
+                color = MiuixTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            Spacer(Modifier.width(6.dp))
+            AskModeBadge(multiple = multiple)
+        }
         if (ask.body.isNotBlank()) {
             Text(
                 text = ask.body,

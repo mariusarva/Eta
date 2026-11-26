@@ -747,6 +747,8 @@ internal fun AgentConversationMessages(
             when (entry) {
                 is AgentTimelineEntry.Message -> entry.message.id == targetId
                 is AgentTimelineEntry.WorkProcess -> entry.messages.any { it.id == targetId }
+                // 提问卡不是消息，永远不会是跳转目标。
+                is AgentTimelineEntry.Ask -> false
             }
         }
         var guard = 0

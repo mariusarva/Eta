@@ -34,7 +34,10 @@ internal object WorkspaceRoot {
         if (configured.isBlank()) return ""
         if (!configured.startsWith('/')) return ""
         val dir = File(configured)
-        return if (dir.isDirectory && dir.canRead()) configured else ""
+        // 只校验「存在且是目录」。不能查 canRead()：文件区实际以 root 身份读写，
+        // 而这里跑在 App 进程里，普通 UID 对 /storage/emulated/0 的 canRead() 是 false，
+        // 拿它当判据会让已保存的自定义目录每次都被判失效并静默回落默认。
+        return if (dir.isDirectory) configured else ""
     }
 
     /** 实际生效的工作目录（user 身份与文件区）。 */
@@ -82,7 +85,8 @@ internal object WorkspaceRoot {
         val documentId = runCatching { DocumentsContract.getTreeDocumentId(uri) }.getOrNull() ?: return null
         val path = mapDocumentId(uri.authority, documentId) ?: return null
         val dir = File(path)
-        return if (dir.isDirectory && dir.canRead()) path else null
+        // 同 custom()：不查 canRead()，权限由 backend 在真正读写时判定。
+        return if (dir.isDirectory) path else null
     }
 
     private fun mapDocumentId(authority: String?, documentId: String): String? {
@@ -117,8 +121,11 @@ internal object WorkspaceRoot {
         val dir = File(trimmed)
         if (!dir.exists()) return "NOT_EXIST"
         if (!dir.isDirectory) return "NOT_DIRECTORY"
-        // 可读即可用；可写性在真正写入时再校验，避免只读挂载点被直接拒掉。
-        if (!dir.canRead()) return "NOT_READABLE"
+        // 这里不能查 canRead()：文件区在 Root 已授权时走 ShellFileToolBackend（root 身份），
+        // 而本函数跑在 App 进程里。App 是普通 UID，对 /storage/emulated/0 的
+        // File.canRead() 会返回 false —— 拿它当判据会把本来完全可用的路径直接拒掉
+        // （实测：输入 /storage/emulated/0 点确认报「路径无效或不可读写」）。
+        // 真正的读写能力由 backend 在列目录/写文件时校验，失败会走既有错误码。
         return null
     }
 
