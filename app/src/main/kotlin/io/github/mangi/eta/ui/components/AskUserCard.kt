@@ -95,6 +95,12 @@ internal fun AskUserCard(
     var freeformText by remember(ask.token) { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val multiple = ask.allowMultiple
+    // 临时诊断：确认 UI 侧读到的模式与数据一致。
+    android.util.Log.i(
+        "EtaAskCard",
+        "render token=${ask.token} allowMultiple=${ask.allowMultiple} multiple=$multiple " +
+            "options=${ask.options.size} answered=${ask.answer != null}",
+    )
 
     LaunchedEffect(freeformOpen) {
         onEditingChanged(freeformOpen)

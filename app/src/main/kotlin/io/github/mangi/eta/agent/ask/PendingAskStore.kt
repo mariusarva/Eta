@@ -125,6 +125,10 @@ internal object PendingAskStore {
      * 只有会话被删除时才随 [removeConversation] 一起清掉。
      */
     fun answer(token: String, answer: AskAnswer) {
+        android.util.Log.i(
+            "EtaAskCard",
+            "answer token=$token labels=${answer.labels} skipped=${answer.skipped}",
+        )
         save(
             load().map { pending ->
                 if (pending.token == token) pending.copy(answer = answer) else pending
