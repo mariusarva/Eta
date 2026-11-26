@@ -308,7 +308,9 @@ internal fun ChatMessageItem(
         is UserMessageUi -> CustomMessageActionsHost(
             messageId = message.id,
             text = message.content,
-            enabled = messageActionsEnabled,
+            // 菜单本身始终可打开：运行中也要能复制、选取、朗读、分享。
+            enabled = true,
+            writeEnabled = messageActionsEnabled,
             onDelete = { onDeleteMessage(message.id) },
             onEdit = { onEditMessage(message.id) },
             onRegenerate = null,
@@ -318,6 +320,8 @@ internal fun ChatMessageItem(
                 message = message,
                 assistantOverlay = assistantOverlay,
                 actionsEnabled = messageActionsEnabled,
+                // 长按入口与写操作解耦：运行中也要能长按弹出菜单复制文字。
+                longPressEnabled = true,
                 isEditing = isEditing,
                 onEdit = { onEditMessage(message.id) },
                 onDelete = { onDeleteMessage(message.id) },
@@ -330,7 +334,10 @@ internal fun ChatMessageItem(
         is AgentMessageUi -> CustomMessageActionsHost(
             messageId = message.id,
             text = message.content,
-            enabled = messageActionsEnabled && !message.isStreaming,
+            // 正在流式输出的那条文字还在变，连选区都会错位，整条禁用；
+            // 已定稿的消息在运行期间仍可复制、选取、朗读、分享。
+            enabled = !message.isStreaming,
+            writeEnabled = messageActionsEnabled && !message.isStreaming,
             onDelete = { onDeleteMessage(message.id) },
             onEdit = { onEditMessage(message.id) },
             onRegenerate = { onRegenerateMessage(message.id) },
@@ -428,6 +435,8 @@ private fun UserMessageBubble(
     message: UserMessageUi,
     assistantOverlay: Boolean,
     actionsEnabled: Boolean,
+    /** 长按是否弹菜单；与 [actionsEnabled] 分开，运行中仍可长按复制。 */
+    longPressEnabled: Boolean = actionsEnabled,
     isEditing: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -576,7 +585,7 @@ private fun UserMessageBubble(
                 }
             }
             // 长按统一交给上层：CustomMessageActionsHost 提供 openMenu，弹出十项快捷菜单。
-            val openCouiMenu: (() -> Unit)? = if (actionsEnabled && onLongClick != null) {
+            val openCouiMenu: (() -> Unit)? = if (longPressEnabled && onLongClick != null) {
                 {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onLongClick?.invoke()
@@ -635,7 +644,7 @@ private fun UserMessageBubble(
                     }
                 }
                 CouiMenu(
-                    expanded = showCouiMenu && actionsEnabled,
+                    expanded = showCouiMenu && longPressEnabled,
                     onDismissRequest = { showCouiMenu = false },
                     items = menuItems,
                     onItemClick = { item ->
@@ -694,7 +703,7 @@ private fun UserMessageBubble(
                 },
                 state = tooltipState,
                 focusable = true,
-                enableUserInput = actionsEnabled,
+                enableUserInput = longPressEnabled,
             ) {
                 Column(
                     horizontalAlignment = Alignment.End,

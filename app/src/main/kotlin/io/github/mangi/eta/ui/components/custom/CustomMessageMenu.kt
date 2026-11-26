@@ -39,6 +39,14 @@ internal fun CustomMessageActionsHost(
     messageId: String,
     text: String,
     enabled: Boolean,
+    /**
+     * 写操作（删除 / 编辑 / 重新生成 / 分支 / 保存记忆与技能）是否可用。
+     *
+     * 与 [enabled] 分开：对话运行期间整条消息的处理按钮要禁用，但复制、选取文字、
+     * 朗读、分享这些只读操作必须照常可用——之前两者共用一个开关，
+     * 结果运行中连复制都点不了。
+     */
+    writeEnabled: Boolean = enabled,
     onDelete: (() -> Unit)?,
     onEdit: (() -> Unit)?,
     onRegenerate: (() -> Unit)?,
@@ -156,11 +164,11 @@ internal fun CustomMessageActionsHost(
     val toolbar: @Composable () -> Unit = {
         TooltipBox(text = if (savePending) "请先完成保存审核" else "保存记忆") {
             AnswerActionButton(Icons.Rounded.Memory, "保存记忆", { save(false) },
-                enabled = enabled && !savePending && actionText.isNotBlank())
+                enabled = writeEnabled && !savePending && actionText.isNotBlank())
         }
         TooltipBox(text = if (savePending) "请先完成保存审核" else "保存技能") {
             AnswerActionButton(Icons.Rounded.RocketLaunch, "保存技能", { save(true) },
-                enabled = enabled && !savePending && actionText.isNotBlank())
+                enabled = writeEnabled && !savePending && actionText.isNotBlank())
         }
         TooltipBox(text = "引用追问") {
             AnswerActionButton(Icons.Rounded.FormatQuote, "引用追问", {
@@ -209,11 +217,18 @@ internal fun CustomMessageActionsHost(
         MessageMenuAction("选取文字", Icons.Rounded.SelectAll, if (text.isBlank()) "没有可选取的文字" else null) { beginSelection() },
         MessageMenuAction("朗读", Icons.AutoMirrored.Rounded.VolumeUp, emptyReason) { speak(actionText) },
         MessageMenuAction("分享", Icons.Rounded.Share, emptyReason) { share(actionText) },
-        MessageMenuAction("删除", Icons.Rounded.Delete, if (onDelete == null) "当前消息不能删除" else null) { onDelete?.invoke() },
+        MessageMenuAction("删除", Icons.Rounded.Delete,
+            when {
+                !writeEnabled -> "对话处理中，暂不可用"
+                onDelete == null -> "当前消息不能删除"
+                else -> null
+            }) { onDelete?.invoke() },
         MessageMenuAction("引用追问", Icons.Rounded.FormatQuote,
             if (composer == null) "当前没有可引用的输入框" else if (text.isBlank()) "没有可选取的文字" else null) { beginSelection() },
-        MessageMenuAction("保存记忆", Icons.Rounded.Memory, saveReason) { save(false, actionText) },
-        MessageMenuAction("保存技能", Icons.Rounded.RocketLaunch, saveReason) { save(true, actionText) },
+        MessageMenuAction("保存记忆", Icons.Rounded.Memory,
+            if (!writeEnabled) "对话处理中，暂不可用" else saveReason) { save(false, actionText) },
+        MessageMenuAction("保存技能", Icons.Rounded.RocketLaunch,
+            if (!writeEnabled) "对话处理中，暂不可用" else saveReason) { save(true, actionText) },
         MessageMenuAction("在新对话中继续", Icons.AutoMirrored.Rounded.CallSplit,
             when {
                 continueHandler == null -> "当前无法继续对话"
@@ -224,7 +239,11 @@ internal fun CustomMessageActionsHost(
             }) { continueMessage(actionText) },
         MessageMenuAction(if (onRegenerate != null) "重新生成" else "编辑",
             if (onRegenerate != null) Icons.Rounded.Refresh else Icons.Rounded.Edit,
-            if (onRegenerate == null && onEdit == null) "当前消息不能编辑" else null) { (onRegenerate ?: onEdit)?.invoke() },
+            when {
+                !writeEnabled -> "对话处理中，暂不可用"
+                onRegenerate == null && onEdit == null -> "当前消息不能编辑"
+                else -> null
+            }) { (onRegenerate ?: onEdit)?.invoke() },
     )
     CustomMessageMenuDialog(actions, onDismiss = { interaction = interaction.dismissMenu() }, onUnavailable = ::notice)
 }
