@@ -46,7 +46,6 @@ internal class AgentStructuredDeviceTools(
     private val foregroundAction: (String, () -> JSONObject) -> JSONObject = { _, action -> action() },
 ) {
     private val chatImages = ChatImageSearchTools(root)
-    private val colorOsMemoryTools = AgentColorOsMemoryTools(context, root)
     private val personalContextTools = AgentPersonalContextTools(context)
     private val indexedPersonalContext by lazy {
         PersonalContextQueryService(
@@ -138,8 +137,6 @@ internal class AgentStructuredDeviceTools(
                                 .toString()
                         )
                     }
-                    "search_system_memories" -> colorOsMemoryTools.search(args)
-                    "search_saved_places" -> colorOsMemoryTools.searchSavedPlaces(args)
                     "search_personal_orders" -> searchPersonalOrders(args)
                     "set_alarm" -> text(setAlarm(args))
                     "set_timer" -> text(setTimer(args))
@@ -179,24 +176,11 @@ internal class AgentStructuredDeviceTools(
     private fun searchPersonalOrders(args: JSONObject): AgentModelClient.ToolResult {
         val limit = args.optInt("limit", 10).coerceIn(1, 30)
         val query = args.optString("query").trim()
-        val memoryResult =
-            if (!rootAvailable()) {
-                JSONObject()
-                    .put("ok", false)
-                    .put("code", "ROOT_REQUIRED")
-                    .put("message", "系统记忆来源需要设备 Root 权限；仍可查询已授权的通知历史")
-            } else if (!colorOs()) {
-                JSONObject()
-                    .put("ok", false)
-                    .put("code", "DEVICE_UNSUPPORTED")
-                    .put("message", "此设备不支持系统记忆来源；仍可查询已授权的通知历史")
-            } else
-                runCatching {
-                    JSONObject(colorOsMemoryTools.searchOrders(args).content)
-                }
-                    .getOrElse {
-                        JSONObject().put("ok", false).put("code", "COLOROS_MEMORY_QUERY_FAILED")
-                    }
+        // 系统记忆（小布）来源已随上游一并移除，这里只保留通知历史这条路径。
+        val memoryResult = JSONObject()
+            .put("ok", false)
+            .put("code", "MEMORY_SOURCE_REMOVED")
+            .put("message", "系统记忆来源已移除；仍可查询已授权的通知历史")
         val notificationResult =
             if (AgentNotificationHistoryService.isEnabled(context)) {
                 runCatching {

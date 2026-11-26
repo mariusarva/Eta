@@ -63,7 +63,6 @@ internal object ProviderSourceRegistry {
             BuiltinProviders.ANTHROPIC_ID -> ProviderSourceTypes.ANTHROPIC
             BuiltinProviders.BAILIAN_ID -> ProviderSourceTypes.BAILIAN
             BuiltinProviders.DEEPSEEK_ID -> ProviderSourceTypes.DEEPSEEK
-            BuiltinProviders.KIMI_ID -> ProviderSourceTypes.MOONSHOT
             BuiltinProviders.MIMO_ID -> ProviderSourceTypes.MIMO
             BuiltinProviders.MINIMAX_ID -> ProviderSourceTypes.MINIMAX
             BuiltinProviders.STEPFUN_ID -> ProviderSourceTypes.STEPFUN

@@ -19,7 +19,6 @@ internal object BuiltinProviders {
     const val ANTHROPIC_ID = "builtin-anthropic"
     const val BAILIAN_ID = "builtin-dashscope"
     const val DEEPSEEK_ID = "builtin-deepseek"
-    const val KIMI_ID = "builtin-kimi"
     const val MIMO_ID = "builtin-mimo"
     const val MINIMAX_ID = "builtin-minimax"
     const val STEPFUN_ID = "builtin-stepfun"
@@ -64,15 +63,6 @@ internal object BuiltinProviders {
             sourceType = ProviderSourceTypes.DEEPSEEK,
             isBuiltIn = true,
             sortOrder = 3,
-            systemPrompt = DEFAULT_SYSTEM_PROMPT,
-        ),
-        OpenAiCompatibleProviderSetting(
-            id = KIMI_ID,
-            name = "Kimi",
-            baseUrl = "https://api.moonshot.cn/v1",
-            sourceType = ProviderSourceTypes.MOONSHOT,
-            isBuiltIn = true,
-            sortOrder = 4,
             systemPrompt = DEFAULT_SYSTEM_PROMPT,
         ),
         OpenAiCompatibleProviderSetting(

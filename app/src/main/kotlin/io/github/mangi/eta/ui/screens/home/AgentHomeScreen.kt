@@ -47,6 +47,8 @@ internal fun AgentHomeScreen(
     /** 当前页索引，与顶栏图标共享。 */
     currentPage: Int = 1,
     onPageChanged: (Int) -> Unit = {},
+    /** 打开侧边工作台：文件浏览页左滑时用。 */
+    onOpenConversationPane: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // key 内保持完整分支，避免提前返回遗留无法转换为 DEX 的编译器标记。
@@ -72,6 +74,7 @@ internal fun AgentHomeScreen(
                     onRestoreConversation = onRestoreConversation,
                     currentPage = currentPage,
                     onPageChanged = onPageChanged,
+                    onOpenConversationPane = onOpenConversationPane,
                     conversationId = conversationKey.orEmpty(),
                     messages = state.messages,
                     modelPickerState = modelPickerState,

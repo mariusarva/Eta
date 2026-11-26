@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -224,6 +226,8 @@ internal fun AgentChatBody(
     /** 当前页索引，与顶栏图标共享。 */
     currentPage: Int = 1,
     onPageChanged: (Int) -> Unit = {},
+    /** 打开侧边工作台：文件浏览页左滑时用。 */
+    onOpenConversationPane: () -> Unit = {},
 ) {
     // 轮次导航读全库用户消息：消息本身是分页加载的，按已加载消息切轮次会让长会话少算前面的轮。
     val appContext = LocalContext.current.applicationContext
@@ -312,6 +316,7 @@ internal fun AgentChatBody(
             onRestoreConversation = onRestoreConversation,
             currentPage = currentPage,
             onPageChanged = onPageChanged,
+            onOpenConversationPane = onOpenConversationPane,
             allTurns = allTurns,
             pendingJumpMessageId = pendingJumpMessageId,
             onJumpHandled = { pendingJumpMessageId = null },
@@ -468,6 +473,8 @@ private fun AgentChatScaffold(
     /** 当前页索引，与顶栏图标共享。 */
     currentPage: Int = 1,
     onPageChanged: (Int) -> Unit = {},
+    /** 打开侧边工作台：文件浏览页左滑时用。 */
+    onOpenConversationPane: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
@@ -631,7 +638,20 @@ private fun AgentChatScaffold(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = topInset, bottom = bottomPadding),
+                            .padding(top = topInset, bottom = bottomPadding)
+                            // 文件浏览页左滑打开侧边工作台。
+                            // 只识别横向拖动，且只在从左侧 32dp 内起手时接管——
+                            // 否则会抢掉文件列表的纵向滚动与目录行的点击。
+                            .pointerInput(Unit) {
+                                val edgePx = 32.dp.toPx()
+                                detectHorizontalDragGestures(
+                                    onDragStart = { offset ->
+                                        if (offset.x <= edgePx) onOpenConversationPane()
+                                    },
+                                ) { change, _ ->
+                                    change.consume()
+                                }
+                            },
                     ) {
                         WorkspacePanelContent()
                     }

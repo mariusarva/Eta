@@ -6,7 +6,6 @@ internal object ModuleConfig {
 
     const val GOOGLE_PACKAGE = "com.google.android.googlequicksearchbox"
     const val ETA_PACKAGE = "io.github.mangi.eta"
-    const val COLOROS_MEMORY_PACKAGE = "com.oplus.aimemory"
     const val XIAOAI_PACKAGE = "com.miui.voiceassist"
     const val XIAOMI_LAUNCHER_PACKAGE = "com.miui.home"
     const val XIAOMI_GLOBAL_LAUNCHER_PACKAGE = "com.mi.android.globallauncher"

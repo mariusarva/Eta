@@ -522,6 +522,7 @@ fun AgentAppRoot(
                                 onRestoreConversation = { id -> agentState.selectConversation(id) },
                                 currentPage = agentState.chatPage,
                                 onPageChanged = { agentState.selectChatPage(it) },
+                                onOpenConversationPane = { conversationPaneOpen = true },
                                 isBranching = agentState.isBranchingCurrentConversation,
                                 conversationKey = agentState.conversationPaneState.selectedConversationId,
                                 topInset = shellPadding.calculateTopPadding(),

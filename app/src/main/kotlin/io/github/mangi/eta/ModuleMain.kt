@@ -10,7 +10,6 @@ import io.github.mangi.eta.core.HookInstallation
 import io.github.mangi.eta.core.ModuleConfig
 import io.github.mangi.eta.core.ModuleLogger
 import io.github.mangi.eta.core.safeLogType
-import io.github.mangi.eta.hook.aimemory.ColorOsMemoryHooks
 import io.github.mangi.eta.hook.colordirect.ColorDirectHooks
 import io.github.mangi.eta.hook.google.GoogleAppHooks
 import io.github.mangi.eta.hook.google.GoogleEligibilityHooks
@@ -87,14 +86,6 @@ class ModuleMain : XposedModule() {
                 }
             }
 
-            ModuleConfig.COLOROS_MEMORY_PACKAGE -> {
-                if (currentProcessName == ModuleConfig.COLOROS_MEMORY_PACKAGE) {
-                    recordInstallation(
-                        ColorOsMemoryHooks.install(this, logger, param.classLoader, param.applicationInfo)
-                    )
-                }
-            }
-
             ModuleConfig.XIAOAI_PACKAGE -> {
                 if (isCurrentPackageProcess(ModuleConfig.XIAOAI_PACKAGE)) {
                     recordInstallation(HyperOsScreenSearchHooks.install(this, logger, param.classLoader))
@@ -120,7 +111,6 @@ class ModuleMain : XposedModule() {
             processName == ModuleConfig.SYSTEM_UI_PACKAGE ||
             isPackageProcess(processName, ModuleConfig.GOOGLE_PACKAGE) ||
             isPackageProcess(processName, ModuleConfig.COLOR_DIRECT_PACKAGE) ||
-            processName == ModuleConfig.COLOROS_MEMORY_PACKAGE ||
             isPackageProcess(processName, ModuleConfig.XIAOAI_PACKAGE)
     }
 
