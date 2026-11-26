@@ -3,11 +3,11 @@ package io.github.mangi.eta.ui.components
 /**
  * 对话页横向 Pager 的页序。
  *
- * 顺序即物理顺序：左 = 工作文件夹，中 = 对话。
- * 用 enum 而不是裸 index，避免后续插入页面时索引错位。
+ * 顺序即物理顺序：对话（主页面，索引 0）→ 向右滑露出工作文件夹。
+ * 对话页右滑（手指右移）不翻页，改为打开侧边工作台。
  */
 internal enum class ChatPage {
-    WORKSPACE,
     CONVERSATION,
+    WORKSPACE,
 }
 

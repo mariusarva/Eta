@@ -229,7 +229,7 @@ internal fun AgentChatBody(
     /** 从纯聊天页滑回时恢复原会话。 */
     onRestoreConversation: (String) -> Unit = {},
     /** 当前页索引，与顶栏图标共享。 */
-    currentPage: Int = 1,
+    currentPage: Int = 0,
     onPageChanged: (Int) -> Unit = {},
     /** 打开侧边工作台：文件浏览页左滑时用。 */
     onOpenConversationPane: () -> Unit = {},
@@ -479,7 +479,7 @@ private fun AgentChatScaffold(
     /** 从纯聊天页滑回时恢复原会话。 */
     onRestoreConversation: (String) -> Unit = {},
     /** 当前页索引，与顶栏图标共享。 */
-    currentPage: Int = 1,
+    currentPage: Int = 0,
     onPageChanged: (Int) -> Unit = {},
     /** 打开侧边工作台：文件浏览页左滑时用。 */
     onOpenConversationPane: () -> Unit = {},
@@ -646,16 +646,20 @@ private fun AgentChatScaffold(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = topInset, bottom = bottomPadding)
-                            // 文件浏览页左滑打开侧边工作台。
-                            //
-                            // 只在「从左侧 24dp 内起手、且向右拖动」时接管，
-                            // 并且一旦判定不属于边缘手势就立刻不再消费事件——
-                            // 之前无条件 consume() 会把「向右滑回对话页」也吃掉，
-                            // 导致文件页滑不回中间页、整个 Pager 像卡死。
-                            // 文件页已是最左页（两页 Pager），向右滑本来就没有翻页行为，
-                            // 所以整页接管这个方向的手势，不再限定边缘起手——
-                            // 之前限制 24dp 边缘，实际很难划中。
+                            .padding(top = topInset, bottom = bottomPadding),
+                    ) {
+                        WorkspacePanelContent()
+                    }
+                }
+                ChatPage.CONVERSATION -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .captureGlassBackdrop(chatBackdrop)
+                            .then(couiCapture)
+                            // 对话页是最左页（索引 0），向右滑没有翻页行为，
+                            // 整页接管这个方向：向右拖 16dp 即打开侧边工作台。
+                            // 用 Initial pass 抢在 Pager 之前判定，纵向优先让给滚动。
                             .pointerInput(Unit) {
                                 awaitPointerEventScope {
                                     while (true) {
@@ -673,11 +677,10 @@ private fun AgentChatScaffold(
                                             val delta = change.position - change.previousPosition
                                             totalX += delta.x
                                             totalY += delta.y
-                                            // 纵向意图更强：让给列表滚动。
+                                            // 纵向明显占优：让给消息列表滚动。
                                             if (!triggered && abs(totalY) > abs(totalX) * 1.5f && abs(totalY) > 16f) {
                                                 break
                                             }
-                                            // 向右拖动越过阈值就开侧栏（阈值放宽到 16dp）。
                                             if (!triggered && totalX > 16f && totalX > abs(totalY)) {
                                                 triggered = true
                                                 onOpenConversationPane()
@@ -687,16 +690,6 @@ private fun AgentChatScaffold(
                                     }
                                 }
                             },
-                    ) {
-                        WorkspacePanelContent()
-                    }
-                }
-                ChatPage.CONVERSATION -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .captureGlassBackdrop(chatBackdrop)
-                            .then(couiCapture),
                     ) {
                         if (!hasMessages) {
                             EmptyChatState(

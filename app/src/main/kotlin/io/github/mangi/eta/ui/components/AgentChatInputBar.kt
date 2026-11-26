@@ -403,7 +403,9 @@ internal fun AgentChatInputBar(
         val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
         val couiDark = CouiTheme.isDark
         val couiColors = CouiTheme.colorScheme
-        val couiInputShape = remember { CouiShape(24.dp, 2.3f) }
+        // 用普通圆角而不是 SquircleShape：dropShadow 对超椭圆的支持不完整，
+        // 阴影会在左上角被切成两块直角深色区（实测）。
+        val couiInputShape = remember { androidx.compose.foundation.shape.RoundedCornerShape(24.dp) }
         val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
         val miuixInputBg = if (!isDark && MiuixTheme.colorScheme.surfaceContainer == MiuixTheme.colorScheme.surface) {
             Color(0xFFF5F6F8)
@@ -467,6 +469,9 @@ internal fun AgentChatInputBar(
                     .then(
                         if (isCoui) {
                             Modifier
+                                // 阴影与模糊层必须用同一个 shape：之前 dropShadow 用的
+                                // CouiShape(24.dp, 2.3f) 与模糊层的裁剪圆角不一致，
+                                // 左上角会露出一块直角深色区（看起来像阴影分成两部分）。
                                 .dropShadow(
                                     shape = couiInputShape,
                                     shadow = Shadow(
@@ -475,7 +480,6 @@ internal fun AgentChatInputBar(
                                         alpha = if (couiDark) 0.22f else 0.045f,
                                     ),
                                 )
-                                .clip(couiInputShape)
                                 .then(
                                     if (couiBackdrop != null) Modifier.couiViewBlur(
                                         backdrop = couiBackdrop,
@@ -483,6 +487,9 @@ internal fun AgentChatInputBar(
                                         shape = couiInputShape,
                                     ) else Modifier.background(couiColors.surface, couiInputShape),
                                 )
+                                // 裁剪必须放在模糊之后：先 clip 再模糊时，
+                                // couiViewBlur 的模糊层会盖住圆角，左上角露出一块直角深色区。
+                                .clip(couiInputShape)
                                 .border(
                                     width = inputBorderWidth,
                                     color = inputBorderColor,

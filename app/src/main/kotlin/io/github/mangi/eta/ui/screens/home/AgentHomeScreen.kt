@@ -45,7 +45,7 @@ internal fun AgentHomeScreen(
     /** 从纯聊天页滑回时恢复原会话。 */
     onRestoreConversation: (String) -> Unit = {},
     /** 当前页索引，与顶栏图标共享。 */
-    currentPage: Int = 1,
+    currentPage: Int = 0,
     onPageChanged: (Int) -> Unit = {},
     /** 打开侧边工作台：文件浏览页左滑时用。 */
     onOpenConversationPane: () -> Unit = {},

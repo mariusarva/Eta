@@ -1308,11 +1308,11 @@ internal class AgentAppState(
      * 提到 State 层是因为顶栏图标（在 AgentAppShell）和 Pager 本身（在 AgentChatBody）
      * 分属两棵组合树，需要共享同一个值：顶栏高亮跟着滑动走，点图标也能翻页。
      */
-    var chatPage by mutableStateOf(1)
+    var chatPage by mutableStateOf(0)
         private set
 
     fun selectChatPage(index: Int) {
-        chatPage = index.coerceIn(0, 2)
+        chatPage = index.coerceIn(0, 1)
     }
 
     var characterForNewChat by mutableStateOf<Pair<String, String>?>(loadCharacterForNewChat())
