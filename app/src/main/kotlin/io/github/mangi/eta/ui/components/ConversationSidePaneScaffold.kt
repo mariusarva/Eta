@@ -24,6 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -134,6 +136,19 @@ internal fun ConversationSidePaneScaffold(
         val currentVisible by rememberUpdatedState(visible)
         val currentOnOpen by rememberUpdatedState(onOpen)
         val currentOnDismiss by rememberUpdatedState(onDismiss)
+        // 侧栏刚关闭的一小段时间内仍允许「右滑立即重开」。
+        // 退场动画期间侧栏面板还盖在左侧，触摸事件落不到对话页，
+        // 用户会以为第一次滑动失效、要滑两次才回得去（实测）。
+        var paneExiting by remember { mutableStateOf(false) }
+        LaunchedEffect(visible) {
+            if (!visible) {
+                paneExiting = true
+                kotlinx.coroutines.delay(420)
+                paneExiting = false
+            } else {
+                paneExiting = false
+            }
+        }
         // 边缘横滑手势已移除：对话页三页 Pager 需要独占横向手势，
         // 侧栏改由顶栏历史按钮程序化开合。这里保留 isDragging 的恒 false 语义，
         // 让下方 conversationPaneSettledValues 仍按"已稳定"路径收敛。
@@ -208,11 +223,13 @@ internal fun ConversationSidePaneScaffold(
             modifier = Modifier.fillMaxSize()
                 .clipToBounds()
                 .background(conversationPaneContainerColor())
-                // 侧栏展开时支持左滑关闭（手指向左拖 = 把侧栏推回去）。
-                // 只在已展开时接管，关闭状态完全不干预，避免和对话页的
-                // 「右滑开侧栏」抢同一个方向。
-                .pointerInput(isRevealed) {
-                    if (!isRevealed) return@pointerInput
+                // 侧栏双向横滑：
+                // · 展开时左滑 40dp 关闭；
+                // · 刚关闭的退场窗口内右滑 24dp 立即重开。
+                // 这个手势挂在「侧栏面板 + 会话内容」的共同祖先上，所以无论手指落在
+                // 正在退场的面板上还是会话区，都能收到事件；对话页自己的右滑手势在
+                // 面板覆盖左侧时收不到事件，这也正是「第一次滑不动」的成因。
+                .pointerInput(Unit) {
                     awaitPointerEventScope {
                         while (true) {
                             val down = awaitPointerEvent(PointerEventPass.Initial)
@@ -220,7 +237,7 @@ internal fun ConversationSidePaneScaffold(
                                 ?: continue
                             var totalX = 0f
                             var totalY = 0f
-                            var closing = false
+                            var handled = false
                             while (true) {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
                                 val change = event.changes.firstOrNull { it.id == down.id }
@@ -229,18 +246,31 @@ internal fun ConversationSidePaneScaffold(
                                 val delta = change.position - change.previousPosition
                                 totalX += delta.x
                                 totalY += delta.y
-                                // 纵向占优：让给侧栏列表滚动。
-                                if (!closing && kotlin.math.abs(totalY) > kotlin.math.abs(totalX) * 1.5f &&
-                                    kotlin.math.abs(totalY) > 16f
-                                ) {
-                                    break
+                                if (!handled) {
+                                    if (!currentVisible) {
+                                        // 退场中：右滑重开，其余方向一律不干预。
+                                        if (paneExiting && totalX > 24f &&
+                                            totalX > kotlin.math.abs(totalY)
+                                        ) {
+                                            handled = true
+                                            currentOnOpen()
+                                        }
+                                    } else {
+                                        // 展开时：纵向占优让给侧栏列表滚动。
+                                        if (kotlin.math.abs(totalY) > kotlin.math.abs(totalX) * 1.5f &&
+                                            kotlin.math.abs(totalY) > 16f
+                                        ) {
+                                            break
+                                        }
+                                        if (totalX < -40f &&
+                                            kotlin.math.abs(totalX) > kotlin.math.abs(totalY)
+                                        ) {
+                                            handled = true
+                                            closePane()
+                                        }
+                                    }
                                 }
-                                // 向左拖 40dp 关闭。
-                                if (!closing && totalX < -40f && kotlin.math.abs(totalX) > kotlin.math.abs(totalY)) {
-                                    closing = true
-                                    closePane()
-                                }
-                                if (closing) change.consume()
+                                if (handled) change.consume()
                             }
                         }
                     }

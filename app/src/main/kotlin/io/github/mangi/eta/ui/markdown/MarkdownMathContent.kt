@@ -53,6 +53,8 @@ import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 import top.yukonga.miuix.kmp.basic.Text
+import io.github.mangi.eta.ui.components.LocalHorizontalScrollLock
+import io.github.mangi.eta.ui.components.declareHorizontalScroll
 
 @Immutable
 internal data class InlineMathBoxMetrics(
@@ -231,6 +233,7 @@ internal fun rememberInlineMathContentMap(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    .declareHorizontalScroll(LocalHorizontalScrollLock.current)
                                     .mathHorizontalOverflowFade(inlineScroll)
                                     .horizontalScroll(inlineScroll),
                             ) {
@@ -291,6 +294,7 @@ internal fun MarkdownDisplayMathBlock(
         Box(
             modifier = modifier
                 .fillMaxWidth()
+                .declareHorizontalScroll(LocalHorizontalScrollLock.current)
                 .mathHorizontalOverflowFade(scrollState)
                 .horizontalScroll(scrollState)
                 .padding(vertical = 2.dp),
@@ -368,6 +372,7 @@ internal fun MarkdownDisplayMathBlock(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .declareHorizontalScroll(LocalHorizontalScrollLock.current)
             .mathHorizontalOverflowFade(scrollState)
             .horizontalScroll(scrollState)
             .padding(horizontal = 8.dp, vertical = 4.dp),

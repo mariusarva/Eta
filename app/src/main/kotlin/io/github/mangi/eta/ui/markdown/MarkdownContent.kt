@@ -80,6 +80,8 @@ import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.mangi.eta.ui.components.LocalHorizontalScrollLock
+import io.github.mangi.eta.ui.components.declareHorizontalScroll
 
 /**
  * 绘制一份已解析的 [MarkdownDocument]。
@@ -322,9 +324,11 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
                 .background(style.subtleBorderColor),
         )
         // 代码不折行，长行横向滚动，保留缩进与对齐。
+        val codeScrollLock = LocalHorizontalScrollLock.current
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .declareHorizontalScroll(codeScrollLock)
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 14.dp, vertical = 11.dp),
         ) {
@@ -670,9 +674,11 @@ private fun MarkdownTableBlock(block: MarkdownTable, scope: MarkdownRenderScope)
 
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val availableWidth = constraints.maxWidth
+        val tableScrollLock = LocalHorizontalScrollLock.current
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .declareHorizontalScroll(tableScrollLock)
                 .horizontalScroll(rememberScrollState()),
         ) {
             Layout(

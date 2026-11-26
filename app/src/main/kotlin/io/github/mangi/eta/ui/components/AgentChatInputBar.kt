@@ -63,7 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Rect
@@ -71,7 +71,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
@@ -403,8 +402,7 @@ internal fun AgentChatInputBar(
         val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
         val couiDark = CouiTheme.isDark
         val couiColors = CouiTheme.colorScheme
-        // 用普通圆角而不是 SquircleShape：dropShadow 对超椭圆的支持不完整，
-        // 阴影会在左上角被切成两块直角深色区（实测）。
+        // 用普通圆角而不是 SquircleShape：阴影在超椭圆轮廓上会被切成直角色块（实测）。
         val couiInputShape = remember { androidx.compose.foundation.shape.RoundedCornerShape(24.dp) }
         val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
         val miuixInputBg = if (!isDark && MiuixTheme.colorScheme.surfaceContainer == MiuixTheme.colorScheme.surface) {
@@ -474,13 +472,17 @@ internal fun AgentChatInputBar(
                                 // backdrop 内容已变但模糊层还留着一帧旧采样，
                                 // 输入框右侧就会出现一块半透明重影（实测）。
                                 // 输入框本来就是深色不透明卡片，去掉模糊视觉差异极小。
-                                .dropShadow(
+                                // 用系统 elevation 阴影（Modifier.shadow），不用 dropShadow：
+                                // dropShadow 会在离屏 layer 上预先画好整块阴影贴图，
+                                // 输入框宽度随输入法/侧栏变化时旧贴图不会立刻失效，
+                                // 右侧会残留一条半透明色块（重影）。elevation 阴影由
+                                // RenderNode 每帧实时绘制，不存在缓存残留。
+                                .shadow(
+                                    elevation = 6.dp,
                                     shape = couiInputShape,
-                                    shadow = Shadow(
-                                        radius = 16.dp,
-                                        color = Color.Black,
-                                        alpha = if (couiDark) 0.22f else 0.045f,
-                                    ),
+                                    clip = false,
+                                    ambientColor = Color.Black.copy(alpha = if (couiDark) 0.30f else 0.12f),
+                                    spotColor = Color.Black.copy(alpha = if (couiDark) 0.30f else 0.12f),
                                 )
                                 .background(couiColors.surface, couiInputShape)
                                 .clip(couiInputShape)

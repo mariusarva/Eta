@@ -626,6 +626,9 @@ private fun AgentChatScaffold(
             pageCount = { ChatPage.entries.size },
         )
         val pagerScope = rememberCoroutineScope()
+        // 内层横向滚动（表格 / 代码块 / 公式）声明方向后，页级右滑手势必须让位，
+        // 否则长表格滑到最右后想滑回左边会被当成「打开侧栏」，表格完全不动（实测）。
+        val horizontalScrollLock = remember { HorizontalScrollLock() }
         // 滑动 → 通知外部；外部改动（点图标）→ 滚过去。
         LaunchedEffect(pagerState.currentPage) {
             onPageChanged(pagerState.currentPage)
@@ -674,6 +677,9 @@ private fun AgentChatScaffold(
                                             val change = event.changes.firstOrNull { it.id == down.id }
                                                 ?: break
                                             if (!change.pressed) break
+                                            // 触摸落在表格 / 代码块 / 公式这类横向滚动容器上：
+                                            // 整段手势归它们，页级右滑不参与。
+                                            if (!triggered && horizontalScrollLock.dragging) break
                                             val delta = change.position - change.previousPosition
                                             totalX += delta.x
                                             totalY += delta.y
@@ -681,7 +687,7 @@ private fun AgentChatScaffold(
                                             if (!triggered && abs(totalY) > abs(totalX) * 1.5f && abs(totalY) > 16f) {
                                                 break
                                             }
-                                            if (!triggered && totalX > 16f && totalX > abs(totalY)) {
+                                            if (!triggered && totalX > 24f && totalX > abs(totalY)) {
                                                 triggered = true
                                                 onOpenConversationPane()
                                             }
@@ -700,6 +706,9 @@ private fun AgentChatScaffold(
                                     .padding(top = topInset, bottom = bottomPadding),
                             )
                         } else {
+                            CompositionLocalProvider(
+                                LocalHorizontalScrollLock provides horizontalScrollLock,
+                            ) {
                             AgentConversationMessages(
                                 pendingAsk = pendingAsk,
                                 onAskEditingChanged = { askEditing = it },
@@ -741,6 +750,7 @@ private fun AgentChatScaffold(
                                 onHistoryViewportChanged = onHistoryViewportChanged,
                                 modifier = Modifier.fillMaxSize(),
                             )
+                            }
                         }
                     }
                 }
