@@ -672,8 +672,11 @@ private fun AgentChatScaffold(
                                         val change = event.changes.firstOrNull { it.id == down.id }
                                             ?: break
                                         if (!change.pressed) break
-                                        totalX += change.positionChange().x
-                                        totalY += change.positionChange().y
+                                        // 本仓库 Compose 版本的 positionChange 是布尔标志，
+                                        // 位移用 position - previousPosition 自己算。
+                                        val delta = change.position - change.previousPosition
+                                        totalX += delta.x
+                                        totalY += delta.y
                                         // 纵向意图更强：让给列表滚动，退出接管。
                                         if (!triggered && abs(totalY) > abs(totalX) && abs(totalY) > 12f) {
                                             return@awaitEachGesture
