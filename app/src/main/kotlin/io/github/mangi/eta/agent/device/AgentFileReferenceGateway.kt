@@ -8,7 +8,6 @@ import android.provider.OpenableColumns
 import io.github.mangi.eta.agent.model.AgentFileReference
 import io.github.mangi.eta.agent.model.AgentFileReferenceKind
 import io.github.mangi.eta.agent.model.hasUnsupportedControlCharacter
-import io.github.mangi.eta.agent.terminal.TerminalPrivateStorage
 import io.github.mangi.eta.core.AgentLogger
 import java.io.File
 import java.io.IOException

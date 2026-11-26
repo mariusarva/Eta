@@ -40,19 +40,27 @@ internal object WorkspaceRoot {
         return if (dir.isDirectory) configured else ""
     }
 
-    /** 实际生效的工作目录（user 身份与文件区）。 */
+    /**
+     * 实际生效的工作目录（文件区与 user 身份）。
+     *
+     * 未自定义时回落到 root 终端工作区 `/data/local/tmp/eta`，而不是 App 私有目录：
+     * 文件区展示的应该就是终端里能看到的同一批文件，两处不一致会让用户
+     * 「在文件区看到的东西」和「在终端里 ls 到的」对不上。
+     *
+     * App 进程对该目录没有写权限（drwxr-xr-x root root），但文件区的读写
+     * 走 ShellFileToolBackend（root 身份），所以列目录与导入导出都能正常工作。
+     */
     fun resolve(context: Context): File {
         val custom = custom(context)
         if (custom.isNotBlank()) return File(custom)
-        return TerminalPrivateStorage.workspace(context.applicationContext.filesDir)
+        return File(TerminalRuntime.ROOT_WORKSPACE_PATH)
     }
 
     /**
      * root 身份实际使用的默认工作目录。
      *
-     * 与 [resolve] 分开是因为两者兜底值不同：user 兜底到 App 私有目录，
-     * root 兜底到 `/data/local/tmp/eta`。但自定义时读同一个 Prefs 键——
-     * 用户在文件区设了目录，root 进 shell 也就落在那里。
+     * 与 [resolve] 兜底值相同（都是 `/data/local/tmp/eta`），保留独立方法是因为
+     * 语义不同：文件区/user 身份将来若要换兜底，root 侧不该跟着动。
      */
     fun resolveRoot(context: Context): File {
         val custom = custom(context)
