@@ -40,6 +40,8 @@ internal fun AgentHomeScreen(
     topInset: Dp = 0.dp,
     /** 会话状态宿主，供快捷菜单的引用/续写使用。 */
     appState: AgentAppState? = null,
+    /** 新建纯聊天会话：三页 Pager 右页的入口按钮。 */
+    onNewChatOnlyConversation: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // key 内保持完整分支，避免提前返回遗留无法转换为 DEX 的编译器标记。
@@ -61,6 +63,7 @@ internal fun AgentHomeScreen(
             ) {
                 AgentChatBody(
                     appState = appState,
+                    onNewChatOnlyConversation = onNewChatOnlyConversation,
                     conversationId = conversationKey.orEmpty(),
                     messages = state.messages,
                     modelPickerState = modelPickerState,

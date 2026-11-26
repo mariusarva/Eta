@@ -34,6 +34,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import io.github.mangi.eta.ui.screens.terminal.WorkspacePanelContent
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -212,6 +215,8 @@ internal fun AgentChatBody(
     conversationId: String = "",
     /** 会话状态宿主：快捷菜单的「引用追问 / 在新对话中继续」需要它。 */
     appState: AgentAppState? = null,
+    /** 新建纯聊天会话：三页 Pager 右页的入口按钮。 */
+    onNewChatOnlyConversation: () -> Unit = {},
 ) {
     // 轮次导航读全库用户消息：消息本身是分页加载的，按已加载消息切轮次会让长会话少算前面的轮。
     val appContext = LocalContext.current.applicationContext
@@ -296,6 +301,7 @@ internal fun AgentChatBody(
         SpeechAutoReadAloud(messages = messages, isStreaming = isStreaming)
         AgentChatScaffold(
             appState = appState,
+            onNewChatOnlyConversation = onNewChatOnlyConversation,
             allTurns = allTurns,
             pendingJumpMessageId = pendingJumpMessageId,
             onJumpHandled = { pendingJumpMessageId = null },
@@ -445,6 +451,8 @@ private fun AgentChatScaffold(
     onJumpRequest: (String) -> Unit = {},
     /** 会话状态宿主：快捷菜单的引用/续写需要。 */
     appState: AgentAppState? = null,
+    /** 新建纯聊天会话：三页 Pager 右页的入口按钮。 */
+    onNewChatOnlyConversation: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
@@ -594,51 +602,97 @@ private fun AgentChatScaffold(
         },
     ) { innerPadding ->
         val bottomPadding = innerPadding.calculateBottomPadding()
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .captureGlassBackdrop(chatBackdrop)
-                .then(couiCapture),
-        ) {
-            if (!hasMessages) {
-                EmptyChatState(
-                    showSuggestions = showEmptySuggestions,
-                    onSuggestionClick = onSuggestionClick,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = topInset, bottom = bottomPadding),
-                )
-            } else {
-                AgentConversationMessages(
-                    visibleMessages = visibleMessages,
-                    scrollState = scrollState,
-                    allTurns = allTurns,
-                    pendingJumpMessageId = pendingJumpMessageId,
-                    onJumpHandled = onJumpHandled,
-                    isStreaming = isStreaming,
-                    topInset = topInset,
-                    bottomInset = bottomPadding,
-                    keepBottomAnchored = keepBottomAnchored,
-                    onBottomAnchorChanged = onBottomAnchorChanged,
-                    onSuggestionClick = onSuggestionClick,
-                    onRunTraceClick = onRunTraceClick,
-                    onOpenBrowser = onOpenBrowser,
-                    onEditMessage = onEditMessage,
-                    onDeleteMessage = onDeleteMessage,
-                    onRegenerateMessage = onRegenerateMessage,
-                    onBranchMessage = onBranchMessage,
-                    onSelectReplyCandidate = onSelectReplyCandidate,
-                    onEditGeneratedImage = onAttachImage,
-                    messageActionsEnabled = !isStreaming && !isCompacting && !isBranching && messageEdit == null,
-                    editTargetMessageId = messageEdit?.targetMessageId,
-                    currentBrowserMessageId = currentBrowserMessageId,
-                    hasEarlierMessages = hasEarlierMessages,
-                    messageStartIndex = messageStartIndex,
-                    historyLoadState = historyLoadState,
-                    onLoadEarlierMessages = onLoadEarlierMessages,
-                    onHistoryViewportChanged = onHistoryViewportChanged,
-                    modifier = Modifier.fillMaxSize(),
-                )
+        // 三页横向 Pager：左=工作文件夹，中=对话，右=纯聊天。
+        // 输入栏在 Scaffold.bottomBar 里，不随页面平移；这里只翻内容区。
+        val pagerState = androidx.compose.foundation.pager.rememberPagerState(
+            initialPage = ChatPage.CONVERSATION.ordinal,
+            pageCount = { ChatPage.entries.size },
+        )
+        val pagerScope = rememberCoroutineScope()
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            // 关闭越界回弹，避免最后一页继续拖动时露出空白。
+            overscrollEffect = null,
+        ) { page ->
+            when (ChatPage.entries[page]) {
+                ChatPage.WORKSPACE -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = topInset, bottom = bottomPadding),
+                    ) {
+                        WorkspacePanelContent()
+                    }
+                }
+                ChatPage.CONVERSATION -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .captureGlassBackdrop(chatBackdrop)
+                            .then(couiCapture),
+                    ) {
+                        if (!hasMessages) {
+                            EmptyChatState(
+                                showSuggestions = showEmptySuggestions,
+                                onSuggestionClick = onSuggestionClick,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = topInset, bottom = bottomPadding),
+                            )
+                        } else {
+                            AgentConversationMessages(
+                                visibleMessages = visibleMessages,
+                                scrollState = scrollState,
+                                allTurns = allTurns,
+                                pendingJumpMessageId = pendingJumpMessageId,
+                                onJumpHandled = onJumpHandled,
+                                isStreaming = isStreaming,
+                                topInset = topInset,
+                                bottomInset = bottomPadding,
+                                keepBottomAnchored = keepBottomAnchored,
+                                onBottomAnchorChanged = onBottomAnchorChanged,
+                                onSuggestionClick = onSuggestionClick,
+                                onRunTraceClick = onRunTraceClick,
+                                onOpenBrowser = onOpenBrowser,
+                                onEditMessage = onEditMessage,
+                                onDeleteMessage = onDeleteMessage,
+                                onRegenerateMessage = onRegenerateMessage,
+                                onBranchMessage = onBranchMessage,
+                                onSelectReplyCandidate = onSelectReplyCandidate,
+                                onEditGeneratedImage = onAttachImage,
+                                messageActionsEnabled = !isStreaming && !isCompacting && !isBranching && messageEdit == null,
+                                editTargetMessageId = messageEdit?.targetMessageId,
+                                currentBrowserMessageId = currentBrowserMessageId,
+                                hasEarlierMessages = hasEarlierMessages,
+                                messageStartIndex = messageStartIndex,
+                                historyLoadState = historyLoadState,
+                                onLoadEarlierMessages = onLoadEarlierMessages,
+                                onHistoryViewportChanged = onHistoryViewportChanged,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
+                }
+                ChatPage.CHAT_ONLY -> {
+                    ChatOnlyPage(
+                        onStartChatOnly = {
+                            onNewChatOnlyConversation()
+                            // 新建后回到中间对话页，用户直接开始打字。
+                            pagerScope.launch {
+                                pagerState.animateScrollToPage(ChatPage.CONVERSATION.ordinal)
+                            }
+                        },
+                        onGoToConversation = {
+                            pagerScope.launch {
+                                pagerState.animateScrollToPage(ChatPage.CONVERSATION.ordinal)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = topInset, bottom = bottomPadding),
+                    )
+                }
             }
         }
     }

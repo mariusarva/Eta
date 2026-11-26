@@ -4,14 +4,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.gestures.AnchoredDraggableDefaults
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.gestures.animateTo
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -133,18 +128,13 @@ internal fun ConversationSidePaneScaffold(
                 visibilityThreshold = ConversationPaneMetrics.SettleVisibilityThresholdPx,
             )
         }
-        val flingBehavior = AnchoredDraggableDefaults.flingBehavior(
-            state = paneDragState,
-            positionalThreshold = { distance ->
-                distance * ConversationPaneMetrics.SettlePositionThresholdFraction
-            },
-            animationSpec = settleAnimation,
-        )
         val currentVisible by rememberUpdatedState(visible)
         val currentOnOpen by rememberUpdatedState(onOpen)
         val currentOnDismiss by rememberUpdatedState(onDismiss)
-        val dragInteractions = remember { MutableInteractionSource() }
-        val isDragging by dragInteractions.collectIsDraggedAsState()
+        // 边缘横滑手势已移除：对话页三页 Pager 需要独占横向手势，
+        // 侧栏改由顶栏历史按钮程序化开合。这里保留 isDragging 的恒 false 语义，
+        // 让下方 conversationPaneSettledValues 仍按"已稳定"路径收敛。
+        val isDragging = false
         val isRevealed by remember(paneDragState) {
             derivedStateOf {
                 val offset = paneDragState.offset
@@ -214,16 +204,7 @@ internal fun ConversationSidePaneScaffold(
         Box(
             modifier = Modifier.fillMaxSize()
                 .clipToBounds()
-                .background(conversationPaneContainerColor())
-                // 手势由共同容器拥有，侧栏和聊天舞台均可拖动；子级先处理滚动与选择。
-                .anchoredDraggable(
-                    state = paneDragState,
-                    reverseDirection = false,
-                    orientation = Orientation.Horizontal,
-                    enabled = backHandlerEnabled && sceneLifecycleState == Lifecycle.State.RESUMED,
-                    flingBehavior = flingBehavior,
-                    interactionSource = dragInteractions,
-                ),
+                .background(conversationPaneContainerColor()),
             contentAlignment = AbsoluteAlignment.TopLeft,
         ) {
             // 两个槽位并排测量和放置，由同一位移推移；不在聊天内容下面叠放侧栏。

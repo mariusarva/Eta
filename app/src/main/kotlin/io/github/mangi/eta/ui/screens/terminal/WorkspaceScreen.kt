@@ -8,6 +8,7 @@ import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -61,8 +62,17 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+/**
+ * 工作文件夹的纯内容视图，不带自己的页面外壳。
+ *
+ * 抽出来是为了两处复用：
+ * 1. 二级页 [WorkspaceScreen]（顶栏进入，有返回按钮）；
+ * 2. 对话页横向 Pager 的左页（内嵌，无返回按钮，标题由外层提供）。
+ *
+ * 两处共用同一份状态逻辑，避免两套实现后续走偏。
+ */
 @Composable
-internal fun WorkspaceScreen(onBack: () -> Unit) {
+internal fun WorkspacePanelContent(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val store = remember(context.applicationContext) { WorkspaceFileStore(context) }
@@ -383,20 +393,28 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
         }
     }
 
-    when (uiStyle) {
+    androidx.compose.foundation.lazy.LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        state = androidx.compose.foundation.lazy.rememberLazyListState(),
+        content = listContent,
+    )
+}
+
+/** 二级页外壳：顶栏进入，带返回按钮。内容与 Pager 左页共用 [WorkspacePanelContent]。 */
+@Composable
+internal fun WorkspaceScreen(onBack: () -> Unit) {
+    when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
             CouiLazyScaffoldPage(
                 title = stringResource(R.string.capability_workspace),
                 onBack = onBack,
-                content = { listContent() },
-            )
+            ) { WorkspacePanelContent() }
         }
         AppearanceUiStyle.MIUIX -> {
             MiuixScaffoldPage(
                 title = stringResource(R.string.capability_workspace),
                 onBack = onBack,
-                content = listContent,
-            )
+            ) { WorkspacePanelContent() }
         }
     }
 }

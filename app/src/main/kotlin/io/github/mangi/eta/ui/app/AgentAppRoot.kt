@@ -516,6 +516,7 @@ fun AgentAppRoot(
                                 state = agentState.homeState,
                                 modelPickerState = agentState.modelPickerState,
                                 appState = agentState,
+                                onNewChatOnlyConversation = { agentState.createChatOnlyConversation() },
                                 isBranching = agentState.isBranchingCurrentConversation,
                                 conversationKey = agentState.conversationPaneState.selectedConversationId,
                                 topInset = shellPadding.calculateTopPadding(),
