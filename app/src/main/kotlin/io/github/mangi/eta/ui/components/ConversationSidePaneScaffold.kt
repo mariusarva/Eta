@@ -221,7 +221,7 @@ internal fun ConversationSidePaneScaffold(
                 .background(conversationPaneContainerColor())
                 // 侧栏双向横滑，挂在「侧栏面板 + 会话内容」的共同祖先上：
                 // · 展开时左滑 40dp 关闭；
-                // · 未展开时右滑 24dp 打开（仅对话页）。
+                // · 未展开时右滑 48dp 打开（仅对话页）。
                 // 状态只看 visible，不看退场动画的 offset，所以关掉之后不管动画走到哪，
                 // 第一次右滑就能重新打开；也不依赖焦点落在哪个子节点。
                 .pointerInput(Unit) {
@@ -230,6 +230,7 @@ internal fun ConversationSidePaneScaffold(
                             val down = awaitPointerEvent(PointerEventPass.Initial)
                                 .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
                                 ?: continue
+                            val downTime = android.os.SystemClock.uptimeMillis()
                             android.util.Log.i(
                                 "EtaPaneSwipe",
                                 "down x=${down.position.x} visible=$currentVisible open=$currentSwipeToOpen hl=${horizontalScrollLock.isActive()}",
@@ -246,6 +247,13 @@ internal fun ConversationSidePaneScaffold(
                                 totalX += delta.x
                                 totalY += delta.y
                                 if (!handled) {
+                                    // 长按判定：按下后停留超过 250ms 才移动 = 长按文字/选择，
+                                    // 手指的微小抖动不应该被当成开侧栏的滑动。整段放弃。
+                                    if (android.os.SystemClock.uptimeMillis() - downTime > 250L &&
+                                        kotlin.math.abs(totalX) < 48f
+                                    ) {
+                                        break
+                                    }
                                     // 方向锁定后再也不因纵向分量放弃：
                                     // 起手几帧内 totalX 还很小，只要带一点纵向抖动就会被判成
                                     // 「纵向滚动」整段放弃，表现为要滑两次才成功（实测）。
@@ -261,19 +269,19 @@ internal fun ConversationSidePaneScaffold(
                                         )
                                         break
                                     }
-                                    if (!currentVisible && totalX > 18f && horizontalScrollLock.isActive()) {
+                                    if (!currentVisible && totalX > 48f && horizontalScrollLock.isActive()) {
                                         android.util.Log.i("EtaPaneSwipe", "blocked by horizontal scroll")
                                     }
                                     if (currentVisible) {
-                                        if (totalX < -40f &&
-                                            kotlin.math.abs(totalX) > kotlin.math.abs(totalY)
+                                        if (totalX < -56f &&
+                                            kotlin.math.abs(totalX) > kotlin.math.abs(totalY) * 1.3f
                                         ) {
                                             handled = true
                                             android.util.Log.i("EtaPaneSwipe", "close dx=$totalX")
                                             closePane()
                                         }
                                     } else if (currentSwipeToOpen && !horizontalScrollLock.isActive()) {
-                                        if (totalX > 18f && totalX > kotlin.math.abs(totalY)) {
+                                        if (totalX > 48f && totalX > kotlin.math.abs(totalY) * 1.3f) {
                                             handled = true
                                             android.util.Log.i("EtaPaneSwipe", "open dx=$totalX")
                                             currentOnOpen()
