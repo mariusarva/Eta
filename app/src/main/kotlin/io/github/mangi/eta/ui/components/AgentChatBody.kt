@@ -521,6 +521,10 @@ private fun AgentChatScaffold(
             bottom = 0.dp,
         ),
         bottomBar = {
+            // 输入栏与轮次把手属于「对话页」，不随 Pager 滑动。
+            // 之前无条件渲染：滑到文件页/纯聊天页时它仍停在原地，
+            // 左下角的轮次把手看起来就是一块残留。
+            if (currentPage == ChatPage.CONVERSATION.ordinal) {
             Column(modifier = Modifier.fillMaxWidth()) {
             // 待答问题卡片已移到消息流内部（见下方 LazyColumn 的 ask-card item）：
             // 之前挂在 bottomBar 上，未作答时会一直悬浮在输入框上方，挡住输入和阅读。
@@ -592,6 +596,7 @@ private fun AgentChatScaffold(
                     )
                 },
             )
+            }
             }
             }
         },
