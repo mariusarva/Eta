@@ -1,5 +1,12 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,11 +55,27 @@ internal fun AskUserCard(
     ask: PendingAsk,
     onChoose: (List<String>) -> Unit,
     onSkip: () -> Unit,
+    /** 自定义回答：用户自己写的答案；第二个参数是同时勾中的选项（补充而非覆盖）。 */
+    onChooseFreeform: (String, List<String>) -> Unit = { _, _ -> },
+    /** 正在卡内输入：告诉宿主收起底部聊天输入框，避免两个输入框同时在场。 */
+    onEditingChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // 换一张卡就重置勾选，避免把上一题的答案带过来。
     var picked by remember(ask.token) { mutableStateOf(emptySet<String>()) }
+    var freeformOpen by remember(ask.token) { mutableStateOf(false) }
+    var freeformText by remember(ask.token) { mutableStateOf("") }
+    val focusRequester = remember { FocusRequester() }
     val multiple = ask.allowMultiple
+
+    LaunchedEffect(freeformOpen) {
+        onEditingChanged(freeformOpen)
+        if (freeformOpen) runCatching { focusRequester.requestFocus() }
+    }
+    // 卡片被移出组合时没机会补发 false，底部输入框会永久消失（参考分支踩过）。
+    DisposableEffect(Unit) {
+        onDispose { onEditingChanged(false) }
+    }
 
     Column(
         modifier = modifier
@@ -83,6 +106,84 @@ internal fun AskUserCard(
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(top = 4.dp),
             )
+        }
+        if (freeformOpen) {
+            // 输入态：选项全部收起，屏上只留这一个可写的地方。
+            // 之前选项和输入框同时在场，会和底部聊天输入框叠成两个可写区域，用户不知道该往哪儿写。
+            val pickedLabels = ask.options.filter { it.id in picked }.map { it.label }
+            Text(
+                text = if (pickedLabels.isEmpty()) {
+                    "在这里写你的答案，发送后这张卡就定稿。"
+                } else {
+                    "已选：${pickedLabels.joinToString("、")}。下面是补充，发送时一起交上去。"
+                },
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            Spacer(Modifier.height(6.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = opaqueThemedSurface(),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            ) {
+                BasicTextField(
+                    value = freeformText,
+                    onValueChange = { freeformText = it.take(500) },
+                    textStyle = TextStyle(
+                        color = MiuixTheme.colorScheme.onSurface,
+                        fontSize = 15.sp,
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
+                    decorationBox = { inner ->
+                        if (freeformText.isEmpty()) {
+                            Text(
+                                text = "写你要的答案…",
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                        }
+                        inner()
+                    },
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(
+                    text = "返回选项",
+                    onClick = {
+                        freeformOpen = false
+                        freeformText = ""
+                    },
+                    minWidth = 0.dp,
+                    minHeight = 34.dp,
+                    insideMargin = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    colors = ButtonDefaults.textButtonColors(),
+                )
+                TextButton(
+                    text = "发送",
+                    onClick = {
+                        val answer = freeformText.trim()
+                        if (answer.isNotEmpty()) {
+                            onChooseFreeform(answer, ask.options.map { it.id }.filter { it in picked })
+                        }
+                    },
+                    minWidth = 0.dp,
+                    minHeight = 34.dp,
+                    insideMargin = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+            }
+            return@Column
         }
         Spacer(Modifier.height(8.dp))
         // 已作答：把当时的选择固定显示出来，用户回滚时能看清自己选了什么。
@@ -161,6 +262,26 @@ internal fun AskUserCard(
                 modifier = Modifier.padding(top = 6.dp),
             )
             return@Column
+        }
+        // 「其他…」：切换成输入态，不是并排再放一个输入框。
+        if (!answered) {
+            Spacer(Modifier.height(6.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = opaqueThemedSurface(MiuixTheme.colorScheme.surfaceContainer),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    .clickable { freeformOpen = true }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            ) {
+                Text(
+                    text = "其他…",
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
         }
         // 底部动作行：多选时是「跳过 + 确认」，单选时只有「跳过」。
         // 跳过不产生任何回答消息，只把卡片标成已跳过——用户不想选时不该被迫二选一。

@@ -493,6 +493,8 @@ private fun AgentChatScaffold(
             pendingAsk = PendingAskStore.forConversation(conversationId)
         }
     }
+    // 卡片内正在自由输入时收起底部输入栏：否则屏上会有两个可写区域。
+    var askEditing by remember(conversationId) { mutableStateOf(false) }
 
     CompositionLocalProvider(
         LocalCustomComposer provides customComposer,
@@ -520,6 +522,8 @@ private fun AgentChatScaffold(
                 allTurns = allTurns,
                 onDeleteTurn = { messageId -> onDeleteMessage(messageId) },
             )
+            // 卡片内正在输入时让位：避免两个可写区域同时在场。
+            if (!askEditing) {
             AgentChatBottomBar(
                 input = input,
                 isCompacting = isCompacting,
@@ -578,6 +582,7 @@ private fun AgentChatScaffold(
                 },
             )
             }
+            }
         },
     ) { innerPadding ->
         val bottomPadding = innerPadding.calculateBottomPadding()
@@ -622,6 +627,7 @@ private fun AgentChatScaffold(
                         } else {
                             AgentConversationMessages(
                                 pendingAsk = pendingAsk,
+                                onAskEditingChanged = { askEditing = it },
                                 onAskAnswered = { answered ->
                                     pendingAsk = answered
                                     // 用户选了答案才算真的回了话；跳过不发消息。
@@ -713,6 +719,8 @@ internal fun AgentConversationMessages(
     /** 待答问题卡片：作为消息流的一个条目渲染，跟着内容滚动。 */
     pendingAsk: PendingAsk? = null,
     onAskAnswered: (PendingAsk) -> Unit = {},
+    /** 卡片内正在输入：宿主据此收起底部输入框，避免两个可写区域同时在场。 */
+    onAskEditingChanged: (Boolean) -> Unit = {},
     onEditGeneratedImage: ((String) -> Unit)? = null,
     messageActionsEnabled: Boolean = false,
     editTargetMessageId: String? = null,
@@ -1115,6 +1123,16 @@ internal fun AgentConversationMessages(
                                     onAskAnswered(answered)
                                 }
                             },
+                            // 自定义回答：用户自己写的内容 + 同时勾中的选项，一起作为答复提交。
+                            onChooseFreeform = { text, extraIds ->
+                                val extraLabels = ask.options.filter { it.id in extraIds }.map { it.label }
+                                val labels = extraLabels + text
+                                val answer = AskAnswer(labels = labels)
+                                PendingAskStore.answer(ask.token, answer)
+                                onAskAnswered(ask.copy(answer = answer))
+                            },
+                            // 卡内输入时通知宿主收起底部输入框，避免两个输入框同时在场。
+                            onEditingChanged = onAskEditingChanged,
                             // 跳过：只把卡片标成已跳过，不发任何消息，也不打断当前对话。
                             onSkip = {
                                 PendingAskStore.answer(ask.token, AskAnswer(skipped = true))
