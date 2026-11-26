@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui
 
+import androidx.compose.material.icons.rounded.HealthAndSafety
+import androidx.compose.material.icons.rounded.CheckCircle
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -766,6 +768,22 @@ private fun SettingsPageContent(
                     }
                     item {
                         CouiPreference(
+                            title = "功能自检",
+                            summary = "逐项检查权限、Root、存储、数据库与日志",
+                            icon = { CouiSettingsIcon(Icons.Rounded.CheckCircle, SettingsIconColors.Blue) },
+                            onClick = { onNavigate(AppRoute.SelfCheck) },
+                        )
+                    }
+                    item {
+                        CouiPreference(
+                            title = "极致自动排查",
+                            summary = "定时巡检，异常才提醒",
+                            icon = { CouiSettingsIcon(Icons.Rounded.HealthAndSafety, SettingsIconColors.Orange) },
+                            onClick = { onNavigate(AppRoute.DiagnosticsPatrol) },
+                        )
+                    }
+                    item {
+                        CouiPreference(
                             title = stringResource(R.string.route_mcp_servers),
                             icon = {
                                 CouiSettingsIcon(
@@ -1300,6 +1318,18 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.route_skills),
                             startAction = { SettingsIcon(Icons.Rounded.ImportContacts) },
                             onClick = { onNavigate(AppRoute.Skills) },
+                        )
+                        ArrowPreference(
+                            title = "功能自检",
+                            summary = "逐项检查权限、Root、存储、数据库与日志",
+                            startAction = { SettingsIcon(Icons.Rounded.CheckCircle) },
+                            onClick = { onNavigate(AppRoute.SelfCheck) },
+                        )
+                        ArrowPreference(
+                            title = "极致自动排查",
+                            summary = "定时巡检，异常才提醒",
+                            startAction = { SettingsIcon(Icons.Rounded.HealthAndSafety) },
+                            onClick = { onNavigate(AppRoute.DiagnosticsPatrol) },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.route_mcp_servers),

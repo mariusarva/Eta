@@ -28,6 +28,12 @@ sealed interface AppRoute : NavKey {
     data object ImageGenGallery : AppRoute
 
     @Serializable
+    /** 功能自检：逐项检查权限、Root、存储、数据库等运行时状态。 */
+    data object SelfCheck : AppRoute
+
+    /** 极致自动排查：定时巡检，异常才提醒。 */
+    data object DiagnosticsPatrol : AppRoute
+
     data object Skills : AppRoute
 
     /** 技能市场：内置目录 + 从公开仓库安装技能。 */

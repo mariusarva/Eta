@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui.app
 
+import io.github.mangi.eta.ui.screens.selfcheck.DiagnosticsPatrolScreen
+import io.github.mangi.eta.ui.screens.selfcheck.FeatureSelfCheckScreen
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
@@ -695,6 +697,12 @@ fun AgentAppRoot(
                     }
                     entry<AppRoute.AssistantOverlaySettings>(swipeDismiss = activeSwipeDismiss) {
                         AssistantOverlaySettingsScreen(onBack = ::popRoute)
+                    }
+                    entry<AppRoute.SelfCheck>(swipeDismiss = activeSwipeDismiss) {
+                        FeatureSelfCheckScreen(onBack = ::popRoute)
+                    }
+                    entry<AppRoute.DiagnosticsPatrol>(swipeDismiss = activeSwipeDismiss) {
+                        DiagnosticsPatrolScreen(onBack = ::popRoute)
                     }
                     entry<AppRoute.Skills>(swipeDismiss = activeSwipeDismiss) {
                         LaunchedEffect(Unit) {

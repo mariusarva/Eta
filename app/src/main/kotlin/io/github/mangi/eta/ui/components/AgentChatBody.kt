@@ -1,5 +1,8 @@
 package io.github.mangi.eta.ui.components
 
+import kotlin.math.abs
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.AnimatedVisibility
@@ -610,6 +613,11 @@ private fun AgentChatScaffold(
             pageCount = { ChatPage.entries.size },
         )
         val pagerScope = rememberCoroutineScope()
+        // 右页「开始纯聊天」会切换当前会话；左滑回来时必须回到原来那条。
+        // 用 remember 保存「切换前的会话」，并在页面变化时读最新值。
+        var conversationBeforeChatOnly by remember { mutableStateOf<String?>(null) }
+        val currentConversationId by rememberUpdatedState(conversationId)
+        val currentOnRestore by rememberUpdatedState(onRestoreConversation)
         // 滑动 → 通知外部；外部改动（点图标）→ 滚过去。
         LaunchedEffect(pagerState.currentPage) {
             onPageChanged(pagerState.currentPage)
@@ -619,18 +627,19 @@ private fun AgentChatScaffold(
                 pagerState.animateScrollToPage(currentPage)
             }
         }
-        // 右页「开始纯聊天」会切换当前会话；左滑回来时必须回到原来那条，
-        // 否则用户看到的是纯聊天会话，再右滑又提示新建（因为已经切走了）。
-        var conversationBeforeChatOnly by remember { mutableStateOf<String?>(null) }
-        // 从右页离开时恢复：只在当前确实停在纯聊天会话、且记录了原会话时才切回。
-        LaunchedEffect(pagerState.currentPage) {
-            if (pagerState.currentPage == ChatPage.CONVERSATION.ordinal) {
-                val restore = conversationBeforeChatOnly
-                if (restore != null && restore != conversationId) {
-                    onRestoreConversation(restore)
-                    conversationBeforeChatOnly = null
-                }
+        // 回到中间页时恢复原会话。
+        // 之前只在 currentPage 变化时检查，但点「开始纯聊天」是同步赋值、
+        // 页面此时已经是中间页（animateScrollToPage 从右页回到中间），
+        // 赋值瞬间 currentPage 没变 → 不重跑 → 恢复逻辑被跳过。
+        // 这里同时观察 conversationBeforeChatOnly，任一变化都尝试恢复。
+        LaunchedEffect(pagerState.currentPage, conversationBeforeChatOnly) {
+            if (pagerState.currentPage != ChatPage.CONVERSATION.ordinal) return@LaunchedEffect
+            val restore = conversationBeforeChatOnly ?: return@LaunchedEffect
+            // 已经切到纯聊天会话（当前 id 变了）才需要恢复；否则保持原样。
+            if (restore != currentConversationId) {
+                currentOnRestore(restore)
             }
+            conversationBeforeChatOnly = null
         }
         androidx.compose.foundation.pager.HorizontalPager(
             state = pagerState,
@@ -645,16 +654,37 @@ private fun AgentChatScaffold(
                             .fillMaxSize()
                             .padding(top = topInset, bottom = bottomPadding)
                             // 文件浏览页左滑打开侧边工作台。
-                            // 只识别横向拖动，且只在从左侧 32dp 内起手时接管——
-                            // 否则会抢掉文件列表的纵向滚动与目录行的点击。
+                            //
+                            // 只在「从左侧 24dp 内起手、且向右拖动」时接管，
+                            // 并且一旦判定不属于边缘手势就立刻不再消费事件——
+                            // 之前无条件 consume() 会把「向右滑回对话页」也吃掉，
+                            // 导致文件页滑不回中间页、整个 Pager 像卡死。
                             .pointerInput(Unit) {
-                                val edgePx = 32.dp.toPx()
-                                detectHorizontalDragGestures(
-                                    onDragStart = { offset ->
-                                        if (offset.x <= edgePx) onOpenConversationPane()
-                                    },
-                                ) { change, _ ->
-                                    change.consume()
+                                val edgePx = 24.dp.toPx()
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    if (down.position.x > edgePx) return@awaitEachGesture
+                                    var triggered = false
+                                    var totalX = 0f
+                                    var totalY = 0f
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull { it.id == down.id }
+                                            ?: break
+                                        if (!change.pressed) break
+                                        totalX += change.positionChange().x
+                                        totalY += change.positionChange().y
+                                        // 纵向意图更强：让给列表滚动，退出接管。
+                                        if (!triggered && abs(totalY) > abs(totalX) && abs(totalY) > 12f) {
+                                            return@awaitEachGesture
+                                        }
+                                        // 向右拖动且已越过阈值：开侧栏并吃掉后续事件。
+                                        if (!triggered && totalX > 24f) {
+                                            triggered = true
+                                            onOpenConversationPane()
+                                        }
+                                        if (triggered) change.consume()
+                                    }
                                 }
                             },
                     ) {
@@ -724,13 +754,12 @@ private fun AgentChatScaffold(
                 ChatPage.CHAT_ONLY -> {
                     ChatOnlyPage(
                         onStartChatOnly = {
-                            // 记下切换前的会话，左滑回来时恢复。
+                            // 记下切换前的会话，滑回中间页时恢复。
                             conversationBeforeChatOnly = conversationId.takeIf { it.isNotBlank() }
                             onNewChatOnlyConversation()
-                            // 新建后回到中间对话页，用户直接开始打字。
-                            pagerScope.launch {
-                                pagerState.animateScrollToPage(ChatPage.CONVERSATION.ordinal)
-                            }
+                            // 留在右页：用户是「右滑进入纯聊天窗口」，切走会话就跳回中间页
+                            // 会让这次滑动看起来没生效，也和白页的语义冲突。
+                            // 中间页的内容已经换成纯聊天会话，滑回去即可开始打字。
                         },
                         onGoToConversation = {
                             pagerScope.launch {
