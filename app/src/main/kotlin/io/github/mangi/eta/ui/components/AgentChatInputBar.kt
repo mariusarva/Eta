@@ -402,8 +402,10 @@ internal fun AgentChatInputBar(
         val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
         val couiDark = CouiTheme.isDark
         val couiColors = CouiTheme.colorScheme
-        // 用普通圆角而不是 SquircleShape：阴影在超椭圆轮廓上会被切成直角色块（实测）。
-        val couiInputShape = remember { androidx.compose.foundation.shape.RoundedCornerShape(24.dp) }
+        // 两个主题共用同一个普通圆角轮廓：
+        // - 阴影必须与卡片轮廓完全一致，否则边缘会露出两套轮廓，观感就是「阴影重叠」；
+        // - 超椭圆（SquircleShape / GlassShape）在系统 elevation 阴影下无法保证轮廓一致。
+        val inputCardShape = remember { RoundedCornerShape(24.dp) }
         val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
         val miuixInputBg = if (!isDark && MiuixTheme.colorScheme.surfaceContainer == MiuixTheme.colorScheme.surface) {
             Color(0xFFF5F6F8)
@@ -429,7 +431,6 @@ internal fun AgentChatInputBar(
             animationSpec = tween(durationMillis = 160),
             label = "input_container_border_width",
         )
-        val miuixInputShape = remember { GlassShape(24.dp) }
         var inputContainerTopPx by remember { mutableFloatStateOf(0f) }
         // 速度读数与能力胶囊现在都放进输入框内部顶部那一行，容器外不再留独立行。
         val speedText = latestUsage?.let { u ->
@@ -479,49 +480,38 @@ internal fun AgentChatInputBar(
                                 // RenderNode 每帧实时绘制，不存在缓存残留。
                                 .shadow(
                                     elevation = 6.dp,
-                                    shape = couiInputShape,
+                                    shape = inputCardShape,
                                     clip = false,
                                     ambientColor = Color.Black.copy(alpha = if (couiDark) 0.30f else 0.12f),
                                     spotColor = Color.Black.copy(alpha = if (couiDark) 0.30f else 0.12f),
                                 )
-                                .background(couiColors.surface, couiInputShape)
-                                .clip(couiInputShape)
+                                .background(couiColors.surface, inputCardShape)
+                                .clip(inputCardShape)
                                 .border(
                                     width = inputBorderWidth,
                                     color = inputBorderColor,
-                                    shape = couiInputShape,
+                                    shape = inputCardShape,
                                 )
                         } else {
+                            // 与 COUI 分支同因同治：
+                            // glassPanel 的玻璃层引用整页 backdrop，页面切换时旧采样会留一帧；
+                            // 它的阴影同样是一次性烘焙的离屏贴图，输入框宽度随输入法变化时
+                            // 右侧会露出阴影重叠。输入框本身就是接近不透明的纯色卡片，
+                            // 换成纯色 + 系统 elevation 阴影后视觉差异极小。
                             Modifier
-                                .glassPanel(
-                                    backdrop = glassBackdrop,
-                                    shape = miuixInputShape,
-                                    style = GlassDefaults.style(isDark),
-                                    material = GlassMaterials.puredThinGlass(isDark),
-                                    stroke = GlassEdgeStrokes.forTheme(
-                                        isDark = isDark,
-                                        light = GlassEdgeStrokes.SmallLight,
-                                        dark = GlassEdgeStrokes.SmallDark,
-                                    ),
-                                    shadow = GlassShadows.Regular,
-                                    shading = false,
-                                    fallback = Modifier
-                                        .squircleSurface(
-                                            color = miuixInputBg,
-                                            cornerRadius = 24.dp,
-                                        )
-                                        .squircleBorder(
-                                            width = inputBorderWidth,
-                                            color = inputBorderColor,
-                                            cornerRadius = 24.dp,
-                                        ),
+                                .shadow(
+                                    elevation = 6.dp,
+                                    shape = inputCardShape,
+                                    clip = false,
+                                    ambientColor = Color.Black.copy(alpha = if (isDark) 0.30f else 0.12f),
+                                    spotColor = Color.Black.copy(alpha = if (isDark) 0.30f else 0.12f),
                                 )
-                                .then(
-                                    if (isHoldingSpeech && glassBackdrop != null && isRuntimeShaderSupported()) {
-                                        Modifier.border(inputBorderWidth, inputBorderColor, miuixInputShape)
-                                    } else {
-                                        Modifier
-                                    },
+                                .background(miuixInputBg, inputCardShape)
+                                .clip(inputCardShape)
+                                .border(
+                                    width = inputBorderWidth,
+                                    color = inputBorderColor,
+                                    shape = inputCardShape,
                                 )
                         },
                     )
