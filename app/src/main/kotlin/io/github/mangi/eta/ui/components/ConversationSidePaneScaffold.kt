@@ -1,5 +1,8 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -204,7 +207,44 @@ internal fun ConversationSidePaneScaffold(
         Box(
             modifier = Modifier.fillMaxSize()
                 .clipToBounds()
-                .background(conversationPaneContainerColor()),
+                .background(conversationPaneContainerColor())
+                // 侧栏展开时支持左滑关闭（手指向左拖 = 把侧栏推回去）。
+                // 只在已展开时接管，关闭状态完全不干预，避免和对话页的
+                // 「右滑开侧栏」抢同一个方向。
+                .pointerInput(isRevealed) {
+                    if (!isRevealed) return@pointerInput
+                    awaitPointerEventScope {
+                        while (true) {
+                            val down = awaitPointerEvent(PointerEventPass.Initial)
+                                .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
+                                ?: continue
+                            var totalX = 0f
+                            var totalY = 0f
+                            var closing = false
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val change = event.changes.firstOrNull { it.id == down.id }
+                                    ?: break
+                                if (!change.pressed) break
+                                val delta = change.position - change.previousPosition
+                                totalX += delta.x
+                                totalY += delta.y
+                                // 纵向占优：让给侧栏列表滚动。
+                                if (!closing && kotlin.math.abs(totalY) > kotlin.math.abs(totalX) * 1.5f &&
+                                    kotlin.math.abs(totalY) > 16f
+                                ) {
+                                    break
+                                }
+                                // 向左拖 40dp 关闭。
+                                if (!closing && totalX < -40f && kotlin.math.abs(totalX) > kotlin.math.abs(totalY)) {
+                                    closing = true
+                                    closePane()
+                                }
+                                if (closing) change.consume()
+                            }
+                        }
+                    }
+                },
             contentAlignment = AbsoluteAlignment.TopLeft,
         ) {
             // 两个槽位并排测量和放置，由同一位移推移；不在聊天内容下面叠放侧栏。
