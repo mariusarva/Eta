@@ -97,6 +97,8 @@ internal fun WorkspacePanelContent(
     // 选成 tree，只能选子目录；想直接用存储根当工作区必须手输。
     var manualOpen by remember { mutableStateOf(false) }
     var manualText by remember { mutableStateOf("") }
+    // 设置区默认收起：四块设置曾占掉页面六成高度，文件列表只剩一屏不到。
+    var settingsExpanded by rememberSaveable { mutableStateOf(false) }
     val store = remember(context.applicationContext, workspaceRootVersion) { WorkspaceFileStore(context) }
     val scope = rememberCoroutineScope()
     var path by rememberSaveable { mutableStateOf("") }
@@ -194,14 +196,18 @@ internal fun WorkspacePanelContent(
     }
 
     val listContent: LazyListScope.() -> Unit = {
-        item(key = "workspace-info") {
+        // 折叠头：一行显示当前生效路径 + 展开/收起入口。
+        // 展开前不渲染下面四块设置，把高度全让给文件列表。
+        item(key = "workspace-settings-header") {
+            val currentPath = customRoot.ifBlank { WorkspaceRoot.displayPath(context) }
+            val expandLabel = if (settingsExpanded) "收起设置" else "工作目录"
             if (uiStyle == AppearanceUiStyle.COUI) {
                 CouiPreferenceGroup {
                     item {
                         CouiPreference(
-                            title = stringResource(R.string.capability_workspace_private),
-                            summary = stringResource(R.string.capability_workspace_private_summary),
-                            showChevron = false,
+                            title = expandLabel,
+                            summary = currentPath,
+                            onClick = { settingsExpanded = !settingsExpanded },
                         )
                     }
                 }
@@ -211,13 +217,37 @@ internal fun WorkspacePanelContent(
                         .padding(horizontal = 12.dp)
                         .padding(top = 8.dp, bottom = 12.dp),
                 ) {
-                    BasicComponent(
-                        title = stringResource(R.string.capability_workspace_private),
-                        summary = stringResource(R.string.capability_workspace_private_summary),
+                    ArrowPreference(
+                        title = expandLabel,
+                        summary = currentPath,
+                        onClick = { settingsExpanded = !settingsExpanded },
                     )
                 }
             }
         }
+        // 换目录是高频操作，从折叠区里提出来单独一行：不用先展开设置再找入口。
+        item(key = "workspace-change-root") {
+            if (uiStyle == AppearanceUiStyle.COUI) {
+                CouiPreferenceGroup {
+                    item {
+                        CouiPreference(
+                            title = "更换目录",
+                            summary = "点这里挑一个新位置，或展开设置手动输入路径",
+                            onClick = { rootPicker.launch(null) },
+                        )
+                    }
+                }
+            } else {
+                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                    ArrowPreference(
+                        title = "更换目录",
+                        summary = "点这里挑一个新位置，或展开设置手动输入路径",
+                        onClick = { rootPicker.launch(null) },
+                    )
+                }
+            }
+        }
+        if (settingsExpanded) {
         item(key = "workspace-root") {
             val rootSummary = if (customRoot.isBlank()) {
                 stringResource(R.string.capability_workspace_root_summary_default)
@@ -475,6 +505,7 @@ internal fun WorkspacePanelContent(
                 }
             }
         }
+        }  // end settingsExpanded
         message?.let { current ->
             item(key = "message") {
                 if (uiStyle == AppearanceUiStyle.COUI) {
