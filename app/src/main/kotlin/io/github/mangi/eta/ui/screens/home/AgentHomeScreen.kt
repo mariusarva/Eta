@@ -42,6 +42,11 @@ internal fun AgentHomeScreen(
     appState: AgentAppState? = null,
     /** 新建纯聊天会话：三页 Pager 右页的入口按钮。 */
     onNewChatOnlyConversation: () -> Unit = {},
+    /** 从纯聊天页滑回时恢复原会话。 */
+    onRestoreConversation: (String) -> Unit = {},
+    /** 当前页索引，与顶栏图标共享。 */
+    currentPage: Int = 1,
+    onPageChanged: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // key 内保持完整分支，避免提前返回遗留无法转换为 DEX 的编译器标记。
@@ -64,6 +69,9 @@ internal fun AgentHomeScreen(
                 AgentChatBody(
                     appState = appState,
                     onNewChatOnlyConversation = onNewChatOnlyConversation,
+                    onRestoreConversation = onRestoreConversation,
+                    currentPage = currentPage,
+                    onPageChanged = onPageChanged,
                     conversationId = conversationKey.orEmpty(),
                     messages = state.messages,
                     modelPickerState = modelPickerState,

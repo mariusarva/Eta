@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui.app
 
+import io.github.mangi.eta.ui.components.ChatPageIndicator
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -135,6 +137,9 @@ internal fun AgentAppShell(
     onNewConversation: () -> Unit,
     /** 新建纯聊天会话：不向模型声明任何工具。 */
     onNewChatOnlyConversation: () -> Unit = onNewConversation,
+    /** 三页 Pager 当前索引（顶栏图标高亮用）。 */
+    chatPage: Int = 1,
+    onSelectPage: (Int) -> Unit = {},
     onOpenTerminal: () -> Unit,
     onOpenBrowser: () -> Unit,
     onSelectConversation: (String) -> Unit,
@@ -206,9 +211,9 @@ internal fun AgentAppShell(
                                         contentDescription = stringResource(R.string.action_conversation_history),
                                         onClick = onOpenConversationPane,
                                     )
-                                    Box(
+                                    Column(
                                         modifier = Modifier.weight(1f),
-                                        contentAlignment = Alignment.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally,
                                     ) {
                                         if (homeModelPickerState != null) {
                                             AgentTopBarChatHeader(
@@ -222,6 +227,12 @@ internal fun AgentAppShell(
                                         } else {
                                             CouiText(titleForRoute(currentRoute), maxLines = 1)
                                         }
+                                        // 三页图标放在标题与模型选择器下方：滑动高亮，点击跳页。
+                                        ChatPageIndicator(
+                                            currentPage = chatPage,
+                                            pageCount = 3,
+                                            onSelectPage = onSelectPage,
+                                        )
                                     }
                                     CouiTopBarOverflowMenu(
                                         dark = dark,
@@ -468,14 +479,22 @@ private fun AgentTopBar(
             onOpenTerminal = onOpenTerminal,
             onOpenBrowser = onOpenBrowser,
         ) {
-            AgentTopBarChatHeader(
-                conversationTitle = homeTitle,
-                character = homeCharacter,
-                state = homeModelPickerState,
-                isStreaming = isHomeStreaming,
-                onModelSelected = onHomeModelSelected,
-                onOpenCharacter = onOpenCharacter,
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                AgentTopBarChatHeader(
+                    conversationTitle = homeTitle,
+                    character = homeCharacter,
+                    state = homeModelPickerState,
+                    isStreaming = isHomeStreaming,
+                    onModelSelected = onHomeModelSelected,
+                    onOpenCharacter = onOpenCharacter,
+                )
+                // 三页图标放在标题与模型选择器下方：滑动高亮，点击跳页。
+                ChatPageIndicator(
+                    currentPage = chatPage,
+                    pageCount = 3,
+                    onSelectPage = onSelectPage,
+                )
+            }
         }
         return
     }

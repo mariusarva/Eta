@@ -219,6 +219,11 @@ internal fun AgentChatBody(
     appState: AgentAppState? = null,
     /** 新建纯聊天会话：三页 Pager 右页的入口按钮。 */
     onNewChatOnlyConversation: () -> Unit = {},
+    /** 从纯聊天页滑回时恢复原会话。 */
+    onRestoreConversation: (String) -> Unit = {},
+    /** 当前页索引，与顶栏图标共享。 */
+    currentPage: Int = 1,
+    onPageChanged: (Int) -> Unit = {},
 ) {
     // 轮次导航读全库用户消息：消息本身是分页加载的，按已加载消息切轮次会让长会话少算前面的轮。
     val appContext = LocalContext.current.applicationContext
@@ -304,6 +309,9 @@ internal fun AgentChatBody(
         AgentChatScaffold(
             appState = appState,
             onNewChatOnlyConversation = onNewChatOnlyConversation,
+            onRestoreConversation = onRestoreConversation,
+            currentPage = currentPage,
+            onPageChanged = onPageChanged,
             allTurns = allTurns,
             pendingJumpMessageId = pendingJumpMessageId,
             onJumpHandled = { pendingJumpMessageId = null },
@@ -455,6 +463,11 @@ private fun AgentChatScaffold(
     appState: AgentAppState? = null,
     /** 新建纯聊天会话：三页 Pager 右页的入口按钮。 */
     onNewChatOnlyConversation: () -> Unit = {},
+    /** 从纯聊天页滑回时恢复原会话。 */
+    onRestoreConversation: (String) -> Unit = {},
+    /** 当前页索引，与顶栏图标共享。 */
+    currentPage: Int = 1,
+    onPageChanged: (Int) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
@@ -579,11 +592,34 @@ private fun AgentChatScaffold(
         val bottomPadding = innerPadding.calculateBottomPadding()
         // 三页横向 Pager：左=工作文件夹，中=对话，右=纯聊天。
         // 输入栏在 Scaffold.bottomBar 里，不随页面平移；这里只翻内容区。
+        // 页索引与顶栏图标共享同一份状态：顶栏高亮跟着滑动走，点图标也能翻页。
         val pagerState = androidx.compose.foundation.pager.rememberPagerState(
-            initialPage = ChatPage.CONVERSATION.ordinal,
+            initialPage = currentPage,
             pageCount = { ChatPage.entries.size },
         )
         val pagerScope = rememberCoroutineScope()
+        // 滑动 → 通知外部；外部改动（点图标）→ 滚过去。
+        LaunchedEffect(pagerState.currentPage) {
+            onPageChanged(pagerState.currentPage)
+        }
+        LaunchedEffect(currentPage) {
+            if (currentPage != pagerState.currentPage) {
+                pagerState.animateScrollToPage(currentPage)
+            }
+        }
+        // 右页「开始纯聊天」会切换当前会话；左滑回来时必须回到原来那条，
+        // 否则用户看到的是纯聊天会话，再右滑又提示新建（因为已经切走了）。
+        var conversationBeforeChatOnly by remember { mutableStateOf<String?>(null) }
+        // 从右页离开时恢复：只在当前确实停在纯聊天会话、且记录了原会话时才切回。
+        LaunchedEffect(pagerState.currentPage) {
+            if (pagerState.currentPage == ChatPage.CONVERSATION.ordinal) {
+                val restore = conversationBeforeChatOnly
+                if (restore != null && restore != conversationId) {
+                    onRestoreConversation(restore)
+                    conversationBeforeChatOnly = null
+                }
+            }
+        }
         androidx.compose.foundation.pager.HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
@@ -663,6 +699,8 @@ private fun AgentChatScaffold(
                 ChatPage.CHAT_ONLY -> {
                     ChatOnlyPage(
                         onStartChatOnly = {
+                            // 记下切换前的会话，左滑回来时恢复。
+                            conversationBeforeChatOnly = conversationId.takeIf { it.isNotBlank() }
                             onNewChatOnlyConversation()
                             // 新建后回到中间对话页，用户直接开始打字。
                             pagerScope.launch {

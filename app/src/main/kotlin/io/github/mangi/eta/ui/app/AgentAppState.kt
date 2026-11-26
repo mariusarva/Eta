@@ -1302,6 +1302,19 @@ internal class AgentAppState(
     }
 
     /** 侧栏「新建会话」绑定的角色（id to 名称）；非空时新建即进入该角色剧情。 */
+    /**
+     * 三页 Pager 的当前页索引。
+     *
+     * 提到 State 层是因为顶栏图标（在 AgentAppShell）和 Pager 本身（在 AgentChatBody）
+     * 分属两棵组合树，需要共享同一个值：顶栏高亮跟着滑动走，点图标也能翻页。
+     */
+    var chatPage by mutableStateOf(1)
+        private set
+
+    fun selectChatPage(index: Int) {
+        chatPage = index.coerceIn(0, 2)
+    }
+
     var characterForNewChat by mutableStateOf<Pair<String, String>?>(loadCharacterForNewChat())
         private set
 
