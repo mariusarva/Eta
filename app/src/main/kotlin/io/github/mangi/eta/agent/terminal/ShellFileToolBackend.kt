@@ -106,6 +106,20 @@ internal class ShellFileToolBackend(
         return FileToolDirectoryPage(selected, next, next < sorted.size, before.revision)
     }
 
+    /**
+     * 批量解析路径元数据，供上层一次性处理软链。
+     *
+     * 单条 [stat] 每次都要起一次 root shell；一个目录里几十个软链就是几十次，
+     * 滑到文件页要等好几秒。这里复用 [statPage] 的批量实现，一次 shell 全部搞定。
+     * 失败项返回 null，调用方按"跳过该条"处理，不影响其余条目。
+     */
+    fun statAll(paths: List<String>): List<FileToolStat?> {
+        if (paths.isEmpty()) return emptyList()
+        return runCatching { statPage(paths) }
+            .getOrElse { return paths.map { null } }
+            .map { it as FileToolStat? }
+    }
+
     /** 一页条目的元数据共用一次命名空间；路径经 stdin 传入，避免撑满 exec 参数。 */
     private fun statPage(paths: List<String>): List<FileToolStat> {
         if (paths.isEmpty()) return emptyList()
