@@ -228,7 +228,6 @@ private suspend fun probeTextStore(context: Context): SelfCheckItem {
             name = TEXT_STORE_NAME,
             state = STATE_UNKNOWN,
             detail = "数据库尚未创建",
-            actionLabel = null,
             actionUri = null,
         )
     } else {
@@ -236,7 +235,6 @@ private suspend fun probeTextStore(context: Context): SelfCheckItem {
             name = TEXT_STORE_NAME,
             state = if (bytes > 1024L * 1024 * 1024) STATE_MISSING else STATE_OK,
             detail = "数据库总体积 %.1f MB".format(bytes / 1024.0 / 1024.0),
-            actionLabel = null,
             actionUri = null,
         )
     }
@@ -261,10 +259,6 @@ private fun probeRootState(): Pair<String, String> {
         }
     }.getOrElse { STATE_UNKNOWN to "su 探测失败：${it.message}" }
 }
-
-private fun bootSummary(stats: io.github.mangi.eta.core.BootReceipt.Stats): String =
-    io.github.mangi.eta.core.BootReceipt.describe(stats) +
-        if (stats.receivers > 0) "（${stats.receivers} 个开机接收器响应）" else ""
 
 private suspend fun runSelfCheck(context: Context, probeRoot: Boolean): SelfCheckReport {
     val pkg = context.packageName
@@ -316,11 +310,9 @@ private suspend fun runSelfCheck(context: Context, probeRoot: Boolean): SelfChec
             ) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         }.getOrDefault(false)
     }
-    val bootStats = runCatching { io.github.mangi.eta.core.BootReceipt.load(context) }.getOrNull()
-    val bootVerified = bootStats != null &&
-        bootStats.lastAt > 0L &&
-        bootStats.lastAt >= bootStats.installAt &&
-        bootStats.alarmRescheduled
+    // 上游用 BootReceipt 记录「BOOT_COMPLETED 收到 + 闹钟重排成功」的实证，
+    // 本仓库没有这个组件，退化为「接收器没被禁用」这一必要条件。
+    val bootVerified = disabledReceivers.isEmpty()
     val appOps = context.getSystemService(android.app.AppOpsManager::class.java)
     fun opMode(vararg names: String): Int {
         val manager = appOps ?: return android.app.AppOpsManager.MODE_DEFAULT
@@ -410,11 +402,10 @@ private suspend fun runSelfCheck(context: Context, probeRoot: Boolean): SelfChec
             detail = when {
                 disabledReceivers.isNotEmpty() ->
                     "这几个接收器被禁用：${disabledReceivers.joinToString("、") { it.substringAfterLast('.') }}；重启后自动任务、备份、巡检都不会续排"
-                bootVerified -> "启动接收器已实证：" + bootSummary(bootStats)
-                bootStats == null ->
-                    "接收器已声明，但还没有开机实证：重启一次 Eta 收到 BOOT_COMPLETED、并把闹钟排回来后这里才会变绿"
-                else -> "接收器已声明，还没有开机实证：" + bootSummary(bootStats) +
-                    "；ColorOS 的「自启动」白名单 App 读不到，需要到应用详情 → 耗电管理里确认允许自启动"
+                bootVerified ->
+                    "启动接收器均未被禁用（${bootReceivers.size} 个）；重启后自动任务、备份、巡检会续排"
+                else ->
+                    "有接收器被禁用；ColorOS 的「自启动」白名单 App 读不到，需要到应用详情 → 耗电管理里确认允许自启动"
             },
             actionUri = "package:$pkg",
         ),

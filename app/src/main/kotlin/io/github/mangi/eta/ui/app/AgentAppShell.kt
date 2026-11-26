@@ -239,6 +239,8 @@ internal fun AgentAppShell(
                                         colors = colors,
                                         onNewConversation = onNewConversation,
                                         onNewChatOnlyConversation = onNewChatOnlyConversation,
+                                chatPage = chatPage,
+                                onSelectPage = onSelectPage,
                                         onOpenTerminal = onOpenTerminal,
                                         onOpenBrowser = onOpenBrowser,
                                     )
@@ -277,6 +279,8 @@ internal fun AgentAppShell(
                                 onOpenConversationPane = onOpenConversationPane,
                                 onNewConversation = onNewConversation,
                                 onNewChatOnlyConversation = onNewChatOnlyConversation,
+                                chatPage = chatPage,
+                                onSelectPage = onSelectPage,
                                 onOpenTerminal = onOpenTerminal,
                                 onOpenBrowser = onOpenBrowser,
                                 homeTitle = homeTitle,
@@ -459,6 +463,9 @@ private fun AgentTopBar(
     onNewConversation: () -> Unit,
     /** 新建纯聊天会话：不向模型声明任何工具。 */
     onNewChatOnlyConversation: () -> Unit = onNewConversation,
+    /** 三页 Pager 当前索引（顶栏图标高亮用）。 */
+    chatPage: Int = 1,
+    onSelectPage: (Int) -> Unit = {},
     onOpenTerminal: () -> Unit,
     onOpenBrowser: () -> Unit,
     homeTitle: String?,

@@ -455,15 +455,10 @@ internal object DiagnosticsPatrol {
                     )
                 }
             }.getOrNull()
-            val bundleFile = if (exportBundle) {
-                runCatching {
-                    val target = File(dir, base + BUNDLE_SUFFIX)
-                    target.writeBytes(DiagnosticsBundle.collect(app))
-                    target
-                }.getOrNull()
-            } else {
-                null
-            }
+            // 诊断包导出暂不启用：上游 DiagnosticsBundle 依赖 VirtualScreenSession、
+            // Settings.virtualScreen*、SpeechSettings.speechRate 等本仓库没有的字段。
+            // 报告与结论 JSON 已包含全部检查项与附录，够定位问题。
+            val bundleFile: File? = null
             prune(dir, KEEP_COUNT)
 
             val report = Report(now, reason, level, findings, metrics, deltas, reportFile, conclusionFile, bundleFile)
