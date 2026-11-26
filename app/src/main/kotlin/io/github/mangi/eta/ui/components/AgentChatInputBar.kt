@@ -469,9 +469,11 @@ internal fun AgentChatInputBar(
                     .then(
                         if (isCoui) {
                             Modifier
-                                // 阴影与模糊层必须用同一个 shape：之前 dropShadow 用的
-                                // CouiShape(24.dp, 2.3f) 与模糊层的裁剪圆角不一致，
-                                // 左上角会露出一块直角深色区（看起来像阴影分成两部分）。
+                                // 纯色卡片，不用 couiViewBlur：
+                                // 模糊层引用整页 backdrop，从文件区滑回对话页时
+                                // backdrop 内容已变但模糊层还留着一帧旧采样，
+                                // 输入框右侧就会出现一块半透明重影（实测）。
+                                // 输入框本来就是深色不透明卡片，去掉模糊视觉差异极小。
                                 .dropShadow(
                                     shape = couiInputShape,
                                     shadow = Shadow(
@@ -480,15 +482,7 @@ internal fun AgentChatInputBar(
                                         alpha = if (couiDark) 0.22f else 0.045f,
                                     ),
                                 )
-                                .then(
-                                    if (couiBackdrop != null) Modifier.couiViewBlur(
-                                        backdrop = couiBackdrop,
-                                        style = ViewBlurDefaults.frameworkBottomBar(couiDark),
-                                        shape = couiInputShape,
-                                    ) else Modifier.background(couiColors.surface, couiInputShape),
-                                )
-                                // 裁剪必须放在模糊之后：先 clip 再模糊时，
-                                // couiViewBlur 的模糊层会盖住圆角，左上角露出一块直角深色区。
+                                .background(couiColors.surface, couiInputShape)
                                 .clip(couiInputShape)
                                 .border(
                                     width = inputBorderWidth,
