@@ -282,20 +282,51 @@ internal class MarkdownInlineBuilder(
     }
 
     private fun AnnotatedString.Builder.appendCode(code: String) {
-        withStyle(
-            SpanStyle(
-                fontFamily = EtaMonospace,
-                fontSize = 0.87.em,
-                color = style.codeColor,
-                background = style.codeBackground,
-            ),
-        ) {
+        val codeStyle = SpanStyle(
+            fontFamily = EtaMonospace,
+            fontSize = 0.87.em,
+            color = style.codeColor,
+            background = style.codeBackground,
+        )
+        // 行内代码若是绝对路径形态，做成可点击链接：点击时由 MarkdownText 侧的
+        // linkInteractionListener 交给 MarkdownPathLinks 用 MT / 系统打开。
+        // 这里只做形态判断（无 Context 查不到文件），真实存在性在点击时校验。
+        val linkTag = pathLinkTag(code)
+        val emit: AnnotatedString.Builder.() -> Unit = {
             // 前后窄空格让底色不紧贴字形边缘，读起来像独立的代码标记。
-            appendTracked(' ')
+            appendTracked(' ')
             appendTracked(code)
-            appendTracked(' ')
+            appendTracked(' ')
+        }
+        if (linkTag == null) {
+            withStyle(codeStyle, emit)
+        } else {
+            withLink(
+                LinkAnnotation.Clickable(
+                    tag = linkTag,
+                    styles = TextLinkStyles(style = codeStyle.copy(color = style.linkColor)),
+                ),
+                emit,
+            )
         }
     }
+
+    /** 路径形态：绝对路径、无空白、扩展名属于可打开类型。 */
+    private fun pathLinkTag(code: String): String? {
+        val path = code.trim()
+        if (path.length < 3 || !path.startsWith("/")) return null
+        if (path.any { it.isWhitespace() || it == '\n' }) return null
+        val ext = path.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+        if (ext !in OPENABLE_EXTENSIONS) return null
+        return path
+    }
+
+    private val OPENABLE_EXTENSIONS = setOf(
+        "apk", "zip", "pdf", "png", "jpg", "jpeg", "webp", "gif", "bmp", "heic",
+        "txt", "log", "json", "xml", "csv", "ini", "conf", "md", "kt", "java",
+        "py", "sh", "js", "ts", "css", "html", "yml", "yaml", "mp4", "mkv",
+        "webm", "mp3", "m4a", "wav", "ogg", "flac",
+    )
 
     private fun AnnotatedString.Builder.appendMath(node: ASTNode) {
         val latex = mathText(node)

@@ -6,4 +6,17 @@
     <cache-path
         name="shared_images"
         path="shared_images/" />
+    <!-- 助手产出常落在 files/ 下（如 terminal-user/workspace） -->
+    <files-path
+        name="app_files"
+        path="." />
+    <!-- root 终端工作区：/data/local/tmp/eta -->
+    <root-path
+        name="workspace_root"
+        path="/data/local/tmp/eta/" />
+    <!-- 共享存储：/sdcard/Download 下的 APK 等产出物要用 content:// 交给 MT / 安装器，
+         scoped storage 下直接给路径连 system_server 都读不到（FUSE SELinux 拒绝）。 -->
+    <external-path
+        name="sdcard"
+        path="." />
 </paths>

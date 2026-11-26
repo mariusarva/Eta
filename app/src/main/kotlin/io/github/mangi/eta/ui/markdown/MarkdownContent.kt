@@ -54,11 +54,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.LinkInteractionListener
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -253,6 +256,13 @@ private fun MarkdownText(
         )
     }
     val reveal = scope.reveal
+    // 行内代码形态的绝对路径做成可点击链接：点名 MT 管理器 / 系统打开。
+    val context = LocalContext.current
+    val pathLinkListener = LinkInteractionListener { link ->
+        if (link is LinkAnnotation.Clickable) {
+            MarkdownPathLinks.open(context, link.tag as? String ?: return@LinkInteractionListener)
+        }
+    }
     // 空单元格没有可显现的文字，也不占用显现协调器的 key。
     if (reveal == null || block.text.isEmpty()) {
         Text(
@@ -261,6 +271,7 @@ private fun MarkdownText(
             softWrap = softWrap,
             inlineContent = inlineContent,
             modifier = modifier,
+            linkInteractionListener = pathLinkListener,
         )
         return
     }
@@ -281,6 +292,7 @@ private fun MarkdownText(
         inlineContent = inlineContent,
         modifier = modifier.smoothTextReveal(revealState),
         onTextLayout = { layout -> revealState.onTextLayout(block.text.text, layout, atomicSpans) },
+        linkInteractionListener = pathLinkListener,
     )
 }
 
