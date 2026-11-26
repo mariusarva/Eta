@@ -67,6 +67,19 @@ internal class DemandSceneBackdrop(
     var isActive by mutableStateOf(false)
         private set
 
+    /**
+     * 外部弹层（如自绘独立 Dialog）持有期间保持 attach。
+     * 这类弹层不在 EtaTopLayer / MiuixPopupHost 内，hasActiveOverlay 恒 false，
+     * 只靠 isActive 会被 350ms 空闲超时反复掐断 attach，导致模糊材质闪烁。
+     */
+    var pinned by mutableStateOf(false)
+        private set
+
+    fun setPinned(value: Boolean) {
+        pinned = value
+        if (value) isActive = true
+    }
+
     override val isCoordinatesDependent: Boolean
         get() = delegate.isCoordinatesDependent
 
@@ -81,7 +94,7 @@ internal class DemandSceneBackdrop(
     }
 
     fun refreshIdleState(nowNanos: Long = System.nanoTime()) {
-        if (isActive && nowNanos - lastSampledNanos > IDLE_TIMEOUT_NANOS) {
+        if (!pinned && isActive && nowNanos - lastSampledNanos > IDLE_TIMEOUT_NANOS) {
             isActive = false
         }
     }

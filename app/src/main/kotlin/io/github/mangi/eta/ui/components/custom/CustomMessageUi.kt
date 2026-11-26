@@ -49,6 +49,7 @@ import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.coui.LocalCouiPageBackdrop
 import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
+import io.github.mangi.eta.ui.components.DemandSceneBackdrop
 import io.github.suqi8.coui.kmp.blur.ViewBlurDefaults
 import io.github.suqi8.coui.kmp.blur.couiViewBlur
 import top.yukonga.miuix.kmp.glass.glassPanel
@@ -95,6 +96,14 @@ internal fun CustomMessageMenuDialog(
     // 采样后端不可用时回退到不透明纯色卡片（窗口级 FLAG_BLUR_BEHIND 仍在兜底）。
     val couiBackdrop = LocalCouiPageBackdrop.current
     val miuixBackdrop = currentGlassOverlayBackdrop()
+    // MIUIX 的 backdrop 是按需采样（DemandSceneBackdrop）：自绘 Dialog 不在
+    // EtaTopLayer / MiuixPopupHost 里，不 pin 的话 350ms 空闲超时会反复掐断 attach，
+    // 模糊材质就会一闪一闪。菜单显示期间 pin 住，退出时 unpin。
+    val pinnedBackdrop = miuixBackdrop as? DemandSceneBackdrop
+    DisposableEffect(pinnedBackdrop) {
+        pinnedBackdrop?.setPinned(true)
+        onDispose { pinnedBackdrop?.setPinned(false) }
+    }
     val hasMaterial = if (isCoui) {
         couiBackdrop != null
     } else {

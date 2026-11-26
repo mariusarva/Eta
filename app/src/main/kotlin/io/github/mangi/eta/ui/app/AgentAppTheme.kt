@@ -215,7 +215,8 @@ fun AgentAppTheme(
                         val topLayer = remember { EtaTopLayerState() }
                         var hasActiveMiuixPopup by remember { mutableStateOf(false) }
                         var hasActiveTopLayerOverlay by remember { mutableStateOf(false) }
-                        val hasActiveOverlay = hasActiveMiuixPopup || hasActiveTopLayerOverlay
+                        val hasActiveOverlay = hasActiveMiuixPopup || hasActiveTopLayerOverlay ||
+                            sceneBackdrop?.pinned == true
                         val captureActive = hasActiveOverlay || sceneBackdrop?.isActive == true
                         if (sceneBackdrop != null) {
                             SideEffect {

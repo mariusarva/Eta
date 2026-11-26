@@ -265,6 +265,26 @@ private fun MarkdownText(
             MarkdownPathLinks.resolve(block.text.text.substring(range))?.let { range }
         }.toList()
     }
+    // 高亮：蓝色 + 下划线，和正文区分（原有行内代码底色等样式保留）。
+    val pathLinkColor = MiuixTheme.colorScheme.primary
+    val displayText = remember(block.text, pathRanges, pathLinkColor) {
+        if (pathRanges.isEmpty()) {
+            block.text
+        } else {
+            androidx.compose.ui.text.AnnotatedString.Builder(block.text).apply {
+                pathRanges.forEach { range ->
+                    addStyle(
+                        androidx.compose.ui.text.SpanStyle(
+                            color = pathLinkColor,
+                            textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+                        ),
+                        range.first,
+                        range.last + 1,
+                    )
+                }
+            }.toAnnotatedString()
+        }
+    }
     var textLayout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
     val pathTapModifier = if (pathRanges.isEmpty()) {
         Modifier
@@ -282,7 +302,7 @@ private fun MarkdownText(
     // 空单元格没有可显现的文字，也不占用显现协调器的 key。
     if (reveal == null || block.text.isEmpty()) {
         Text(
-            text = block.text,
+            text = displayText,
             style = style,
             softWrap = softWrap,
             inlineContent = inlineContent,
@@ -302,14 +322,14 @@ private fun MarkdownText(
     // 显现裁剪按字素边界逐帧变化，关闭像素对齐可避免裁剪边缘抖动。
     val animatedStyle = remember(style) { style.copy(textMotion = TextMotion.Animated) }
     Text(
-        text = block.text,
+        text = displayText,
         style = animatedStyle,
         softWrap = softWrap,
         inlineContent = inlineContent,
         modifier = modifier.smoothTextReveal(revealState).then(pathTapModifier),
         onTextLayout = { layout ->
             textLayout = layout
-            revealState.onTextLayout(block.text.text, layout, atomicSpans)
+            revealState.onTextLayout(displayText.text, layout, atomicSpans)
         },
     )
 }
