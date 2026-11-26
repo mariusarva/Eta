@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.agent.terminal.WorkspaceRoot
 import io.github.mangi.eta.ui.app.WorkspaceEntry
 import io.github.mangi.eta.ui.app.WorkspaceFileStore
 import io.github.mangi.eta.ui.components.EtaPreferenceGroupItem
@@ -79,7 +80,10 @@ internal fun WorkspacePanelContent(
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
-    val store = remember(context.applicationContext) { WorkspaceFileStore(context) }
+    // 自定义工作目录：切换后要重建 store 并回到根目录，否则列表还停在旧目录的相对路径上。
+    var workspaceRootVersion by remember { mutableIntStateOf(0) }
+    var customRoot by remember { mutableStateOf(WorkspaceRoot.custom(context)) }
+    val store = remember(context.applicationContext, workspaceRootVersion) { WorkspaceFileStore(context) }
     val scope = rememberCoroutineScope()
     var path by rememberSaveable { mutableStateOf("") }
     var pendingExport by rememberSaveable { mutableStateOf<String?>(null) }
@@ -90,6 +94,23 @@ internal fun WorkspacePanelContent(
     var publicAccess by remember { mutableStateOf(Environment.isExternalStorageManager()) }
     val accessLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         publicAccess = Environment.isExternalStorageManager()
+    }
+    val rootPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val mapped = WorkspaceRoot.fromTreeUri(context, uri)
+        if (mapped == null) {
+            message = WorkspaceMessage(resources.getString(R.string.capability_workspace_root_unsupported), isError = true)
+            return@rememberLauncherForActivityResult
+        }
+        WorkspaceRoot.save(context, mapped)
+        customRoot = mapped
+        path = ""
+        revision++
+        workspaceRootVersion++
+        message = WorkspaceMessage(
+            resources.getString(R.string.capability_workspace_root_applied, mapped),
+            isError = false,
+        )
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) scope.launch {
@@ -180,6 +201,63 @@ internal fun WorkspacePanelContent(
                         title = stringResource(R.string.capability_workspace_private),
                         summary = stringResource(R.string.capability_workspace_private_summary),
                     )
+                }
+            }
+        }
+        item(key = "workspace-root") {
+            val rootSummary = if (customRoot.isBlank()) {
+                stringResource(R.string.capability_workspace_root_summary_default)
+            } else {
+                stringResource(R.string.capability_workspace_root_summary_custom, customRoot)
+            }
+            val resetLabel = stringResource(R.string.capability_workspace_root_reset)
+            if (uiStyle == AppearanceUiStyle.COUI) {
+                CouiPreferenceGroup {
+                    item {
+                        CouiPreference(
+                            title = stringResource(R.string.capability_workspace_root),
+                            summary = rootSummary,
+                            onClick = { rootPicker.launch(null) },
+                        )
+                    }
+                    if (customRoot.isNotBlank()) {
+                        item {
+                            CouiPreference(
+                                title = resetLabel,
+                                onClick = {
+                                    WorkspaceRoot.save(context, "")
+                                    customRoot = ""
+                                    path = ""
+                                    revision++
+                                    workspaceRootVersion++
+                                },
+                            )
+                        }
+                    }
+                }
+            } else {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                ) {
+                    ArrowPreference(
+                        title = stringResource(R.string.capability_workspace_root),
+                        summary = rootSummary,
+                        onClick = { rootPicker.launch(null) },
+                    )
+                    if (customRoot.isNotBlank()) {
+                        ArrowPreference(
+                            title = resetLabel,
+                            onClick = {
+                                WorkspaceRoot.save(context, "")
+                                customRoot = ""
+                                path = ""
+                                revision++
+                                workspaceRootVersion++
+                            },
+                        )
+                    }
                 }
             }
         }

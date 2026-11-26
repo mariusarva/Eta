@@ -53,6 +53,13 @@ internal object Prefs {
         const val AGENT_START_IN_NEW_CHAT = "agent_start_in_new_chat"
         /** 纯聊天模式：不向模型声明任何工具，只做文本对话。 */
         const val AGENT_CHAT_ONLY_MODE = "agent_chat_only_mode"
+        /**
+         * 工作目录绝对路径。空串表示用默认的 App 私有 workspace。
+         *
+         * 只影响「文件区」浏览和终端 user 身份的默认 cwd；
+         * root 身份固定 /data/local/tmp/eta，不随此项变化。
+         */
+        const val AGENT_WORKSPACE_ROOT = "agent_workspace_root"
         const val AGENT_RUNTIME_CONFIG_JSON = "agent_runtime_config_json"
         const val AGENT_DISABLED_TOOLS_JSON = "agent_disabled_tools_json"
 
@@ -151,6 +158,17 @@ internal object Prefs {
     }
 
     fun powerAssistantTarget(): PowerAssistantTarget = powerAssistantTarget(remote)
+
+    /**
+     * 用户自定义的工作目录绝对路径；空串表示用默认的 App 私有 workspace。
+     *
+     * 只影响「文件区」浏览与终端 user 身份的默认 cwd；root 身份固定
+     * /data/local/tmp/eta，不随此项变化（`.busybox` 等运行时依赖在那里）。
+     */
+    fun workspaceRoot(preferences: SharedPreferences? = localAgent ?: remote): String =
+        runCatching {
+            preferences?.getString(Keys.AGENT_WORKSPACE_ROOT, null)
+        }.getOrNull().orEmpty().trim()
 
     fun powerAssistantTarget(preferences: SharedPreferences?): PowerAssistantTarget {
         val persistedValue = runCatching {

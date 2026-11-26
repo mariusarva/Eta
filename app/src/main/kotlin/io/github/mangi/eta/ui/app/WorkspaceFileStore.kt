@@ -9,7 +9,7 @@ import io.github.mangi.eta.agent.terminal.FileToolKind
 import io.github.mangi.eta.agent.terminal.LocalFileToolBackend
 import io.github.mangi.eta.agent.terminal.ShellFileToolBackend
 import io.github.mangi.eta.agent.terminal.ShellProcessSupervisor
-import io.github.mangi.eta.agent.terminal.TerminalPrivateStorage
+import io.github.mangi.eta.agent.terminal.WorkspaceRoot
 import io.github.mangi.eta.agent.terminal.runOneShotShell
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +23,8 @@ internal class WorkspaceFileStore(
     private val backendFor: (File) -> FileToolBackend = ::workspaceBackend,
 ) {
     private val appContext = context.applicationContext
-    private val root: File get() = TerminalPrivateStorage.workspace(appContext.filesDir).canonicalFile
+    // 支持自定义工作目录（可指向 SDcard）；未设置时回落到 App 私有 workspace。
+    private val root: File get() = WorkspaceRoot.resolve(appContext).canonicalFile
 
     suspend fun list(path: String): List<WorkspaceEntry> = withContext(Dispatchers.IO) {
         if (!root.mkdirs() && !root.isDirectory) throw java.io.IOException("WORKSPACE_DIRECTORY_UNAVAILABLE")

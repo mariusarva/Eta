@@ -47,6 +47,13 @@
     <string name="capability_workspace_summary">Import, export, and directory access</string>
     <string name="capability_workspace_private">Private workspace</string>
     <string name="capability_workspace_private_summary">Default file directory for the terminal and standard Linux environments; no storage permission required</string>
+    <string name="capability_workspace_root">Working directory</string>
+    <string name="capability_workspace_root_summary_default">Default: app private workspace</string>
+    <string name="capability_workspace_root_summary_custom">Custom: %1$s</string>
+    <string name="capability_workspace_root_pick">Choose directory</string>
+    <string name="capability_workspace_root_reset">Restore default</string>
+    <string name="capability_workspace_root_applied">Working directory switched to %1$s</string>
+    <string name="capability_workspace_root_unsupported">This location cannot be mapped to a file path. Choose a directory in local storage.</string>
     <string name="capability_workspace_import">Import files</string>
     <string name="capability_workspace_public">Public directory access</string>
     <string name="capability_workspace_public_summary">Allow access to all files in system settings to use shared storage directories</string>

@@ -47,6 +47,13 @@
     <string name="capability_workspace_summary">导入、导出与目录访问</string>
     <string name="capability_workspace_private">私有工作区</string>
     <string name="capability_workspace_private_summary">终端与普通 Linux 环境的默认文件目录，无需存储权限</string>
+    <string name="capability_workspace_root">工作目录</string>
+    <string name="capability_workspace_root_summary_default">默认：App 私有工作区</string>
+    <string name="capability_workspace_root_summary_custom">自定义：%1$s</string>
+    <string name="capability_workspace_root_pick">选择目录</string>
+    <string name="capability_workspace_root_reset">恢复默认</string>
+    <string name="capability_workspace_root_applied">工作目录已切换到 %1$s</string>
+    <string name="capability_workspace_root_unsupported">该位置无法映射为文件路径，请选择本机存储中的目录</string>
     <string name="capability_workspace_import">导入文件</string>
     <string name="capability_workspace_public">公共目录访问</string>
     <string name="capability_workspace_public_summary">在系统设置中允许访问所有文件后，可使用共享存储中的目录</string>
