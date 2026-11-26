@@ -101,6 +101,7 @@ import io.github.mangi.eta.ui.components.coui.rememberCouiPageBackdrop
 import io.github.mangi.eta.ui.layout.rememberFloatingBottomBarInsets
 import io.github.mangi.eta.ui.markdown.StreamingMarkdownStateCache
 import io.github.mangi.eta.agent.ask.AskAnswer
+import io.github.mangi.eta.agent.ask.PendingAsk
 import io.github.mangi.eta.agent.ask.PendingAskStore
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
@@ -620,6 +621,16 @@ private fun AgentChatScaffold(
                             )
                         } else {
                             AgentConversationMessages(
+                                pendingAsk = pendingAsk,
+                                onAskAnswered = { answered ->
+                                    pendingAsk = answered
+                                    // 用户选了答案才算真的回了话；跳过不发消息。
+                                    val answer = answered.answer
+                                    if (answer != null && !answer.skipped && answer.labels.isNotEmpty()) {
+                                        onBottomAnchorChanged(true)
+                                        onSubmit(answer.labels.joinToString("、"))
+                                    }
+                                },
                                 visibleMessages = visibleMessages,
                                 scrollState = scrollState,
                                 allTurns = allTurns,
@@ -699,6 +710,9 @@ internal fun AgentConversationMessages(
     onRegenerateMessage: (String) -> Unit = {},
     onBranchMessage: (String) -> Unit = {},
     onSelectReplyCandidate: (String, Int) -> Unit = { _, _ -> },
+    /** 待答问题卡片：作为消息流的一个条目渲染，跟着内容滚动。 */
+    pendingAsk: PendingAsk? = null,
+    onAskAnswered: (PendingAsk) -> Unit = {},
     onEditGeneratedImage: ((String) -> Unit)? = null,
     messageActionsEnabled: Boolean = false,
     editTargetMessageId: String? = null,
@@ -1096,19 +1110,15 @@ internal fun AgentConversationMessages(
                                     .filter { it.id in chosen }
                                     .map { it.label }
                                 if (labels.isNotEmpty()) {
-                                    PendingAskStore.answer(
-                                        ask.token,
-                                        AskAnswer(labels = labels),
-                                    )
-                                    pendingAsk = PendingAskStore.find(ask.token)
-                                    onBottomAnchorChanged(true)
-                                    onSubmit(labels.joinToString("、"))
+                                    val answered = ask.copy(answer = AskAnswer(labels = labels))
+                                    PendingAskStore.answer(ask.token, AskAnswer(labels = labels))
+                                    onAskAnswered(answered)
                                 }
                             },
                             // 跳过：只把卡片标成已跳过，不发任何消息，也不打断当前对话。
                             onSkip = {
                                 PendingAskStore.answer(ask.token, AskAnswer(skipped = true))
-                                pendingAsk = PendingAskStore.find(ask.token)
+                                onAskAnswered(ask.copy(answer = AskAnswer(skipped = true)))
                             },
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         )
