@@ -42,8 +42,9 @@ import io.github.mangi.eta.ui.app.WorkspaceEntry
 import io.github.mangi.eta.ui.app.WorkspaceFileStore
 import io.github.mangi.eta.ui.components.EtaPreferenceGroupItem
 import io.github.mangi.eta.ui.components.ListEmptyState
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
-import io.github.mangi.eta.ui.components.coui.CouiLazyScaffoldPage
+import io.github.mangi.eta.ui.components.AdaptiveTopAppBar
+import io.github.mangi.eta.ui.components.MiuixBackButton
+import io.github.mangi.eta.ui.components.coui.CouiScaffoldPage
 import io.github.mangi.eta.ui.components.coui.CouiPageDefaults
 import io.github.mangi.eta.ui.components.coui.CouiPreference
 import io.github.mangi.eta.ui.components.coui.CouiPreferenceGroup
@@ -72,7 +73,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * 两处共用同一份状态逻辑，避免两套实现后续走偏。
  */
 @Composable
-internal fun WorkspacePanelContent(modifier: Modifier = Modifier) {
+internal fun WorkspacePanelContent(
+    modifier: Modifier = Modifier,
+    header: (@Composable () -> Unit)? = null,
+) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val store = remember(context.applicationContext) { WorkspaceFileStore(context) }
@@ -396,25 +400,46 @@ internal fun WorkspacePanelContent(modifier: Modifier = Modifier) {
     androidx.compose.foundation.lazy.LazyColumn(
         modifier = modifier.fillMaxSize(),
         state = androidx.compose.foundation.lazy.rememberLazyListState(),
-        content = listContent,
-    )
+    ) {
+        if (header != null) {
+            item(key = "workspace-header") { header() }
+        }
+        listContent()
+    }
 }
 
-/** 二级页外壳：顶栏进入，带返回按钮。内容与 Pager 左页共用 [WorkspacePanelContent]。 */
+/**
+ * 二级页外壳：顶栏进入，带返回按钮。
+ *
+ * 内容与 Pager 左页共用 [WorkspacePanelContent]（它自带 LazyColumn），
+ * 所以这里用非 Lazy 的 [CouiScaffoldPage] 承接；MIUIX 侧没有等价的非 Lazy 外壳，
+ * 用 Miuix Scaffold 手搭顶栏。两处都把标题栏作为 header 插槽传进同一个内容函数，
+ * 避免把 LazyColumn 嵌进另一个 LazyColumn 造成无限高度测量崩溃。
+ */
 @Composable
 internal fun WorkspaceScreen(onBack: () -> Unit) {
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
-            CouiLazyScaffoldPage(
+            CouiScaffoldPage(
                 title = stringResource(R.string.capability_workspace),
                 onBack = onBack,
-            ) { WorkspacePanelContent() }
+            ) {
+                WorkspacePanelContent()
+            }
         }
         AppearanceUiStyle.MIUIX -> {
-            MiuixScaffoldPage(
-                title = stringResource(R.string.capability_workspace),
-                onBack = onBack,
-            ) { WorkspacePanelContent() }
+            top.yukonga.miuix.kmp.basic.Scaffold(
+                topBar = {
+                    AdaptiveTopAppBar(
+                        title = stringResource(R.string.capability_workspace),
+                        navigationIcon = { MiuixBackButton(onClick = onBack) },
+                    )
+                },
+            ) { padding ->
+                Box(modifier = Modifier.padding(padding)) {
+                    WorkspacePanelContent()
+                }
+            }
         }
     }
 }
