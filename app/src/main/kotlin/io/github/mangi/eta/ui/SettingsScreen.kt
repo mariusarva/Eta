@@ -768,22 +768,6 @@ private fun SettingsPageContent(
                     }
                     item {
                         CouiPreference(
-                            title = "功能自检",
-                            summary = "逐项检查权限、Root、存储、数据库与日志",
-                            icon = { CouiSettingsIcon(Icons.Rounded.CheckCircle, SettingsIconColors.Blue) },
-                            onClick = { onNavigate(AppRoute.SelfCheck) },
-                        )
-                    }
-                    item {
-                        CouiPreference(
-                            title = "极致自动排查",
-                            summary = "定时巡检，异常才提醒",
-                            icon = { CouiSettingsIcon(Icons.Rounded.HealthAndSafety, SettingsIconColors.Orange) },
-                            onClick = { onNavigate(AppRoute.DiagnosticsPatrol) },
-                        )
-                    }
-                    item {
-                        CouiPreference(
                             title = stringResource(R.string.route_mcp_servers),
                             icon = {
                                 CouiSettingsIcon(
@@ -826,6 +810,22 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.settings_tools_list),
                             icon = { CouiSettingsIcon(Icons.Rounded.Dashboard, SettingsIconColors.Green) },
                             onClick = { onNavigate(AppRoute.Tools) },
+                        )
+                    }
+                    item {
+                        CouiPreference(
+                            title = "功能自检",
+                            summary = "逐项检查权限、Root、存储、数据库与日志",
+                            icon = { CouiSettingsIcon(Icons.Rounded.CheckCircle, SettingsIconColors.Blue) },
+                            onClick = { onNavigate(AppRoute.SelfCheck) },
+                        )
+                    }
+                    item {
+                        CouiPreference(
+                            title = "极致自动排查",
+                            summary = "定时巡检，异常才提醒",
+                            icon = { CouiSettingsIcon(Icons.Rounded.HealthAndSafety, SettingsIconColors.Orange) },
+                            onClick = { onNavigate(AppRoute.DiagnosticsPatrol) },
                         )
                     }
                     item {
@@ -1320,18 +1320,6 @@ private fun SettingsPageContent(
                             onClick = { onNavigate(AppRoute.Skills) },
                         )
                         ArrowPreference(
-                            title = "功能自检",
-                            summary = "逐项检查权限、Root、存储、数据库与日志",
-                            startAction = { SettingsIcon(Icons.Rounded.CheckCircle) },
-                            onClick = { onNavigate(AppRoute.SelfCheck) },
-                        )
-                        ArrowPreference(
-                            title = "极致自动排查",
-                            summary = "定时巡检，异常才提醒",
-                            startAction = { SettingsIcon(Icons.Rounded.HealthAndSafety) },
-                            onClick = { onNavigate(AppRoute.DiagnosticsPatrol) },
-                        )
-                        ArrowPreference(
                             title = stringResource(R.string.route_mcp_servers),
                             startAction = { SettingsIcon(Icons.Rounded.AccountTree) },
                             onClick = { onNavigate(AppRoute.McpServers) },
@@ -1358,6 +1346,18 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.settings_tools_list),
                             startAction = { SettingsIcon(Icons.Rounded.Dashboard) },
                             onClick = { onNavigate(AppRoute.Tools) },
+                        )
+                        ArrowPreference(
+                            title = "功能自检",
+                            summary = "逐项检查权限、Root、存储、数据库与日志",
+                            startAction = { SettingsIcon(Icons.Rounded.CheckCircle) },
+                            onClick = { onNavigate(AppRoute.SelfCheck) },
+                        )
+                        ArrowPreference(
+                            title = "极致自动排查",
+                            summary = "定时巡检，异常才提醒",
+                            startAction = { SettingsIcon(Icons.Rounded.HealthAndSafety) },
+                            onClick = { onNavigate(AppRoute.DiagnosticsPatrol) },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.web_tools_settings_title),
