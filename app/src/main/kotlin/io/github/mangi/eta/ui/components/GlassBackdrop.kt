@@ -75,7 +75,7 @@ internal class DemandSceneBackdrop(
     var pinned by mutableStateOf(false)
         private set
 
-    fun setPinned(value: Boolean) {
+    fun updatePinned(value: Boolean) {
         pinned = value
         if (value) isActive = true
     }

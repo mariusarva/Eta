@@ -32,8 +32,10 @@ sealed interface AppRoute : NavKey {
     data object SelfCheck : AppRoute
 
     /** 极致自动排查：定时巡检，异常才提醒。 */
+    @Serializable
     data object DiagnosticsPatrol : AppRoute
 
+    @Serializable
     data object Skills : AppRoute
 
     /** 技能市场：内置目录 + 从公开仓库安装技能。 */

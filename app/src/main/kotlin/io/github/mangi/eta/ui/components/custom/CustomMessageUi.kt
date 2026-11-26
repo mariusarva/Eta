@@ -101,8 +101,8 @@ internal fun CustomMessageMenuDialog(
     // 模糊材质就会一闪一闪。菜单显示期间 pin 住，退出时 unpin。
     val pinnedBackdrop = miuixBackdrop as? DemandSceneBackdrop
     DisposableEffect(pinnedBackdrop) {
-        pinnedBackdrop?.setPinned(true)
-        onDispose { pinnedBackdrop?.setPinned(false) }
+        pinnedBackdrop?.updatePinned(true)
+        onDispose { pinnedBackdrop?.updatePinned(false) }
     }
     val hasMaterial = if (isCoui) {
         couiBackdrop != null
