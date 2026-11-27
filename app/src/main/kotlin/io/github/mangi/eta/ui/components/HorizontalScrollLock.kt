@@ -12,6 +12,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Velocity
 
 /**
@@ -33,6 +35,12 @@ internal class HorizontalScrollLock {
     }
 
     fun isActive(): Boolean = active
+
+    /** 手势结束立即释放，配合「按下即锁」使用。 */
+    fun release() {
+        handler.removeCallbacks(resetRunnable)
+        active = false
+    }
 }
 
 internal val LocalHorizontalScrollLock = staticCompositionLocalOf<HorizontalScrollLock?> { null }
@@ -49,7 +57,26 @@ internal val LocalHorizontalScrollLock = staticCompositionLocalOf<HorizontalScro
  */
 internal fun Modifier.blockHorizontalPageSwipe(lock: HorizontalScrollLock?): Modifier {
     if (lock == null) return this
-    return this.nestedScroll(
+    // 按下即置位：只靠 nestedScroll 会死锁——Pager 手势在 Initial pass 先 consume，
+    // scrollable 收不到事件就永远不会触发 onPreScroll/onPostScroll，lock 便一直 false，
+    // Pager 就一直把拖代码块当成翻页。这里在 down 阶段直接锁住，抬手释放。
+    val holdModifier = Modifier.pointerInput(lock) {
+        awaitPointerEventScope {
+            while (true) {
+                val down = awaitPointerEvent(PointerEventPass.Initial)
+                    .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
+                    ?: continue
+                lock.markActive(HOLD_MS)
+                var pressed = true
+                while (pressed) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    pressed = event.changes.any { it.pressed }
+                }
+                lock.release()
+            }
+        }
+    }
+    return this.then(holdModifier).nestedScroll(
         object : NestedScrollConnection {
             // 一开始滚就标记，别等 onPostScroll。
             // Pager 的手势挂在更外层，只有尽早置位它才能及时让位。
@@ -70,3 +97,6 @@ internal fun Modifier.blockHorizontalPageSwipe(lock: HorizontalScrollLock?): Mod
         },
     )
 }
+
+/** 「按住即锁」的保底时长：远大于正常手势，抬手时由 release() 立刻清掉。 */
+private const val HOLD_MS = 30_000L
