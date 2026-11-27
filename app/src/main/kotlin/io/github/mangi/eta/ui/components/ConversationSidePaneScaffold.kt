@@ -435,7 +435,7 @@ internal fun ConversationSidePaneScaffold(
 }
 
 /** 打开侧栏所需水平位移（dp）：约占屏幕宽 40%，必须明确滑一段。 */
-private val OPEN_SWIPE_DP = 180.dp
+private val OPEN_SWIPE_DP = 150.dp
 
 /** 关闭侧栏所需水平位移（dp）。 */
 private val CLOSE_SWIPE_DP = 120.dp
