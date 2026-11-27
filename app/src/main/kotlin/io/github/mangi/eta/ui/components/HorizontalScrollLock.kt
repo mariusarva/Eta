@@ -10,15 +10,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Velocity
 import kotlin.math.abs
 
 /**
  * 记录「刚才这一小段时间内，有横向滚动容器在拖」。
  *
- * 用可观察状态 + 定时复位：可观察让 HorizontalPager 能实时关掉翻页
- * （横向拖动代码块/表格时不该连带翻页），定时复位保证不会永久卡住。
+ * 用可观察状态 + 定时复位：可观察让 HorizontalPager 能实时关掉翻页，
+ * 定时复位保证不会永久卡住。
  */
 internal class HorizontalScrollLock {
     var active by mutableStateOf(false)
@@ -39,38 +44,64 @@ internal class HorizontalScrollLock {
 internal val LocalHorizontalScrollLock = staticCompositionLocalOf<HorizontalScrollLock?> { null }
 
 /**
- * 挂在横向滚动容器外层（和 horizontalScroll 同一节点即可）。不消费任何事件，只做方向声明。
+ * 给横向滚动容器（代码块 / 表格 / 公式）加的两件事：
  *
- * 只在容器**真的还能朝这个方向滚**时才声明，否则到边界的表格会把页级右滑永久吃掉：
- * - 手指左滑看右边内容 → 需要 canScrollForward
- * - 手指右滑看左边内容 → 需要 canScrollBackward
+ * 1. `nestedScroll`：把横向位移的**剩余量**全部吃掉。子内容先正常滚，滚到边界后
+ *    剩下的 dx 不会再冒泡给 HorizontalPager —— 这就是「拖表格文字不会翻页」的关键。
+ *    `userScrollEnabled` 要等重组才生效，当帧来不及；nestedScroll 是同步的。
+ *
+ * 2. `pointerInput`：声明「这段手势归横向滚动」，让侧栏右滑手势让位。
+ *    只在容器真的还能朝该方向滚时才声明，避免到边界的表格长期吃掉页级手势。
  */
 internal fun Modifier.declareHorizontalScroll(
     lock: HorizontalScrollLock?,
     scrollState: ScrollState,
 ): Modifier {
     if (lock == null) return this
-    return this.pointerInput(lock, scrollState) {
-        awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-            var totalX = 0f
-            var totalY = 0f
-            while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
-                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                if (!change.pressed) break
-                val delta = change.position - change.previousPosition
-                totalX += delta.x
-                totalY += delta.y
-                if (abs(totalX) > 6f && abs(totalX) > abs(totalY) * 1.2f) {
-                    val canConsume = if (delta.x < 0f) {
-                        scrollState.canScrollForward
-                    } else {
-                        scrollState.canScrollBackward
+    val blocker = object : NestedScrollConnection {
+        override fun onPostScroll(
+            consumed: Offset,
+            available: Offset,
+            source: NestedScrollSource,
+        ): Offset {
+            if (available.x == 0f) return Offset.Zero
+            // 声明过横向滚动就吃掉剩余水平位移，不交给父级 Pager。
+            if (lock.isActive() || scrollState.canScrollBackward || scrollState.canScrollForward) {
+                lock.markActive()
+                return Offset(available.x, 0f)
+            }
+            return Offset.Zero
+        }
+
+        override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+            if (available.x == 0f) return Velocity.Zero
+            if (lock.isActive()) return Velocity(available.x, 0f)
+            return Velocity.Zero
+        }
+    }
+    return this
+        .nestedScroll(blocker)
+        .pointerInput(lock, scrollState) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                var totalX = 0f
+                var totalY = 0f
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                    val delta = change.position - change.previousPosition
+                    totalX += delta.x
+                    totalY += delta.y
+                    if (abs(totalX) > 6f && abs(totalX) > abs(totalY) * 1.2f) {
+                        val canConsume = if (delta.x < 0f) {
+                            scrollState.canScrollForward
+                        } else {
+                            scrollState.canScrollBackward
+                        }
+                        if (canConsume) lock.markActive()
                     }
-                    if (canConsume) lock.markActive()
                 }
             }
         }
-    }
 }
