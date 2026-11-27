@@ -5,6 +5,7 @@ import android.text.format.Formatter
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -437,6 +438,9 @@ internal fun LinuxEnvironmentScreen(
                                     CouiButton(
                                         text = primaryText,
                                         enabled = primaryEnabled,
+                                        // COUI 按钮宽度随文案变化（安装 / 安装中 / 已安装），
+                                        // 各行长短不一，固定宽度让它们对齐。
+                                        modifier = Modifier.width(TOOL_ACTION_BUTTON_WIDTH),
                                         minHeight = 32.dp,
                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                         onClick = onPrimaryClick,
@@ -499,6 +503,7 @@ internal fun LinuxEnvironmentScreen(
                                 CouiButton(
                                     text = apkButtonText,
                                     enabled = apkEnabled,
+                                    modifier = Modifier.width(TOOL_ACTION_BUTTON_WIDTH),
                                     minHeight = 32.dp,
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     onClick = onApkInstall,
@@ -704,3 +709,6 @@ private fun ApkAnalysisInstallStage.displayName(context: Context): String = cont
         ApkAnalysisInstallStage.COMPLETE -> R.string.linux_apk_stage_complete
     },
 )
+
+/** 可选工具行「安装 / 安装中 / 已安装」按钮的统一宽度（仅 COUI）。 */
+private val TOOL_ACTION_BUTTON_WIDTH = 78.dp
