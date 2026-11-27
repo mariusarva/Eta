@@ -56,47 +56,58 @@ internal val LocalHorizontalScrollLock = staticCompositionLocalOf<HorizontalScro
  * - 不再挂 pointerInput。每帧在 Initial pass 跑一遍手势循环纯属多余开销，
  *   声明 lock 用 onPostScroll 就够（子内容真在滚 = 这段手势归它）。
  */
+/** 全局唯一的拦截器：nestedScroll 每次拿到新对象都会重建节点并打断滚动，必须复用。 */
+private object SharedHorizontalBlocker : NestedScrollConnection {
+
+    @Volatile
+    var lock: HorizontalScrollLock? = null
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        val current = lock ?: return Offset.Zero
+        if (available.x != 0f && !current.isActive()) current.markActive()
+        return Offset.Zero
+    }
+
+    override fun onPostScroll(
+        consumed: Offset,
+        available: Offset,
+        source: NestedScrollSource,
+    ): Offset {
+        val current = lock ?: return Offset.Zero
+        if (available.x == 0f) return Offset.Zero
+        if (!current.isActive()) current.markActive()
+        // 吃掉剩余水平位移，不让父级 Pager 翻页。
+        return Offset(available.x, 0f)
+    }
+}
+
+/**
+ * 让横向滚动容器独占这段手势：
+ * - 复用 [SharedHorizontalBlocker] 这一唯一实例，避免 nestedScroll 节点反复重建（卡顿根因）
+ * - down 阶段就置位 lock，抬手释放；否则 Pager 手势会在 Initial pass 先 consume，
+ *   scrollable 收不到事件，lock 永远激活不了
+ */
 internal fun Modifier.blockHorizontalPageSwipe(lock: HorizontalScrollLock?): Modifier {
     if (lock == null) return this
-    // 按下即置位：只靠 nestedScroll 会死锁——Pager 手势在 Initial pass 先 consume，
-    // scrollable 收不到事件就永远不会触发 onPreScroll/onPostScroll，lock 便一直 false，
-    // Pager 就一直把拖代码块当成翻页。这里在 down 阶段直接锁住，抬手释放。
-    val holdModifier = Modifier.pointerInput(lock) {
-        awaitPointerEventScope {
-            while (true) {
-                val down = awaitPointerEvent(PointerEventPass.Initial)
-                    .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
-                    ?: continue
-                lock.markActive(HOLD_MS)
-                var pressed = true
-                while (pressed) {
-                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                    pressed = event.changes.any { it.pressed }
+    SharedHorizontalBlocker.lock = lock
+    return this
+        .nestedScroll(SharedHorizontalBlocker)
+        .pointerInput(lock) {
+            awaitPointerEventScope {
+                while (true) {
+                    awaitPointerEvent(PointerEventPass.Initial)
+                        .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
+                        ?: continue
+                    lock.markActive(HOLD_MS)
+                    var pressed = true
+                    while (pressed) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        pressed = event.changes.any { it.pressed }
+                    }
+                    lock.release()
                 }
-                lock.release()
             }
         }
-    }
-    return this.then(holdModifier).nestedScroll(
-        object : NestedScrollConnection {
-            // 一开始滚就标记，别等 onPostScroll。
-            // Pager 的手势挂在更外层，只有尽早置位它才能及时让位。
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.x != 0f && !lock.isActive()) lock.markActive()
-                return Offset.Zero
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource,
-            ): Offset {
-                if (available.x == 0f) return Offset.Zero
-                if (!lock.isActive()) lock.markActive()
-                return Offset(available.x, 0f)
-            }
-        },
-    )
 }
 
 /** 「按住即锁」的保底时长：远大于正常手势，抬手时由 release() 立刻清掉。 */
