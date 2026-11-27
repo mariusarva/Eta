@@ -25,6 +25,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,6 +55,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
@@ -107,6 +109,8 @@ internal fun AgentOverlayCapsule(
     onResume: () -> Unit,
     onStop: () -> Unit,
     onSupplementModeChange: (Boolean) -> Unit,
+    /** 拖动胶囊：把位移交给窗口层更新位置。 */
+    onDrag: (Float, Float) -> Unit = { _, _ -> },
     onSupplement: (String) -> Unit,
     virtualDisplay: VirtualDisplaySnapshot = VirtualDisplaySnapshot.Inactive,
     onTakeOverVirtualDisplay: () -> Unit = {},
@@ -226,6 +230,12 @@ internal fun AgentOverlayCapsule(
                     )
                     .clip(capsuleShape)
                     .background(capsuleBg, capsuleShape)
+                    .pointerInput(onDrag) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            onDrag(dragAmount.x, dragAmount.y)
+                        }
+                    }
                     .then(
                         if (isCoui) {
                             Modifier.border(0.6.dp, capsuleBorder, capsuleShape)

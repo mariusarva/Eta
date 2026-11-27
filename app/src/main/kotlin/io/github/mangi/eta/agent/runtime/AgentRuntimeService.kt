@@ -1278,6 +1278,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 },
                 onStop = { requestStop(controlRunId) },
                 onSupplementModeChange = ::setCapsuleInputMode,
+                onDrag = ::dragCapsule,
                 onSupplement = { requestSupplement(controlRunId, it) },
                 virtualDisplay = virtualDisplayState.value,
                 onTakeOverVirtualDisplay = {
@@ -1520,6 +1521,23 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
      * 但窗口内透明区域同样会吞掉触摸（包括 Agent 自己注入的点击），所以高度只在需要时扩大：
      * 展开前先扩到目标档，收起动画结束后再缩回，见 [setCapsuleWindowHeight]。
      */
+    /** 拖动胶囊：实时更新窗口坐标并持久化，松手后位置保留。 */
+    private fun dragCapsule(dx: Float, dy: Float) {
+        val view = capsuleView?.takeIf { it.isAttachedToWindow } ?: return
+        val params = capsuleParams ?: return
+        val metrics = (overlayContext().getSystemService(Context.WINDOW_SERVICE) as? WindowManager)
+            ?.currentWindowMetrics
+        val screenW = metrics?.bounds?.width() ?: return
+        val screenH = metrics?.bounds?.height() ?: return
+        params.x = (params.x + dx.toInt()).coerceIn(0, (screenW - view.width).coerceAtLeast(0))
+        params.y = (params.y + dy.toInt()).coerceIn(0, (screenH - view.height).coerceAtLeast(0))
+        runCatching { windowManager?.updateViewLayout(view, params) }
+        Prefs.localAgentPreferences()?.edit()
+            ?.putInt(Prefs.Keys.AGENT_CAPSULE_X, params.x)
+            ?.putInt(Prefs.Keys.AGENT_CAPSULE_Y, params.y)
+            ?.apply()
+    }
+
     private fun capsuleLayoutParams(): WindowManager.LayoutParams =
         WindowManager.LayoutParams(
             dpToPx(if (virtualDisplayState.value.active) CAPSULE_STAGE_WINDOW_WIDTH_DP else CAPSULE_WINDOW_WIDTH_DP),
@@ -1531,9 +1549,16 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
-            // 贴在状态栏下方居中：远离多数应用的主要点击区，也和系统胶囊、流体云的位置习惯一致。
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = statusBarHeightPx()
+            // 可自由拖动：默认贴在状态栏下方居中，拖动后记住位置。
+            gravity = Gravity.TOP or Gravity.START
+            val capsulePrefs = Prefs.localAgentPreferences()
+            val savedX = capsulePrefs?.getInt(Prefs.Keys.AGENT_CAPSULE_X, -1) ?: -1
+            val savedY = capsulePrefs?.getInt(Prefs.Keys.AGENT_CAPSULE_Y, -1) ?: -1
+            val metrics = (overlayContext().getSystemService(Context.WINDOW_SERVICE) as? WindowManager)
+                ?.currentWindowMetrics
+            val screenWidth = metrics?.bounds?.width() ?: 0
+            x = if (savedX >= 0) savedX else ((screenWidth - width) / 2).coerceAtLeast(0)
+            y = if (savedY >= 0) savedY else statusBarHeightPx()
             windowAnimations = 0
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
         }

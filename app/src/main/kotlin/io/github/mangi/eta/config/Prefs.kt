@@ -49,6 +49,9 @@ internal object Prefs {
         const val AGENT_SUBAGENT_ENABLED = "agent_subagent_enabled"
         const val AGENT_VIRTUAL_DISPLAY_ENABLED = "agent_virtual_display_enabled"
         const val AGENT_KEEP_SCREEN_ON_ENABLED = "agent_keep_screen_on_enabled"
+        /** 悬浮胶囊的窗口坐标；-1 表示尚未拖动过，使用默认居中。 */
+        const val AGENT_CAPSULE_X = "agent_capsule_x"
+        const val AGENT_CAPSULE_Y = "agent_capsule_y"
         /** 启动时进入新建对话（true）还是恢复上次会话（false）。 */
         const val AGENT_START_IN_NEW_CHAT = "agent_start_in_new_chat"
         /** 纯聊天模式：不向模型声明任何工具，只做文本对话。 */
