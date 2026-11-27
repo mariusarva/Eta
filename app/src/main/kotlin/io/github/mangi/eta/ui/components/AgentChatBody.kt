@@ -637,12 +637,64 @@ private fun AgentChatScaffold(
         }
         // 横向拖动代码块/表格时禁用 Pager 翻页：否则左右拖一行长代码会把页面翻走。
         val horizontalScrollLock = LocalHorizontalScrollLock.current
+        val pageSwipeThresholdPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+            PAGE_SWIPE_THRESHOLD_DP.toPx()
+        }
+        // 翻页手势完全自管：关掉 Pager 自带手势（滑一点就翻），改成必须长距离滑动才翻。
+        // 与侧栏「右滑开侧栏」用同一套判定：绝对位移、最少 5 帧、方向占比 2.2、400ms 上限。
+        val pageSwipeModifier = Modifier.pointerInput(Unit) {
+            awaitPointerEventScope {
+                while (true) {
+                    val down = awaitPointerEvent(PointerEventPass.Initial)
+                        .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
+                        ?: continue
+                    if (horizontalScrollLock?.active == true) continue
+                    val downTime = android.os.SystemClock.uptimeMillis()
+                    var frames = 0
+                    var handled = false
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        frames++
+                        if (handled) {
+                            change.consume()
+                            continue
+                        }
+                        if (frames < 5) continue
+                        if (android.os.SystemClock.uptimeMillis() - downTime > 400L) break
+                        if (horizontalScrollLock?.active == true) break
+                        val dx = change.position.x - down.position.x
+                        val dy = change.position.y - down.position.y
+                        if (kotlin.math.abs(dx) <= kotlin.math.abs(dy) * 2.2f) continue
+                        val current = pagerState.currentPage
+                        when {
+                            // 对话页左滑 -> 文件区
+                            dx < -pageSwipeThresholdPx && current == ChatPage.CONVERSATION.ordinal -> {
+                                handled = true
+                                pagerScope.launch {
+                                    pagerState.animateScrollToPage(ChatPage.WORKSPACE.ordinal)
+                                }
+                            }
+                            // 文件区右滑 -> 回到对话页
+                            dx > pageSwipeThresholdPx && current == ChatPage.WORKSPACE.ordinal -> {
+                                handled = true
+                                pagerScope.launch {
+                                    pagerState.animateScrollToPage(ChatPage.CONVERSATION.ordinal)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         androidx.compose.foundation.pager.HorizontalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(pageSwipeModifier),
             // 关闭越界回弹，避免最后一页继续拖动时露出空白。
             overscrollEffect = null,
-            userScrollEnabled = horizontalScrollLock?.active != true,
+            // 手势自管，关掉 Pager 内置的「滑一点就翻」。
+            userScrollEnabled = false,
         ) { page ->
             when (ChatPage.entries[page]) {
                 ChatPage.WORKSPACE -> {
@@ -1758,3 +1810,6 @@ private data class SuggestionItem(
     val icon: ImageVector,
     val prompt: String,
 )
+
+/** 翻页所需的最小水平位移：与侧栏手势同档，必须长距离滑动才切页。 */
+private val PAGE_SWIPE_THRESHOLD_DP = 220.dp

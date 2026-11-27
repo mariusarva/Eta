@@ -221,7 +221,7 @@ internal fun ConversationSidePaneScaffold(
                 .background(conversationPaneContainerColor())
                 // 侧栏双向横滑，挂在「侧栏面板 + 会话内容」的共同祖先上：
                 // · 展开时左滑 40dp 关闭；
-                // · 未展开时右滑 200dp 打开（仅对话页）。
+                // · 未展开时右滑 220dp 打开（仅对话页），必须真实移动够远。
                 // 状态只看 visible，不看退场动画的 offset，所以关掉之后不管动画走到哪，
                 // 第一次右滑就能重新打开；也不依赖焦点落在哪个子节点。
                 .pointerInput(Unit) {
@@ -238,15 +238,22 @@ internal fun ConversationSidePaneScaffold(
                             var totalX = 0f
                             var totalY = 0f
                             var handled = false
+                            var moveFrames = 0
                             while (true) {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
                                 val change = event.changes.firstOrNull { it.id == down.id }
                                     ?: break
                                 if (!change.pressed) break
-                                val delta = change.position - change.previousPosition
-                                totalX += delta.x
-                                totalY += delta.y
+                                moveFrames++
+                                // 绝对位移：直接以按下点为基准，不逐帧累加 previousPosition。
+                                // 逐帧累加时，只要某一帧 previousPosition 异常（回零、跨手势残留、
+                                // 多指切换），就会出现一次巨大的 delta，轻轻一点也瞬间越过阈值——
+                                // 这正是「轻点一下侧栏就开」的根因。
+                                totalX = change.position.x - down.position.x
+                                totalY = change.position.y - down.position.y
                                 if (!handled) {
+                                    // 至少要移动 5 帧（约 80ms）才允许判定，杜绝单帧跳变触发。
+                                    if (moveFrames < 5) continue
                                     // 长按判定：按下后超过 400ms 还没触发就整段放弃。
                                     // 长按文字/选择时手指会缓慢移动，只要停留够久就不可能是
                                     // 「快速划开侧栏」的意图，无条件放弃，堵住长按误触。
@@ -268,7 +275,7 @@ internal fun ConversationSidePaneScaffold(
                                         )
                                         break
                                     }
-                                    if (!currentVisible && totalX > 200f && horizontalScrollLock.isActive()) {
+                                    if (!currentVisible && totalX > 220f && horizontalScrollLock.isActive()) {
                                         android.util.Log.i("EtaPaneSwipe", "blocked by horizontal scroll")
                                     }
                                     if (currentVisible) {
@@ -280,7 +287,7 @@ internal fun ConversationSidePaneScaffold(
                                             closePane()
                                         }
                                     } else if (currentSwipeToOpen && !horizontalScrollLock.isActive()) {
-                                        if (totalX > 200f && totalX > kotlin.math.abs(totalY) * 2.2f) {
+                                        if (totalX > 220f && totalX > kotlin.math.abs(totalY) * 2.2f) {
                                             handled = true
                                             android.util.Log.i("EtaPaneSwipe", "open dx=$totalX")
                                             currentOnOpen()
