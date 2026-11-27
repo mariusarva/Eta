@@ -221,7 +221,7 @@ internal fun ConversationSidePaneScaffold(
                 .background(conversationPaneContainerColor())
                 // 侧栏双向横滑，挂在「侧栏面板 + 会话内容」的共同祖先上：
                 // · 展开时左滑 40dp 关闭；
-                // · 未展开时右滑 140dp 打开（仅对话页）。
+                // · 未展开时右滑 200dp 打开（仅对话页）。
                 // 状态只看 visible，不看退场动画的 offset，所以关掉之后不管动画走到哪，
                 // 第一次右滑就能重新打开；也不依赖焦点落在哪个子节点。
                 .pointerInput(Unit) {
@@ -268,7 +268,7 @@ internal fun ConversationSidePaneScaffold(
                                         )
                                         break
                                     }
-                                    if (!currentVisible && totalX > 140f && horizontalScrollLock.isActive()) {
+                                    if (!currentVisible && totalX > 200f && horizontalScrollLock.isActive()) {
                                         android.util.Log.i("EtaPaneSwipe", "blocked by horizontal scroll")
                                     }
                                     if (currentVisible) {
@@ -280,7 +280,7 @@ internal fun ConversationSidePaneScaffold(
                                             closePane()
                                         }
                                     } else if (currentSwipeToOpen && !horizontalScrollLock.isActive()) {
-                                        if (totalX > 140f && totalX > kotlin.math.abs(totalY) * 2.2f) {
+                                        if (totalX > 200f && totalX > kotlin.math.abs(totalY) * 2.2f) {
                                             handled = true
                                             android.util.Log.i("EtaPaneSwipe", "open dx=$totalX")
                                             currentOnOpen()
