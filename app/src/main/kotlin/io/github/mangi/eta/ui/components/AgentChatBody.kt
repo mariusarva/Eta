@@ -675,14 +675,11 @@ private fun AgentChatScaffold(
                         if (horizontal) change.consume()
                         if (!horizontal) continue
                         val current = pagerState.currentPage
-                        android.util.Log.i(
-                            "EtaPageSwipe",
-                            "dx=$dx dy=$dy frame=$frames page=$current",
-                        )
                         when {
                             // 对话页左滑 -> 文件区
                             dx < -pageSwipeThresholdPx && current == ChatPage.CONVERSATION.ordinal -> {
                                 handled = true
+                                android.util.Log.i("EtaPageSwipe", "to workspace dx=$dx")
                                 pagerScope.launch {
                                     pagerState.animateScrollToPage(ChatPage.WORKSPACE.ordinal)
                                 }
@@ -690,6 +687,7 @@ private fun AgentChatScaffold(
                             // 文件区右滑 -> 回到对话页
                             dx > pageSwipeThresholdPx && current == ChatPage.WORKSPACE.ordinal -> {
                                 handled = true
+                                android.util.Log.i("EtaPageSwipe", "to conversation dx=$dx")
                                 pagerScope.launch {
                                     pagerState.animateScrollToPage(ChatPage.CONVERSATION.ordinal)
                                 }

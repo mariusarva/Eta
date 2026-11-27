@@ -244,6 +244,7 @@ internal fun ConversationSidePaneScaffold(
                             var handled = false
                             var moveFrames = 0
                             var horizontalIntent = false
+                            var blockedLogged = false
                             while (true) {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
                                 val change = event.changes.firstOrNull { it.id == down.id }
@@ -294,7 +295,10 @@ internal fun ConversationSidePaneScaffold(
                                     // 否则长按识别器照常收到位移，滑动途中弹出快捷菜单。
                                     if (horizontalDominant) horizontalIntent = true
                                     if (horizontalIntent) change.consume()
-                                    if (!currentVisible && totalX > openThresholdPx && horizontalScrollLock.isActive()) {
+                                    if (!currentVisible && totalX > openThresholdPx &&
+                                        horizontalScrollLock.isActive() && !blockedLogged
+                                    ) {
+                                        blockedLogged = true
                                         android.util.Log.i("EtaPaneSwipe", "blocked by horizontal scroll")
                                     }
                                     if (currentVisible) {
