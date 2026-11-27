@@ -6,10 +6,12 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -58,50 +60,59 @@ internal fun Modifier.declareHorizontalScroll(
     scrollState: ScrollState,
 ): Modifier {
     if (lock == null) return this
-    val blocker = object : NestedScrollConnection {
-        override fun onPostScroll(
-            consumed: Offset,
-            available: Offset,
-            source: NestedScrollSource,
-        ): Offset {
-            if (available.x == 0f) return Offset.Zero
-            // 声明过横向滚动就吃掉剩余水平位移，不交给父级 Pager。
-            if (lock.isActive() || scrollState.canScrollBackward || scrollState.canScrollForward) {
-                lock.markActive()
-                return Offset(available.x, 0f)
-            }
-            return Offset.Zero
-        }
+    // 必须用 composed + remember 稳定住 NestedScrollConnection 实例。
+    // 直接在扩展函数里 new 一个，每次重组都会换新对象，nestedScroll 节点被重建，
+    // 滚动状态被打断 —— 表现就是「只能一帧一帧地滑」。
+    return composed {
+        val blocker = remember(lock, scrollState) {
+            object : NestedScrollConnection {
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource,
+                ): Offset {
+                    if (available.x == 0f) return Offset.Zero
+                    // 只在从「未激活」变「激活」时更新，避免每帧 Handler 操作与状态写入。
+                    if (!lock.isActive()) lock.markActive()
+                    // 吃掉剩余水平位移，不让父级 Pager 翻页。
+                    return Offset(available.x, 0f)
+                }
 
-        override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-            if (available.x == 0f) return Velocity.Zero
-            if (lock.isActive()) return Velocity(available.x, 0f)
-            return Velocity.Zero
+                override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                    // 不能整体吃掉 fling 速度：横向惯性是内容自己的，
+                    // 吃了就会变成「只能一帧一帧地滑」。只在这次手势确实
+                    // 声明过横向滚动（lock 激活）时，才拦下残余速度防止父级翻页。
+                    if (available.x == 0f) return Velocity.Zero
+                    if (!lock.isActive()) return Velocity.Zero
+                    return Velocity(available.x, 0f)
+                }
+            }
         }
-    }
-    return this
-        .nestedScroll(blocker)
-        .pointerInput(lock, scrollState) {
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                var totalX = 0f
-                var totalY = 0f
-                while (true) {
-                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    if (!change.pressed) break
-                    val delta = change.position - change.previousPosition
-                    totalX += delta.x
-                    totalY += delta.y
-                    if (abs(totalX) > 6f && abs(totalX) > abs(totalY) * 1.2f) {
-                        val canConsume = if (delta.x < 0f) {
-                            scrollState.canScrollForward
-                        } else {
-                            scrollState.canScrollBackward
+        val gesture = remember(lock, scrollState) {
+            Modifier.pointerInput(lock, scrollState) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    var totalX = 0f
+                    var totalY = 0f
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        val delta = change.position - change.previousPosition
+                        totalX += delta.x
+                        totalY += delta.y
+                        if (abs(totalX) > 6f && abs(totalX) > abs(totalY) * 1.2f && !lock.isActive()) {
+                            val canConsume = if (delta.x < 0f) {
+                                scrollState.canScrollForward
+                            } else {
+                                scrollState.canScrollBackward
+                            }
+                            if (canConsume) lock.markActive()
                         }
-                        if (canConsume) lock.markActive()
                     }
                 }
             }
         }
+        Modifier.nestedScroll(blocker).then(gesture)
+    }
 }
