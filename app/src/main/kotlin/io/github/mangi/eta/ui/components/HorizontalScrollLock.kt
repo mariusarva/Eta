@@ -51,6 +51,13 @@ internal fun Modifier.blockHorizontalPageSwipe(lock: HorizontalScrollLock?): Mod
     if (lock == null) return this
     return this.nestedScroll(
         object : NestedScrollConnection {
+            // 一开始滚就标记，别等 onPostScroll。
+            // Pager 的手势挂在更外层，只有尽早置位它才能及时让位。
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.x != 0f && !lock.isActive()) lock.markActive()
+                return Offset.Zero
+            }
+
             override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,

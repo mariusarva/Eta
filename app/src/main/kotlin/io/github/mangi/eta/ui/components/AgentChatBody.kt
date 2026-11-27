@@ -648,7 +648,6 @@ private fun AgentChatScaffold(
                     val down = awaitPointerEvent(PointerEventPass.Initial)
                         .changes.firstOrNull { it.changedToDownIgnoreConsumed() }
                         ?: continue
-                    if (horizontalScrollLock?.active == true) continue
                     val downTime = android.os.SystemClock.uptimeMillis()
                     var frames = 0
                     var handled = false
@@ -661,6 +660,10 @@ private fun AgentChatScaffold(
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         if (!change.pressed) break
                         frames++
+                        // 每帧都查：内容正在横向滚动就立刻退出，别抢它的手势。
+                        // 之前只在 down 那一刻查过一次，那时还没开始滚、lock 还是 false，
+                        // 于是拖代码块会被当成翻页，同时 consume 让代码块收不到事件 -> 卡顿。
+                        if (horizontalScrollLock?.active == true) break
                         if (handled) {
                             change.consume()
                             continue
@@ -702,7 +705,8 @@ private fun AgentChatScaffold(
             modifier = Modifier.fillMaxSize().then(pageSwipeModifier),
             // 关闭越界回弹，避免最后一页继续拖动时露出空白。
             overscrollEffect = null,
-            // 手势自管，关掉 Pager 内置的「滑一点就翻」。
+            // 手势完全自管，内置手势常关。
+            // 之前写成跟随 lock 状态，滚动内容时反复切换会触发 Pager 重组而掉帧。
             userScrollEnabled = false,
         ) { page ->
             when (ChatPage.entries[page]) {
