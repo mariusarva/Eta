@@ -32,6 +32,21 @@ internal object Prefs {
 
     /** 所有功能开关 key。默认值按功能风险独立定义。 */
     object Keys {
+        /**
+         * 以下 key 对应的功能（系统助手接管 / 一圈即搜）已整体移除：
+         * hook 与设置 UI 都已删除，这里只为兼容旧配置读取与残留状态代码保留，
+         * 不再产生任何行为。
+         */
+        @Deprecated("系统助手接管已移除")
+        const val POWER_KEY_ASSISTANT_TARGET = "power_key_assistant_target"
+        @Deprecated("系统助手接管已移除")
+        const val POWER_KEY_TAKEOVER = "power_key_takeover"
+        @Deprecated("系统助手接管已移除")
+        const val ASSISTANT_AUTO_CONFIG = "assistant_auto_config"
+        @Deprecated("一圈即搜已移除")
+        const val GESTURE_BAR_CIRCLE_TO_SEARCH = "gesture_bar_circle_to_search"
+        @Deprecated("一圈即搜已移除")
+        const val DOUBLE_FINGER_CIRCLE_TO_SEARCH = "double_finger_circle_to_search"
         const val AGENT_TERMINAL_TOOLS = "agent_terminal_tools"
         const val AGENT_BROWSER_TOOLS = "agent_browser_tools"
         const val AGENT_DEVICE_DIRECT_TOOLS = "agent_device_direct_tools"
@@ -74,6 +89,11 @@ internal object Prefs {
             AGENT_KEEP_SCREEN_ON_ENABLED to true,
             AGENT_START_IN_NEW_CHAT to false,
             AGENT_CHAT_ONLY_MODE to false,
+            // 已移除功能的历史默认值：仅残留代码读取，不再影响行为。
+            POWER_KEY_TAKEOVER to false,
+            ASSISTANT_AUTO_CONFIG to false,
+            GESTURE_BAR_CIRCLE_TO_SEARCH to true,
+            DOUBLE_FINGER_CIRCLE_TO_SEARCH to false,
         )
 
         /** 由 Eta Runtime 最终裁决、不要求 Xposed 框架在线的开关。 */
@@ -157,6 +177,18 @@ internal object Prefs {
      * 只影响「文件区」浏览与终端 user 身份的默认 cwd；root 身份固定
      * /data/local/tmp/eta，不随此项变化（`.busybox` 等运行时依赖在那里）。
      */
+    @Deprecated("系统助手接管已移除")
+    fun powerAssistantTarget(preferences: SharedPreferences?): PowerAssistantTarget {
+        val persistedValue = runCatching {
+            preferences?.getString(Keys.POWER_KEY_ASSISTANT_TARGET, null)
+        }.getOrNull()
+        val legacyDefault = Keys.BOOLEAN_DEFAULTS.getValue(Keys.POWER_KEY_TAKEOVER)
+        val legacyTakeover = runCatching {
+            preferences?.getBoolean(Keys.POWER_KEY_TAKEOVER, legacyDefault)
+        }.getOrNull() ?: legacyDefault
+        return PowerAssistantTarget.resolve(persistedValue, legacyTakeover)
+    }
+
     fun workspaceRoot(preferences: SharedPreferences? = localAgent ?: remote): String =
         runCatching {
             preferences?.getString(Keys.AGENT_WORKSPACE_ROOT, null)
