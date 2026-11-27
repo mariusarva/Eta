@@ -221,7 +221,7 @@ internal fun ConversationSidePaneScaffold(
                 .background(conversationPaneContainerColor())
                 // 侧栏双向横滑，挂在「侧栏面板 + 会话内容」的共同祖先上：
                 // · 展开时左滑 40dp 关闭；
-                // · 未展开时右滑 100dp 打开（仅对话页）。
+                // · 未展开时右滑 140dp 打开（仅对话页）。
                 // 状态只看 visible，不看退场动画的 offset，所以关掉之后不管动画走到哪，
                 // 第一次右滑就能重新打开；也不依赖焦点落在哪个子节点。
                 .pointerInput(Unit) {
@@ -247,10 +247,10 @@ internal fun ConversationSidePaneScaffold(
                                 totalX += delta.x
                                 totalY += delta.y
                                 if (!handled) {
-                                    // 长按判定：按下后超过 320ms 还没触发就整段放弃。
+                                    // 长按判定：按下后超过 400ms 还没触发就整段放弃。
                                     // 长按文字/选择时手指会缓慢移动，只要停留够久就不可能是
                                     // 「快速划开侧栏」的意图，无条件放弃，堵住长按误触。
-                                    if (android.os.SystemClock.uptimeMillis() - downTime > 320L) {
+                                    if (android.os.SystemClock.uptimeMillis() - downTime > 400L) {
                                         break
                                     }
                                     // 方向锁定后再也不因纵向分量放弃：
@@ -268,19 +268,19 @@ internal fun ConversationSidePaneScaffold(
                                         )
                                         break
                                     }
-                                    if (!currentVisible && totalX > 100f && horizontalScrollLock.isActive()) {
+                                    if (!currentVisible && totalX > 140f && horizontalScrollLock.isActive()) {
                                         android.util.Log.i("EtaPaneSwipe", "blocked by horizontal scroll")
                                     }
                                     if (currentVisible) {
-                                        if (totalX < -100f &&
-                                            kotlin.math.abs(totalX) > kotlin.math.abs(totalY) * 2f
+                                        if (totalX < -140f &&
+                                            kotlin.math.abs(totalX) > kotlin.math.abs(totalY) * 2.2f
                                         ) {
                                             handled = true
                                             android.util.Log.i("EtaPaneSwipe", "close dx=$totalX")
                                             closePane()
                                         }
                                     } else if (currentSwipeToOpen && !horizontalScrollLock.isActive()) {
-                                        if (totalX > 100f && totalX > kotlin.math.abs(totalY) * 2f) {
+                                        if (totalX > 140f && totalX > kotlin.math.abs(totalY) * 2.2f) {
                                             handled = true
                                             android.util.Log.i("EtaPaneSwipe", "open dx=$totalX")
                                             currentOnOpen()

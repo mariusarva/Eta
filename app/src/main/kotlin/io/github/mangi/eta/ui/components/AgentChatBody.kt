@@ -635,11 +635,14 @@ private fun AgentChatScaffold(
                 pagerState.animateScrollToPage(currentPage)
             }
         }
+        // 横向拖动代码块/表格时禁用 Pager 翻页：否则左右拖一行长代码会把页面翻走。
+        val horizontalScrollLock = LocalHorizontalScrollLock.current
         androidx.compose.foundation.pager.HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
             // 关闭越界回弹，避免最后一页继续拖动时露出空白。
             overscrollEffect = null,
+            userScrollEnabled = horizontalScrollLock?.active != true,
         ) { page ->
             when (ChatPage.entries[page]) {
                 ChatPage.WORKSPACE -> {

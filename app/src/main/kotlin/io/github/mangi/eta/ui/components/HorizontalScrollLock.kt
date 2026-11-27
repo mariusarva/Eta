@@ -1,9 +1,13 @@
 package io.github.mangi.eta.ui.components
 
-import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -13,19 +17,23 @@ import kotlin.math.abs
 /**
  * 记录「刚才这一小段时间内，有横向滚动容器在拖」。
  *
- * 用时间戳而不是布尔标志：布尔标志依赖协程 finally 复位，一旦某个手势被取消或
- * 被后续手势覆盖，就可能永久卡在 true，导致页级右滑永远不响应。时间戳几帧后自动过期，
- * 不存在卡死。
+ * 用可观察状态 + 定时复位：可观察让 HorizontalPager 能实时关掉翻页
+ * （横向拖动代码块/表格时不该连带翻页），定时复位保证不会永久卡住。
  */
 internal class HorizontalScrollLock {
-    @Volatile
-    private var activeUntil: Long = 0L
+    var active by mutableStateOf(false)
+        private set
 
-    fun markActive(durationMs: Long = 260L) {
-        activeUntil = SystemClock.uptimeMillis() + durationMs
+    private val handler = Handler(Looper.getMainLooper())
+    private val resetRunnable = Runnable { active = false }
+
+    fun markActive(durationMs: Long = 320L) {
+        active = true
+        handler.removeCallbacks(resetRunnable)
+        handler.postDelayed(resetRunnable, durationMs)
     }
 
-    fun isActive(): Boolean = SystemClock.uptimeMillis() < activeUntil
+    fun isActive(): Boolean = active
 }
 
 internal val LocalHorizontalScrollLock = staticCompositionLocalOf<HorizontalScrollLock?> { null }
@@ -36,8 +44,6 @@ internal val LocalHorizontalScrollLock = staticCompositionLocalOf<HorizontalScro
  * 只在容器**真的还能朝这个方向滚**时才声明，否则到边界的表格会把页级右滑永久吃掉：
  * - 手指左滑看右边内容 → 需要 canScrollForward
  * - 手指右滑看左边内容 → 需要 canScrollBackward
- *
- * 表格已经在最左端时 canScrollBackward=false，右滑不再声明，页级手势就能正常打开侧栏。
  */
 internal fun Modifier.declareHorizontalScroll(
     lock: HorizontalScrollLock?,
