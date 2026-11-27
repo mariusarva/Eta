@@ -603,6 +603,7 @@ private fun ToolCommandBlock(
                 .height(0.5.dp)
                 .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.45f)),
         )
+        val toolCommandScrollState = rememberScrollState()
         SelectionContainer {
             Text(
                 text = command,
@@ -610,7 +611,11 @@ private fun ToolCommandBlock(
                 color = MiuixTheme.colorScheme.onSurface,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
+                    .declareHorizontalScroll(
+                        LocalHorizontalScrollLock.current,
+                        toolCommandScrollState,
+                    )
+                    .horizontalScroll(toolCommandScrollState)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             )
         }

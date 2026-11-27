@@ -878,10 +878,12 @@ private fun UserMessageImages(
         twoUp -> 148.dp
         else -> 124.dp
     }
+    val imageRowScrollState = rememberScrollState()
     val rowModifier = if (images.size > 2) {
         Modifier
             .widthIn(max = if (assistantOverlay) 248.dp else 316.dp)
-            .horizontalScroll(rememberScrollState())
+            .declareHorizontalScroll(LocalHorizontalScrollLock.current, imageRowScrollState)
+            .horizontalScroll(imageRowScrollState)
     } else {
         Modifier
     }
