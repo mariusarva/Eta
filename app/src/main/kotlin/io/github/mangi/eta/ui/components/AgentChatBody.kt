@@ -665,12 +665,12 @@ private fun AgentChatScaffold(
                             change.consume()
                             continue
                         }
-                        if (frames < 5) continue
-                        if (android.os.SystemClock.uptimeMillis() - downTime > 800L) break
+                        if (frames < 3) continue
+                        if (android.os.SystemClock.uptimeMillis() - downTime > 650L) break
                         if (horizontalScrollLock?.active == true) break
                         val dx = change.position.x - down.position.x
                         val dy = change.position.y - down.position.y
-                        val horizontal = kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2.2f
+                        val horizontal = kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.6f
                         // 判定为水平意图就吃掉移动，避免翻页途中弹出长按菜单。
                         if (horizontal) change.consume()
                         if (!horizontal) continue
@@ -1821,4 +1821,4 @@ private data class SuggestionItem(
 )
 
 /** 翻页所需的最小水平位移：与侧栏手势同档，必须长距离滑动才切页。 */
-private val PAGE_SWIPE_THRESHOLD_DP = 180.dp
+private val PAGE_SWIPE_THRESHOLD_DP = 110.dp
