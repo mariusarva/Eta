@@ -652,6 +652,10 @@ private fun AgentChatScaffold(
                     val downTime = android.os.SystemClock.uptimeMillis()
                     var frames = 0
                     var handled = false
+                    android.util.Log.i(
+                        "EtaPageSwipe",
+                        "down x=${down.position.x} page=${pagerState.currentPage} hl=${horizontalScrollLock?.active}",
+                    )
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -671,6 +675,10 @@ private fun AgentChatScaffold(
                         if (horizontal) change.consume()
                         if (!horizontal) continue
                         val current = pagerState.currentPage
+                        android.util.Log.i(
+                            "EtaPageSwipe",
+                            "dx=$dx dy=$dy frame=$frames page=$current",
+                        )
                         when {
                             // 对话页左滑 -> 文件区
                             dx < -pageSwipeThresholdPx && current == ChatPage.CONVERSATION.ordinal -> {

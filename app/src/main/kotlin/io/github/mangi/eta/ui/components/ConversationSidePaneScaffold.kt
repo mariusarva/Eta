@@ -280,6 +280,16 @@ internal fun ConversationSidePaneScaffold(
                                         )
                                         break
                                     }
+                                    // 文件页（未展开且 swipeToOpen=false）：这一层完全不介入。
+                                    // 之前这里照样 consume，把 Pager 的翻页手势挡在外面，
+                                    // 表现就是「从文件区滑回对话页经常失灵」。
+                                    if (!currentVisible && !currentSwipeToOpen) {
+                                        android.util.Log.i(
+                                            "EtaPaneSwipe",
+                                            "skip: file page, hand over to pager",
+                                        )
+                                        break
+                                    }
                                     // 一旦判定为水平意图，就吃掉移动事件：
                                     // 否则长按识别器照常收到位移，滑动途中弹出快捷菜单。
                                     if (horizontalDominant) horizontalIntent = true
