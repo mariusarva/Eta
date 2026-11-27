@@ -10,13 +10,7 @@ import io.github.mangi.eta.core.HookInstallation
 import io.github.mangi.eta.core.ModuleConfig
 import io.github.mangi.eta.core.ModuleLogger
 import io.github.mangi.eta.core.safeLogType
-import io.github.mangi.eta.hook.colordirect.ColorDirectHooks
-import io.github.mangi.eta.hook.google.GoogleAppHooks
-import io.github.mangi.eta.hook.google.GoogleEligibilityHooks
-import io.github.mangi.eta.hook.hyperos.HyperOsLauncherHooks
-import io.github.mangi.eta.hook.hyperos.HyperOsScreenSearchHooks
 import io.github.mangi.eta.hook.system.SystemServerHooks
-import io.github.mangi.eta.hook.system.SystemUiHooks
 
 class ModuleMain : XposedModule() {
 
@@ -50,48 +44,10 @@ class ModuleMain : XposedModule() {
         recordInstallation(SystemServerHooks.install(this, logger, param.classLoader))
     }
 
+    // 系统助手接管与一圈即搜已移除：模块不再挂接 launcher / SystemUI /
+    // Google app / ColorDirect / 小爱 等进程，作用域只需 system_server。
     override fun onPackageReady(param: PackageReadyParam) {
-        when (param.packageName) {
-            in ModuleConfig.XIAOMI_LAUNCHER_PACKAGES -> {
-                if (param.isFirstPackage && currentProcessName == param.packageName) {
-                    recordInstallation(HyperOsLauncherHooks.install(this, logger, param.classLoader))
-                }
-            }
-
-            ModuleConfig.SYSTEM_UI_PACKAGE -> {
-                if (currentProcessName == ModuleConfig.SYSTEM_UI_PACKAGE) {
-                    recordInstallation(SystemUiHooks.install(this, logger, param.classLoader))
-                }
-            }
-
-            ModuleConfig.GOOGLE_PACKAGE -> {
-                if (isCurrentPackageProcess(ModuleConfig.GOOGLE_PACKAGE)) {
-                    recordInstallation(
-                        HookInstallation.combine(
-                            group = "Google",
-                            installations = listOf(
-                                GoogleEligibilityHooks.install(this, logger, param.classLoader),
-                                GoogleAppHooks.install(this, logger, param.classLoader)
-                            )
-                        )
-                    )
-                }
-            }
-
-            ModuleConfig.COLOR_DIRECT_PACKAGE -> {
-                if (isCurrentPackageProcess(ModuleConfig.COLOR_DIRECT_PACKAGE)) {
-                    recordInstallation(
-                        ColorDirectHooks.install(this, logger, param.classLoader, param.applicationInfo)
-                    )
-                }
-            }
-
-            ModuleConfig.XIAOAI_PACKAGE -> {
-                if (isCurrentPackageProcess(ModuleConfig.XIAOAI_PACKAGE)) {
-                    recordInstallation(HyperOsScreenSearchHooks.install(this, logger, param.classLoader))
-                }
-            }
-        }
+        // 这些包不再注册任何 hook。
     }
 
     private fun recordInstallation(installation: HookInstallation) {
@@ -99,21 +55,7 @@ class ModuleMain : XposedModule() {
         logger.scoped(installation.report.group).info(installation.report.summary())
     }
 
-    private fun isCurrentPackageProcess(packageName: String): Boolean {
-        val processName = currentProcessName ?: return false
-        return isPackageProcess(processName, packageName)
-    }
+    private fun shouldKeepLifecycleCallbacks(param: ModuleLoadedParam): Boolean =
+        param.isSystemServer
 
-    private fun shouldKeepLifecycleCallbacks(param: ModuleLoadedParam): Boolean {
-        if (param.isSystemServer) return true
-        val processName = param.processName
-        return processName in ModuleConfig.XIAOMI_LAUNCHER_PACKAGES ||
-            processName == ModuleConfig.SYSTEM_UI_PACKAGE ||
-            isPackageProcess(processName, ModuleConfig.GOOGLE_PACKAGE) ||
-            isPackageProcess(processName, ModuleConfig.COLOR_DIRECT_PACKAGE) ||
-            isPackageProcess(processName, ModuleConfig.XIAOAI_PACKAGE)
-    }
-
-    private fun isPackageProcess(processName: String, packageName: String): Boolean =
-        processName == packageName || processName.startsWith("$packageName:")
 }

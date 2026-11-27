@@ -56,7 +56,7 @@ internal object AssistantRoleHelper {
 
         val packageName = configuredComponent?.let(::extractPackageName)
         return when {
-            packageName == ModuleConfig.GOOGLE_PACKAGE -> AssistantRoleStatus(
+            packageName == GOOGLE_SEARCH_PACKAGE -> AssistantRoleStatus(
                 isDefaultAssistant = false,
                 owner = DefaultAssistantOwner.GEMINI,
                 ownerLabel = "Gemini",
@@ -125,3 +125,6 @@ internal object AssistantRoleHelper {
             packageManager.getApplicationLabel(appInfo).toString().trim().takeIf { it.isNotEmpty() }
         }.getOrNull()
 }
+
+/** Google app 包名（仅用于识别当前默认助理归属，原 ModuleConfig 常量随助手接管一起移除）。 */
+private const val GOOGLE_SEARCH_PACKAGE = "com.google.android.googlequicksearchbox"

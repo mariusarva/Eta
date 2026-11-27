@@ -1,6 +1,5 @@
 package io.github.mangi.eta.hook.system
 
-import io.github.mangi.eta.hook.hyperos.HyperOsPowerHooks
 import io.github.mangi.eta.core.HookInstallation
 import io.github.mangi.eta.core.ModuleLogger
 
@@ -16,10 +15,6 @@ internal object SystemServerHooks {
         group = "SystemServer",
         installations = listOf(
             AccessibilityProtectionHooks.install(module, logger, classLoader),
-            ContextualSearchHooks.install(module, logger, classLoader),
-            AssistantManager.install(module, logger, classLoader),
-            PowerHooks.install(module, logger, classLoader),
-            HyperOsPowerHooks.install(module, logger, classLoader),
             VirtualDisplaySystemHooks.install(module, logger, classLoader)
         )
     )
