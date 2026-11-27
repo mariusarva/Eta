@@ -229,7 +229,9 @@ internal class AgentExecutionService : Service() {
 
         // 只有 Agent run 在跑、且当前未由 GUI 悬浮窗接管顶部视觉位时才申请提升为 Live Update；
         // GUI 运行或虚拟屏微缩镜显示期间退回普通前台通知，避免顶部同时出现两个胶囊冲突。
-        if (status != null && !suppressLiveUpdate && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+        // Live Update 会让 ROM（如小米灵动岛）把通知渲染成一条顶部固定胶囊，
+        // 位置不可控、容易遮挡内容。后台状态改由 Eta 自己的可拖动悬浮胶囊承担。
+        if (USE_SYSTEM_LIVE_UPDATE && status != null && !suppressLiveUpdate && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             builder
                 .setStyle(Notification.BigTextStyle().bigText(""))
                 .setShortCriticalText(status.shortText())
@@ -352,3 +354,6 @@ internal class AgentExecutionService : Service() {
         }
     }
 }
+
+/** 是否使用系统 Live Update（灵动岛）胶囊；关闭后由 Eta 自己的可拖动悬浮胶囊承担。 */
+private const val USE_SYSTEM_LIVE_UPDATE = false

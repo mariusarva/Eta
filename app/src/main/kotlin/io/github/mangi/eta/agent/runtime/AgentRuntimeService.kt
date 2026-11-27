@@ -1104,9 +1104,11 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         }
         val guiState = guiControl.state.value
         val activeGuiRun = guiState.userPaused || (guiState.ownerRunId == run.runId && !run.session.isTerminal)
-        if (!activeGuiRun) return
+        // 非 GUI 的普通运行同样在后台显示状态胶囊：
+        // 系统 Live Update（灵动岛）那条胶囊位置由 ROM 决定、无法移动，会挡住内容；
+        // Eta 自己的悬浮胶囊支持拖动，交给它承担后台状态展示。
         if (suppress) {
-            removeAmbientWindows()
+            if (activeGuiRun) removeAmbientWindows()
         } else {
             state.value = run.overlayState
             ensureOverlayVisible()
