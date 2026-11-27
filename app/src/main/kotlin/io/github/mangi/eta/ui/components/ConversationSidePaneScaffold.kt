@@ -291,6 +291,11 @@ internal fun ConversationSidePaneScaffold(
                                         )
                                         break
                                     }
+                                    // 手指落在横向滚动内容（代码块/表格/长命令）上时完全不介入。
+                                    // 这一层是祖先，Initial pass 先跑；只要它 consume，子级
+                                    // horizontalScroll 就收不到干净的移动事件，fling 起不来，
+                                    // 表现就是「只能跟着手走、松手立刻停」。
+                                    if (horizontalScrollLock.isActive()) break
                                     // 一旦判定为水平意图，就吃掉移动事件：
                                     // 否则长按识别器照常收到位移，滑动途中弹出快捷菜单。
                                     if (horizontalDominant) horizontalIntent = true
