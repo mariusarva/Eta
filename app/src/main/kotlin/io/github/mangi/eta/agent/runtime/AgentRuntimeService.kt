@@ -1104,11 +1104,9 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         }
         val guiState = guiControl.state.value
         val activeGuiRun = guiState.userPaused || (guiState.ownerRunId == run.runId && !run.session.isTerminal)
-        // 非 GUI 的普通运行同样在后台显示状态胶囊：
-        // 系统 Live Update（灵动岛）那条胶囊位置由 ROM 决定、无法移动，会挡住内容；
-        // Eta 自己的悬浮胶囊支持拖动，交给它承担后台状态展示。
+        if (!activeGuiRun) return
         if (suppress) {
-            if (activeGuiRun) removeAmbientWindows()
+            removeAmbientWindows()
         } else {
             state.value = run.overlayState
             ensureOverlayVisible()
@@ -1523,16 +1521,27 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
      * 但窗口内透明区域同样会吞掉触摸（包括 Agent 自己注入的点击），所以高度只在需要时扩大：
      * 展开前先扩到目标档，收起动画结束后再缩回，见 [setCapsuleWindowHeight]。
      */
+    /** 拖动累积量：窗口坐标只能是整数像素，慢速拖动时单帧不足 1px 会被截断成 0 而完全不动。 */
+    private var capsuleDragAccX = 0f
+    private var capsuleDragAccY = 0f
+
     /** 拖动胶囊：实时更新窗口坐标并持久化，松手后位置保留。 */
     private fun dragCapsule(dx: Float, dy: Float) {
         val view = capsuleView?.takeIf { it.isAttachedToWindow } ?: return
         val params = capsuleParams ?: return
+        capsuleDragAccX += dx
+        capsuleDragAccY += dy
+        val stepX = capsuleDragAccX.toInt()
+        val stepY = capsuleDragAccY.toInt()
+        if (stepX == 0 && stepY == 0) return
+        capsuleDragAccX -= stepX
+        capsuleDragAccY -= stepY
         val metrics = (overlayContext().getSystemService(Context.WINDOW_SERVICE) as? WindowManager)
             ?.currentWindowMetrics
         val screenW = metrics?.bounds?.width() ?: return
         val screenH = metrics?.bounds?.height() ?: return
-        params.x = (params.x + dx.toInt()).coerceIn(0, (screenW - view.width).coerceAtLeast(0))
-        params.y = (params.y + dy.toInt()).coerceIn(0, (screenH - view.height).coerceAtLeast(0))
+        params.x = (params.x + stepX).coerceIn(0, (screenW - view.width).coerceAtLeast(0))
+        params.y = (params.y + stepY).coerceIn(0, (screenH - view.height).coerceAtLeast(0))
         runCatching { windowManager?.updateViewLayout(view, params) }
         Prefs.localAgentPreferences()?.edit()
             ?.putInt(Prefs.Keys.AGENT_CAPSULE_X, params.x)
