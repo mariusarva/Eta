@@ -225,6 +225,10 @@ internal fun ConversationSidePaneScaffold(
                 // 状态只看 visible，不看退场动画的 offset，所以关掉之后不管动画走到哪，
                 // 第一次右滑就能重新打开；也不依赖焦点落在哪个子节点。
                 .pointerInput(Unit) {
+                    // 阈值必须按 dp 折算成像素：之前直接把 px 当 dp 用，
+                    // 220「dp」实际只有 84dp（屏幕 18%），一滑就开。
+                    val openThresholdPx = with(density) { OPEN_SWIPE_DP.toPx() }
+                    val closeThresholdPx = with(density) { CLOSE_SWIPE_DP.toPx() }
                     awaitPointerEventScope {
                         while (true) {
                             val down = awaitPointerEvent(PointerEventPass.Initial)
@@ -239,6 +243,7 @@ internal fun ConversationSidePaneScaffold(
                             var totalY = 0f
                             var handled = false
                             var moveFrames = 0
+                            var horizontalIntent = false
                             while (true) {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
                                 val change = event.changes.firstOrNull { it.id == down.id }
@@ -254,10 +259,10 @@ internal fun ConversationSidePaneScaffold(
                                 if (!handled) {
                                     // 至少要移动 5 帧（约 80ms）才允许判定，杜绝单帧跳变触发。
                                     if (moveFrames < 5) continue
-                                    // 长按判定：按下后超过 400ms 还没触发就整段放弃。
-                                    // 长按文字/选择时手指会缓慢移动，只要停留够久就不可能是
-                                    // 「快速划开侧栏」的意图，无条件放弃，堵住长按误触。
-                                    if (android.os.SystemClock.uptimeMillis() - downTime > 400L) {
+                                    // 长按判定：按下后超过 800ms 还没滑够就放弃。
+                                    // 之前 400ms 太短——正常滑动稍微慢一点就被判成放弃，
+                                    // 手势又不 consume，长按识别器随即弹出快捷菜单。
+                                    if (android.os.SystemClock.uptimeMillis() - downTime > 800L) {
                                         break
                                     }
                                     // 方向锁定后再也不因纵向分量放弃：
@@ -275,11 +280,15 @@ internal fun ConversationSidePaneScaffold(
                                         )
                                         break
                                     }
-                                    if (!currentVisible && totalX > 220f && horizontalScrollLock.isActive()) {
+                                    // 一旦判定为水平意图，就吃掉移动事件：
+                                    // 否则长按识别器照常收到位移，滑动途中弹出快捷菜单。
+                                    if (horizontalDominant) horizontalIntent = true
+                                    if (horizontalIntent) change.consume()
+                                    if (!currentVisible && totalX > openThresholdPx && horizontalScrollLock.isActive()) {
                                         android.util.Log.i("EtaPaneSwipe", "blocked by horizontal scroll")
                                     }
                                     if (currentVisible) {
-                                        if (totalX < -140f &&
+                                        if (totalX < -closeThresholdPx &&
                                             kotlin.math.abs(totalX) > kotlin.math.abs(totalY) * 2.2f
                                         ) {
                                             handled = true
@@ -287,7 +296,7 @@ internal fun ConversationSidePaneScaffold(
                                             closePane()
                                         }
                                     } else if (currentSwipeToOpen && !horizontalScrollLock.isActive()) {
-                                        if (totalX > 220f && totalX > kotlin.math.abs(totalY) * 2.2f) {
+                                        if (totalX > openThresholdPx && totalX > kotlin.math.abs(totalY) * 2.2f) {
                                             handled = true
                                             android.util.Log.i("EtaPaneSwipe", "open dx=$totalX")
                                             currentOnOpen()
@@ -410,3 +419,9 @@ internal fun ConversationSidePaneScaffold(
     }
     }
 }
+
+/** 打开侧栏所需水平位移（dp）：约占屏幕宽 40%，必须明确滑一段。 */
+private val OPEN_SWIPE_DP = 180.dp
+
+/** 关闭侧栏所需水平位移（dp）。 */
+private val CLOSE_SWIPE_DP = 120.dp

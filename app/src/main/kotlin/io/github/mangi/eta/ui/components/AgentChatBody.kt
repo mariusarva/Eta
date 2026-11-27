@@ -662,11 +662,14 @@ private fun AgentChatScaffold(
                             continue
                         }
                         if (frames < 5) continue
-                        if (android.os.SystemClock.uptimeMillis() - downTime > 400L) break
+                        if (android.os.SystemClock.uptimeMillis() - downTime > 800L) break
                         if (horizontalScrollLock?.active == true) break
                         val dx = change.position.x - down.position.x
                         val dy = change.position.y - down.position.y
-                        if (kotlin.math.abs(dx) <= kotlin.math.abs(dy) * 2.2f) continue
+                        val horizontal = kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2.2f
+                        // 判定为水平意图就吃掉移动，避免翻页途中弹出长按菜单。
+                        if (horizontal) change.consume()
+                        if (!horizontal) continue
                         val current = pagerState.currentPage
                         when {
                             // 对话页左滑 -> 文件区
@@ -1812,4 +1815,4 @@ private data class SuggestionItem(
 )
 
 /** 翻页所需的最小水平位移：与侧栏手势同档，必须长距离滑动才切页。 */
-private val PAGE_SWIPE_THRESHOLD_DP = 220.dp
+private val PAGE_SWIPE_THRESHOLD_DP = 180.dp
