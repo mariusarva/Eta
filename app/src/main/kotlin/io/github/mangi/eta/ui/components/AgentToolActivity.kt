@@ -611,10 +611,7 @@ private fun ToolCommandBlock(
                 color = MiuixTheme.colorScheme.onSurface,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .declareHorizontalScroll(
-                        LocalHorizontalScrollLock.current,
-                        toolCommandScrollState,
-                    )
+                    .blockHorizontalPageSwipe(LocalHorizontalScrollLock.current)
                     .horizontalScroll(toolCommandScrollState)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             )

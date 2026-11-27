@@ -84,7 +84,7 @@ import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import io.github.mangi.eta.ui.components.LocalHorizontalScrollLock
-import io.github.mangi.eta.ui.components.declareHorizontalScroll
+import io.github.mangi.eta.ui.components.blockHorizontalPageSwipe
 
 /**
  * 绘制一份已解析的 [MarkdownDocument]。
@@ -379,7 +379,7 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .declareHorizontalScroll(codeScrollLock, codeScrollState)
+                .blockHorizontalPageSwipe(codeScrollLock)
                 .horizontalScroll(codeScrollState)
                 .padding(horizontal = 14.dp, vertical = 11.dp),
         ) {
@@ -730,7 +730,7 @@ private fun MarkdownTableBlock(block: MarkdownTable, scope: MarkdownRenderScope)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .declareHorizontalScroll(tableScrollLock, tableScrollState)
+                .blockHorizontalPageSwipe(tableScrollLock)
                 .horizontalScroll(tableScrollState),
         ) {
             Layout(
